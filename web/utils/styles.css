@@ -1,0 +1,18 @@
+.swal2-toast .custom-swal-popup {
+  border-radius: 10px;
+  padding: 12px 16px;
+  box-shadow: 0px 5px 20px rgba(0, 0, 0, 0.2);
+  font-size: 14px;
+}
+
+/* Optionally reduce title size */
+.swal2-toast .swal2-title {
+  font-size: 16px;
+  margin: 0;
+}
+
+.custom-swal-popup {
+  width: 400px !important; /* adjust to your desired width */
+  max-width: 300px !important;
+  box-sizing: border-box;
+}

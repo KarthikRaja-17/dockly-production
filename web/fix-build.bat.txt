@@ -1,0 +1,22 @@
+@echo off
+echo ============================
+echo Cleaning old .next folder...
+echo ============================
+rmdir /s /q .next
+
+echo ============================
+echo Building project with safe settings...
+echo ============================
+node --max_old_space_size=4096 node_modules\next\dist\bin\next build
+
+if %ERRORLEVEL% NEQ 0 (
+    echo ============================
+    echo Build failed with an error.
+    echo ============================
+    exit /b %ERRORLEVEL%
+) else (
+    echo ============================
+    echo Build completed successfully!
+    echo ============================
+)
+pause

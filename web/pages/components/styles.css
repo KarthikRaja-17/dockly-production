@@ -1,0 +1,31 @@
+/* Change the entire toolbar background */
+.fc .fc-toolbar {
+    background-color: #4f46e5;
+    /* Indigo-600 */
+    color: white;
+    padding: 10px;
+    border-radius: 12px;
+}
+
+/* Style the buttons */
+.fc .fc-button {
+    background-color: #6366f1 !important;
+    /* Indigo-500 */
+    border: none !important;
+    color: white !important;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+/* Style the active button */
+.fc .fc-button.fc-button-active {
+    background-color: #4338ca !important;
+    /* Indigo-700 */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Optional: hover effect */
+.fc .fc-button:hover {
+    background-color: #4338ca !important;
+}

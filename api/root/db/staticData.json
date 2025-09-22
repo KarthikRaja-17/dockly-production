@@ -1,0 +1,124 @@
+{
+  "boards": [
+    {
+      "id": "1a2b3c4d-1111-2222-3333-abcdef123456",
+      "board_name": "family",
+      "title": "Family",
+      "is_active": 1,
+      "created_at": "2025-09-11T17:30:00Z",
+      "updated_at": "2025-09-11T17:30:00Z",
+      "description": "Manage your family's activities, tasks, and important information all in one place.",
+      "icon_url": "",
+      "display_order": 1
+    },
+    {
+      "id": "2b3c4d5e-2222-3333-4444-bcdef1234567",
+      "board_name": "finance",
+      "title": "Finance",
+      "is_active": 1,
+      "created_at": "2025-09-11T17:30:00Z",
+      "updated_at": "2025-09-11T17:30:00Z",
+      "description": "Track your expenses, budgets, and financial goals efficiently.",
+      "icon_url": "",
+      "display_order": 2
+    },
+    {
+      "id": "3c4d5e6f-3333-4444-5555-cdef12345678",
+      "board_name": "home",
+      "title": "Home",
+      "is_active": 1,
+      "created_at": "2025-09-11T17:30:00Z",
+      "updated_at": "2025-09-11T17:30:00Z",
+      "description": "Organize home maintenance, repairs, and personal projects in one place.",
+      "icon_url": "",
+      "display_order": 3
+    },
+    {
+      "id": "4d5e6f7a-4444-5555-6666-abcdef123456",
+      "board_name": "health",
+      "title": "Health",
+      "is_active": 1,
+      "created_at": "2025-09-11T17:30:00Z",
+      "updated_at": "2025-09-11T17:30:00Z",
+      "description": "Keep track of medical records, appointments, and health-related tasks.",
+      "icon_url": "",
+      "display_order": 4
+    }
+  ],
+  "hubs": [
+    {
+      "id": "1a2b3c4d-1111-2222-3333-abcdef123744",
+      "hub_name": "notes",
+      "title": "Notes & Lists",
+      "is_active": 1,
+      "display_order": 1,
+      "created_at": "2025-09-11T17:30:00Z",
+      "updated_at": "2025-09-11T17:30:00Z"
+    },
+    {
+      "id": "2a2b3c4d-1111-2222-3333-abcdef784512",
+      "hub_name": "bookmarks",
+      "title": "Accounts",
+      "is_active": 1,
+      "display_order": 2,
+      "created_at": "2025-09-11T17:30:00Z",
+      "updated_at": "2025-09-11T17:30:00Z"
+    },
+    {
+      "id": "3a2b3c4d-1111-2222-3333-abcdef985623",
+      "hub_name": "planner",
+      "title": "Planner",
+      "is_active": 1,
+      "display_order": 3,
+      "created_at": "2025-09-11T17:30:00Z",
+      "updated_at": "2025-09-11T17:30:00Z"
+    },
+    {
+      "id": "4a2b3c4d-1111-2222-3333-abcdef321487",
+      "hub_name": "files",
+      "title": "Files",
+      "is_active": 1,
+      "display_order": 4,
+      "created_at": "2025-09-11T17:30:00Z",
+      "updated_at": "2025-09-11T17:30:00Z"
+    }
+  ],
+  "subscription_plans": [
+    {
+      "id": "free_trial",
+      "plan_name": "Free Trial",
+      "plan_type": "trial",
+      "price": 0.0,
+      "billing_cycle": "14_days",
+      "features": "[\"All Hubs & Boards\", \"Unlimited connections\", \"Priority support\", \"Mobile & web access\"]",
+      "max_integrations": 0,
+      "max_family_members": 0,
+      "storage_limit_gb": 0,
+      "is_active": 1
+    },
+    {
+      "id": "monthly",
+      "plan_name": "Monthly",
+      "plan_type": "standard",
+      "price": 12.99,
+      "billing_cycle": "monthly",
+      "features": "[\"All Hubs & Boards\", \"Unlimited connections\", \"Priority support\", \"Mobile & web access\"]",
+      "max_integrations": 0,
+      "max_family_members": 0,
+      "storage_limit_gb": 0,
+      "is_active": 1
+    },
+    {
+      "id": "yearly",
+      "plan_name": "Yearly",
+      "plan_type": "premium",
+      "price": 8.25,
+      "billing_cycle": "yearly",
+      "features": "[\"All Monthly features\", \"25% discount\", \"Early access to new features\", \"Premium integrations\"]",
+      "max_integrations": 0,
+      "max_family_members": 0,
+      "storage_limit_gb": 0,
+      "is_active": 1
+    }
+  ]
+}

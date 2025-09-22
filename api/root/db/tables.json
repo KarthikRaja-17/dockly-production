@@ -1,0 +1,1004 @@
+{
+  "tables": [
+    {
+      "table_name": "users",
+      "columns": [
+        "uid VARCHAR PRIMARY KEY",
+        "email TEXT UNIQUE",
+        "password_hash TEXT",
+        "user_name TEXT",
+        "phone TEXT",
+        "is_active INT",
+        "email_verified INT",
+        "role INT",
+        "created_at TIMESTAMP",
+        "updated_at TIMESTAMP",
+        "last_login TIMESTAMP",
+        "mfa_enabled INT",
+        "mfa_secret TEXT"
+      ]
+    },
+
+    {
+      "table_name": "audit_logs",
+      "columns": [
+        "id UUID DEFAULT gen_random_uuid()",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "action VARCHAR",
+        "resource_type VARCHAR",
+        "resource_id VARCHAR",
+        "ip_address INET",
+        "user_agent TEXT",
+        "success BOOLEAN",
+        "error_message TEXT",
+        "metadata JSONB",
+        "created_at TIMESTAMP"
+      ]
+    },
+
+    {
+      "table_name": "uuid",
+      "columns": [
+        "uid VARCHAR PRIMARY KEY",
+        "created_at TIMESTAMP",
+        "ref_type VARCHAR(100)",
+        "updated_at TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "user_sessions",
+      "columns": [
+        "user_id VARCHAR REFERENCES users(uid)",
+        "session_token VARCHAR",
+        "ip_address VARCHAR",
+        "user_agent TEXT",
+        "device_info TEXT",
+        "is_active INT",
+        "force_logout BOOLEAN DEFAULT FALSE",
+        "created_at TIMESTAMP",
+        "last_active TIMESTAMP",
+        "logged_out TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "session_logs",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "ip_address VARCHAR",
+        "device_info TEXT",
+        "action VARCHAR",
+        "timestamp TIMESTAMP"
+      ]
+    },
+
+    {
+      "table_name": "user_preferences",
+      "columns": [
+        "user_id VARCHAR PRIMARY KEY REFERENCES users(uid)",
+        "theme VARCHAR",
+        "language VARCHAR",
+        "email_notifications BOOLEAN",
+        "push_notifications BOOLEAN",
+        "reminder_days_before INT",
+        "created_at TIMESTAMP",
+        "updated_at TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "connected_accounts",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "provider VARCHAR",
+        "email VARCHAR",
+        "access_token VARCHAR",
+        "refresh_token VARCHAR",
+        "expires_at TIMESTAMP",
+        "scopes TEXT",
+        "user_object TEXT",
+        "connected_at TIMESTAMP",
+        "is_active INT",
+        "updated_at TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "family_members",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "name TEXT",
+        "relationship TEXT",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "fm_user_id VARCHAR",
+        "email VARCHAR(255)",
+        "access_code VARCHAR",
+        "family_group_id VARCHAR",
+        "method VARCHAR",
+        "invited_by VARCHAR",
+        "is_active INT DEFAULT 1",
+        "shared_items VARCHAR",
+        "permissions VARCHAR",
+        "color VARCHAR(10)",
+        "created_at TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "family_hubs_access_mapping",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "family_member_id INT REFERENCES family_members(id)",
+        "hubs UUID",
+        "permissions INT",
+        "created_at TIMESTAMP",
+        "updated_at TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "notifications",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "sender_id VARCHAR REFERENCES users(uid)",
+        "receiver_id VARCHAR REFERENCES users(uid)",
+        "message TEXT NOT NULL",
+        "task_type VARCHAR NOT NULL",
+        "action_required BOOLEAN DEFAULT FALSE",
+        "status VARCHAR DEFAULT 'pending'",
+        "hub INT",
+        "metadata JSONB",
+        "created_at TIMESTAMP DEFAULT NOW()",
+        "updated_at TIMESTAMP DEFAULT NOW()"
+      ]
+    },
+    {
+      "table_name": "user_permissions",
+      "columns": [
+        "id UUID PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "target_type TEXT NULL",
+        "target_id UUID NULL",
+        "can_read BOOLEAN",
+        "can_write BOOLEAN",
+        "assigned_at TIMESTAMP",
+        "updated_at TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "hubs",
+      "columns": [
+        "id UUID PRIMARY KEY",
+        "hub_name TEXT UNIQUE",
+        "title TEXT",
+        "description TEXT",
+        "is_active INT",
+        "display_order INTEGER",
+        "created_at TIMESTAMP",
+        "updated_at TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "boards",
+      "columns": [
+        "id UUID PRIMARY KEY",
+        "board_name TEXT UNIQUE",
+        "title TEXT",
+        "is_active INT",
+        "created_at TIMESTAMP",
+        "updated_at TIMESTAMP",
+        "description TEXT",
+        "icon_url TEXT",
+        "display_order INTEGER"
+      ]
+    },
+    {
+      "table_name": "users_access_hubs",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "hubs INT",
+        "is_active INT"
+      ]
+    },
+    {
+      "table_name": "users_access_utilities",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "utilities INT",
+        "is_active INT"
+      ]
+    },
+
+    {
+      "table_name": "events",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "title VARCHAR(255) NOT NULL",
+        "start_time VARCHAR(50) NOT NULL",
+        "end_time VARCHAR(50) NOT NULL",
+        "date DATE NOT NULL",
+        "end_date DATE NOT NULL",
+        "is_active INT DEFAULT 1",
+        "location VARCHAR(255) NOT NULL",
+        "description TEXT NOT NULL",
+        "calendar_event_id VARCHAR(255)",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "synced_to_google BOOLEAN DEFAULT FALSE",
+        "outlook_calendar_id VARCHAR(255)",
+        "synced_to_outlook BOOLEAN DEFAULT FALSE",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "notes_lists",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR(255)",
+        "title TEXT NOT NULL",
+        "description TEXT NOT NULL",
+        "hub VARCHAR(255)",
+        "created_at TIMESTAMP NOT NULL",
+        "updated_at TIMESTAMP NOT NULL",
+        "category_id INTEGER NOT NULL",
+        "is_active BOOLEAN DEFAULT TRUE",
+        "tagged_ids TEXT[]"
+      ]
+    },
+    {
+      "table_name": "notes_categories",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR(255)",
+        "name TEXT NOT NULL",
+        "icon TEXT",
+        "meta JSONB DEFAULT '[]'::jsonb",
+        "pinned BOOLEAN DEFAULT FALSE",
+        "created_at TIMESTAMP NOT NULL",
+        "updated_at TIMESTAMP NOT NULL",
+        "is_active BOOLEAN DEFAULT TRUE"
+      ]
+    },
+    {
+      "table_name": "contacts",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR(255)",
+        "name VARCHAR(255)",
+        "role VARCHAR(100)",
+        "phone VARCHAR(20)",
+        "added_by VARCHAR(255)",
+        "added_time TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "guardian_emergency_info",
+      "columns": [
+        "user_id VARCHAR(255)",
+        "name VARCHAR(255)",
+        "relation VARCHAR(255)",
+        "categeory INT",
+        "phone VARCHAR(255)",
+        "details TEXT",
+        "added_by VARCHAR(255)",
+        "added_time TIMESTAMP",
+        "edited_by VARCHAR(255)",
+        "updated_at TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "pets",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid)",
+        "name VARCHAR(100) NOT NULL",
+        "species VARCHAR(50) NOT NULL",
+        "breed VARCHAR(50)",
+        "guardian_email VARCHAR(100) NOT NULL",
+        "guardian_contact VARCHAR(20) NOT NULL",
+        "family_group_id VARCHAR",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "subscription_plans",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "plan_name TEXT NOT NULL",
+        "plan_type TEXT NOT NULL",
+        "price DECIMAL(10,2) NOT NULL",
+        "billing_cycle TEXT NOT NULL",
+        "features JSONB NOT NULL DEFAULT '[]'",
+        "max_integrations INTEGER DEFAULT 0",
+        "max_family_members INTEGER DEFAULT 0",
+        "storage_limit_gb INTEGER DEFAULT 0",
+        "is_active INT DEFAULT 0",
+        "created_at TIMESTAMP DEFAULT NOW()",
+        "updated_at TIMESTAMP DEFAULT NOW()"
+      ]
+    },
+    {
+      "table_name": "user_subscriptions",
+      "columns": [
+        "id UUID PRIMARY KEY DEFAULT gen_random_uuid()",
+        "user_id VARCHAR NOT NULL REFERENCES users(uid) ",
+        "plan_id VARCHAR(255) NOT NULL REFERENCES subscription_plans(id)",
+        "subscription_status INT NOT NULL  DEFAULT 0",
+        "started_at TIMESTAMP NOT NULL DEFAULT NOW()",
+        "expires_at TIMESTAMP",
+        "auto_renew BOOLEAN DEFAULT FALSE",
+        "payment_method_id TEXT",
+        "last_payment_date TIMESTAMP",
+        "next_billing_date TIMESTAMP",
+        "created_at TIMESTAMP DEFAULT NOW()",
+        "updated_at TIMESTAMP DEFAULT NOW()"
+      ]
+    },
+    {
+      "table_name": "user_finance_details",
+      "columns": [
+        "user_id VARCHAR REFERENCES users(uid)",
+        "id SERIAL PRIMARY KEY",
+        "isFinanceUser INT",
+        "profile_id VARCHAR",
+        "expiresAt TIMESTAMP",
+        "created_at TIMESTAMP",
+        "updated_at TIMESTAMP",
+        "is_active INT",
+        "is_finance_user INT DEFAULT 0"
+      ]
+    },
+
+    {
+      "table_name": "projects",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "title VARCHAR(255) NOT NULL",
+        "description TEXT",
+        "due_date DATE",
+        "meta JSONB DEFAULT '[]'::jsonb",
+        "progress INTEGER DEFAULT 0",
+        "source VARCHAR(50) DEFAULT 'familyhub'",
+        "tagged_ids TEXT[]",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "tasks",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "project_id VARCHAR(255) NOT NULL",
+        "title VARCHAR(255) NOT NULL",
+        "due_date DATE",
+        "assignee VARCHAR(255)",
+        "type VARCHAR(50)",
+        "completed BOOLEAN DEFAULT FALSE",
+        "calendar_event_id VARCHAR(255)",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1",
+        "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE"
+      ]
+    },
+    {
+      "table_name": "todos",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "text TEXT NOT NULL",
+        "priority VARCHAR(50) CHECK (priority IN ('high', 'medium', 'low'))",
+        "date TEXT NOT NULL",
+        "time TEXT",
+        "goal_id VARCHAR(255)",
+        "synced_to_google BOOLEAN DEFAULT FALSE",
+        "google_calendar_id VARCHAR(255)",
+        "outlook_calendar_id VARCHAR(255)",
+        "tagged_ids TEXT[]",
+        "synced_to_outlook BOOLEAN DEFAULT FALSE",
+        "completed BOOLEAN DEFAULT FALSE",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT NOW()",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "goals",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "goal TEXT NOT NULL",
+        "date TEXT NOT NULL",
+        "time TEXT",
+        "priority INT",
+        "goal_status INT",
+        "synced_to_google BOOLEAN DEFAULT FALSE",
+        "outlook_calendar_id VARCHAR(255)",
+        "synced_to_outlook BOOLEAN DEFAULT FALSE",
+        "google_calendar_id VARCHAR(255)",
+        "status INT",
+        "tagged_ids TEXT[]",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT NOW()",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "bank_accounts",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "name VARCHAR(100) NOT NULL",
+        "provider VARCHAR(100)",
+        "access_token VARCHAR",
+        "current_balance NUMERIC",
+        "currency VARCHAR(100)",
+        "transacted_first DATE",
+        "transacted_last DATE"
+      ]
+    },
+    {
+      "table_name": "smartnotes",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR(255) NOT NULL",
+        "note TEXT NOT NULL",
+        "timing TIMESTAMP",
+        "members TEXT",
+        "source VARCHAR(50) DEFAULT 'planner'",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "property_maintenance",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "name VARCHAR NOT NULL",
+        "date DATE NOT NULL",
+        "completed BOOLEAN DEFAULT FALSE",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "priority VARCHAR(20)",
+        "details TEXT",
+        "property_icon VARCHAR(10)",
+        "is_recurring BOOLEAN DEFAULT FALSE",
+        "is_active INTEGER DEFAULT 1"
+      ]
+    },
+
+    {
+      "table_name": "home_utilities",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "type VARCHAR NOT NULL",
+        "account_number VARCHAR NOT NULL",
+        "monthly_cost NUMERIC NOT NULL",
+        "provider_url VARCHAR NOT NULL",
+        "category VARCHAR NOT NULL CHECK (category IN ('Core', 'Entertainment', 'Home Services'))",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+
+    {
+      "table_name": "insurance",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "name VARCHAR(255) NOT NULL",
+        "meta VARCHAR(255) NOT NULL",
+        "type VARCHAR(50) NOT NULL",
+        "years INTEGER NOT NULL",
+        "payment FLOAT NOT NULL",
+        "renewal_date DATE NULL",
+        "description TEXT NULL",
+        "is_active INT DEFAULT 1",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+
+    {
+      "table_name": "user_finance_goals",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "name VARCHAR(255) NOT NULL",
+        "saved_percentage DECIMAL(5,2) NOT NULL",
+        "target_percentage DECIMAL(5,2) NOT NULL",
+        "saved_amount DECIMAL(12,2) DEFAULT 0",
+        "target_amount DECIMAL(12,2) DEFAULT 0",
+        "goal_status INT DEFAULT 0",
+        "deadline DATE",
+        "is_active INT DEFAULT 1",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+
+    {
+      "table_name": "property_information",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "address VARCHAR(500)",
+        "purchase_date DATE",
+        "type VARCHAR(50)",
+        "purchase_price NUMERIC",
+        "square_footage VARCHAR(50)",
+        "lot_size VARCHAR(50)",
+        "property_tax_id VARCHAR(200)",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT "
+      ]
+    },
+    {
+      "table_name": "other_assets",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "name VARCHAR(255) NOT NULL",
+        "type VARCHAR(255) NOT NULL",
+        "value NUMERIC NOT NULL",
+        "payment VARCHAR(100) NOT NULL",
+        "icon VARCHAR(10) NOT NULL",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+
+    {
+      "table_name": "bookmarks",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "title TEXT NOT NULL",
+        "url TEXT NOT NULL",
+        "description TEXT",
+        "favicon TEXT",
+        "category VARCHAR(100) NOT NULL",
+        "tags TEXT[]",
+        "hub VARCHAR(255)",
+        "is_favorite BOOLEAN NOT NULL DEFAULT FALSE",
+        "tagged_ids TEXT[]",
+        "is_active INT DEFAULT 1",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "personal_information",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "family_member_user_id VARCHAR(255)",
+        "first_name VARCHAR(100)",
+        "middle_name VARCHAR(100)",
+        "last_name VARCHAR(100)",
+        "preferred_name VARCHAR(100)",
+        "nicknames TEXT",
+        "relationship TEXT",
+        "date_of_birth DATE",
+        "age VARCHAR(20)",
+        "birthplace TEXT",
+        "gender VARCHAR(50)",
+        "phone_number VARCHAR(20)",
+        "primary_email VARCHAR(255)",
+        "additional_emails TEXT",
+        "same_as_primary BOOLEAN DEFAULT FALSE",
+        "country VARCHAR(50)",
+        "city VARCHAR(50)",
+        "postal_code VARCHAR(10)",
+        "ssn VARCHAR(100)",
+        "birth_cert_number TEXT",
+        "birth_cert TEXT",
+        "state_id VARCHAR(255)",
+        "passport TEXT",
+        "license TEXT",
+        "student_id VARCHAR(100)",
+        "primary_contact TEXT",
+        "primary_phone VARCHAR(20)",
+        "secondary_contact TEXT",
+        "secondary_phone VARCHAR(20)",
+        "emergency_contact TEXT",
+        "emergency_phone VARCHAR(20)",
+        "blood_type VARCHAR(10)",
+        "height VARCHAR(10)",
+        "weight VARCHAR(10)",
+        "eye_color VARCHAR(50)",
+        "insurance TEXT",
+        "member_id VARCHAR(100)",
+        "group_num VARCHAR(100)",
+        "last_checkup DATE",
+        "allergies TEXT",
+        "medications TEXT",
+        "notes TEXT",
+        "added_by VARCHAR(255)",
+        "added_time TIMESTAMP NOT NULL",
+        "edited_by VARCHAR(255)",
+        "updated_at TIMESTAMP NOT NULL",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "healthcare_providers",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "family_member_user_id VARCHAR(255)",
+        "provider_title VARCHAR(255) NOT NULL",
+        "provider_name VARCHAR(255) NOT NULL",
+        "provider_phone VARCHAR(20)",
+        "country VARCHAR(100)",
+        "zipcode VARCHAR(20)",
+        "added_by VARCHAR(255)",
+        "added_time TIMESTAMP NOT NULL",
+        "edited_by VARCHAR(255)",
+        "updated_at TIMESTAMP NOT NULL",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "account_passwords",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "family_member_user_id VARCHAR(255)",
+        "category VARCHAR(100) NOT NULL",
+        "title VARCHAR(255) NOT NULL",
+        "username VARCHAR(255) NOT NULL",
+        "password TEXT NOT NULL",
+        "url TEXT",
+        "added_by VARCHAR(255)",
+        "added_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "edited_by VARCHAR(255)",
+        "updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "beneficiaries",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "account VARCHAR(100) NOT NULL",
+        "primary_beneficiary VARCHAR(255) NOT NULL",
+        "secondary_beneficiary VARCHAR(20)",
+        "updated VARCHAR(20)",
+        "created_at TIMESTAMP DEFAULT now()",
+        "updated_at TIMESTAMP DEFAULT now()",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "user_devices",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "family_member_user_id VARCHAR(255)",
+        "device_name VARCHAR(255) NOT NULL",
+        "device_model VARCHAR(255) NOT NULL",
+        "passcode VARCHAR(255)",
+        "added_by VARCHAR(255)",
+        "added_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "edited_by VARCHAR(255)",
+        "updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "habits",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "name VARCHAR",
+        "description TEXT",
+        "status BOOLEAN DEFAULT FALSE",
+        "added_time TIMESTAMP",
+        "updated_at TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "habit_progress",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "habit_id INT REFERENCES habits(id) ON DELETE CASCADE",
+        "progress_date DATE NOT NULL",
+        "status BOOLEAN DEFAULT FALSE",
+        "UNIQUE (habit_id, progress_date)"
+      ]
+    },
+    {
+      "table_name": "user_bank_transactions",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "transaction_id VARCHAR(255) UNIQUE",
+        "date DATE",
+        "description TEXT",
+        "amount DECIMAL(12, 2)",
+        "status VARCHAR(50)",
+        "currency_code VARCHAR(10)",
+        "entry_type VARCHAR(10)",
+        "account VARCHAR(100)",
+        "category VARCHAR(100)",
+        "categoryname VARCHAR(100)",
+        "merchantname VARCHAR(100)",
+        "isrecurring VARCHAR(10) DEFAULT 'no'",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "user_monthly_budgets",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "month VARCHAR(7)",
+        "category VARCHAR(50)",
+        "budget DECIMAL(12, 2)",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "vehicles",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "vin VARCHAR(255) NOT NULL",
+        "make VARCHAR(100) NOT NULL",
+        "model VARCHAR(100) NOT NULL",
+        "year INTEGER NOT NULL",
+        "registration_number VARCHAR(50)",
+        "insurance_provider VARCHAR(100)",
+        "insurance_id VARCHAR(100)",
+        "is_active INT DEFAULT 1",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "healthcare_providers_new",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "name VARCHAR(255) NOT NULL",
+        "specialty VARCHAR(255) NOT NULL",
+        "phone VARCHAR(20)",
+        "practice_name VARCHAR(255)",
+        "address TEXT",
+        "icon VARCHAR(10) DEFAULT '👨‍⚕️'",
+        "notes TEXT",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "insurance_accounts",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "provider_name VARCHAR(255) NOT NULL",
+        "plan_name VARCHAR(255) NOT NULL",
+        "account_type VARCHAR(100) DEFAULT 'insurance'",
+        "details JSONB DEFAULT '[]'::jsonb",
+        "contact_info TEXT",
+        "logo_text VARCHAR(10) DEFAULT 'INS'",
+        "gradient_style TEXT DEFAULT 'linear-gradient(135deg, #dbeafe, #e0e7ff)'",
+        "notes TEXT",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+
+    {
+      "table_name": "wellness_tasks",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "icon VARCHAR(10)",
+        "text TEXT NOT NULL",
+        "date VARCHAR(50) NOT NULL",
+        "recurring BOOLEAN DEFAULT FALSE",
+        "details TEXT",
+        "completed BOOLEAN DEFAULT FALSE",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "medications",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "name VARCHAR(255) NOT NULL",
+        "dosage VARCHAR(100)",
+        "condition_treated VARCHAR(255)",
+        "prescribing_doctor VARCHAR(255)",
+        "schedule VARCHAR(100) NOT NULL",
+        "refill_days_left INT DEFAULT 30",
+        "icon VARCHAR(10)",
+        "is_refill_soon BOOLEAN DEFAULT FALSE",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "health_summary_info",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "blood_type VARCHAR(10)",
+        "date_of_birth DATE",
+        "height VARCHAR(20)",
+        "emergency_contact_name VARCHAR(255)",
+        "emergency_contact_phone VARCHAR(20)",
+        "primary_doctor VARCHAR(255)",
+        "medical_record_number VARCHAR(100)",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "user_allergies",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "allergy_name VARCHAR(255) NOT NULL",
+        "severity_level VARCHAR(50) DEFAULT 'mild'",
+        "allergy_type VARCHAR(100)",
+        "reaction_symptoms TEXT",
+        "notes TEXT",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "user_conditions",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "condition_name VARCHAR(255) NOT NULL",
+        "status VARCHAR(100) DEFAULT 'active'",
+        "diagnosis_date DATE",
+        "treating_doctor VARCHAR(255)",
+        "notes TEXT",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "family_medical_history",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "family_member_relation VARCHAR(100) NOT NULL",
+        "condition_name VARCHAR(255) NOT NULL",
+        "age_of_onset INT",
+        "status VARCHAR(100)",
+        "notes TEXT",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "schools",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "name VARCHAR(255) NOT NULL",
+        "grade_level VARCHAR(100)",
+        "student_id VARCHAR(100)",
+        "custom_fields JSONB DEFAULT '[]'::jsonb",
+        "links JSONB DEFAULT '[]'::jsonb",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "activities",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "name VARCHAR(255) NOT NULL",
+        "schedule VARCHAR(255)",
+        "custom_fields JSONB DEFAULT '[]'::jsonb",
+        "links JSONB DEFAULT '[]'::jsonb",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
+      "table_name": "fitbit_daily_data",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "date DATE NOT NULL",
+        "steps INT DEFAULT 0",
+        "calories_burned INT DEFAULT 0",
+        "distance DECIMAL(10,2) DEFAULT 0",
+        "floors_climbed INT DEFAULT 0",
+        "active_minutes INT DEFAULT 0",
+        "sedentary_minutes INT DEFAULT 0",
+        "resting_heart_rate INT DEFAULT 0",
+        "weight DECIMAL(5,2) DEFAULT 0",
+        "bmi DECIMAL(4,2) DEFAULT 0",
+        "body_fat_percentage DECIMAL(4,2) DEFAULT 0",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "UNIQUE(user_id, date)"
+      ]
+    },
+    {
+      "table_name": "fitbit_sleep_data",
+      "columns": [
+       "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "date DATE NOT NULL",
+        "duration_minutes INT DEFAULT 0",
+        "efficiency INT DEFAULT 0",
+        "minutes_asleep INT DEFAULT 0",
+        "minutes_awake INT DEFAULT 0",
+        "minutes_to_fall_asleep INT DEFAULT 0",
+        "time_in_bed INT DEFAULT 0",
+        "deep_sleep_minutes INT DEFAULT 0",
+        "light_sleep_minutes INT DEFAULT 0",
+        "rem_sleep_minutes INT DEFAULT 0",
+        "wake_count INT DEFAULT 0",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "UNIQUE(user_id, date)"
+      ]
+    },
+    {
+      "table_name": "fitbit_activities",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "activity_date DATE NOT NULL",
+        "activity_type VARCHAR(100)",
+        "duration_minutes INT DEFAULT 0",
+        "calories_burned INT DEFAULT 0",
+        "distance DECIMAL(10,2) DEFAULT 0",
+        "average_heart_rate INT DEFAULT 0",
+        "peak_heart_rate INT DEFAULT 0",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "fitbit_sync_logs",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "sync_date TIMESTAMP NOT NULL",
+        "sync_type VARCHAR(50) NOT NULL",
+        "data_types TEXT",
+        "records_synced INT DEFAULT 0",
+        "status VARCHAR(50) NOT NULL",
+        "error_message TEXT",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    }
+  ]
+}
