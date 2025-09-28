@@ -36,6 +36,7 @@ import {
 import { responsive } from "../../../utils/responsive";
 import { Users } from "lucide-react";
 import { fetchUserMenus } from "../../../services/user";
+import ReferralModal from "../ReferDockly";
 
 const { Text } = Typography;
 const { Sider } = Layout;
@@ -83,9 +84,10 @@ const Sidebar = forwardRef<HTMLDivElement, { collapsed: boolean }>(
     const pathname = usePathname();
     const currentUser = useCurrentUser();
     const isAdmin = adminUser(currentUser?.role);
-    const isAdminPath = pathname?.startsWith('/admin');
+    const isAdminPath = pathname?.startsWith("/admin");
     const showAdminMenu = isAdmin && isAdminPath;
     const username = currentUser?.user_name || "";
+    const [isReferDocklyOpen, setIsReferDocklyOpen] = useState(false);
     const [currentPath, setCurrentPath] = useState("dashboard");
     const [hubs, setHubs] = useState<Hub[]>([]);
     const [boards, setBoards] = useState<Board[]>([]);
@@ -101,14 +103,12 @@ const Sidebar = forwardRef<HTMLDivElement, { collapsed: boolean }>(
     useEffect(() => {
       const pathSegments = pathname?.split("/") || [];
       let active = "dashboard";
-      
       if (showAdminMenu) {
         // Admin path logic
         active = pathSegments[pathSegments.length - 1];
       } else {
         // Regular user path logic
         const pathPart = pathSegments[2] || "dashboard";
-        
         // Handle board paths that end with "-hub"
         if (pathPart.endsWith("-hub")) {
           // Remove the "-hub" suffix to match the board key
@@ -117,7 +117,6 @@ const Sidebar = forwardRef<HTMLDivElement, { collapsed: boolean }>(
           active = pathPart;
         }
       }
-      
       setCurrentPath(active);
     }, [pathname, showAdminMenu]);
 
@@ -169,7 +168,7 @@ const Sidebar = forwardRef<HTMLDivElement, { collapsed: boolean }>(
                 key={key}
                 whileHover={{
                   scale: 1.02,
-                  transition: { duration: 0.2, ease: "easeOut" }
+                  transition: { duration: 0.2, ease: "easeOut" },
                 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handleMenuClick(key, true)}
@@ -181,8 +180,12 @@ const Sidebar = forwardRef<HTMLDivElement, { collapsed: boolean }>(
                   borderRadius: 9,
                   cursor: "pointer",
                   backgroundColor: isActive ? "#f8fafc" : "transparent",
-                  border: isActive ? "1px solid #e2e8f0" : "1px solid transparent",
-                  boxShadow: isActive ? "0 2px 8px rgba(15, 23, 42, 0.04)" : "none",
+                  border: isActive
+                    ? "1px solid #e2e8f0"
+                    : "1px solid transparent",
+                  boxShadow: isActive
+                    ? "0 2px 8px rgba(15, 23, 42, 0.04)"
+                    : "none",
                   transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
                   justifyContent: collapsed ? "center" : "flex-start",
                   position: "relative",
@@ -293,7 +296,7 @@ const Sidebar = forwardRef<HTMLDivElement, { collapsed: boolean }>(
                 key={key}
                 whileHover={{
                   scale: 1.02,
-                  transition: { duration: 0.2, ease: "easeOut" }
+                  transition: { duration: 0.2, ease: "easeOut" },
                 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handleMenuClick(key, isAdminGroup, isBoard)}
@@ -305,8 +308,12 @@ const Sidebar = forwardRef<HTMLDivElement, { collapsed: boolean }>(
                   borderRadius: 9,
                   cursor: "pointer",
                   backgroundColor: isActive ? "#f8fafc" : "transparent",
-                  border: isActive ? "1px solid #e2e8f0" : "1px solid transparent",
-                  boxShadow: isActive ? "0 2px 8px rgba(15, 23, 42, 0.04)" : "none",
+                  border: isActive
+                    ? "1px solid #e2e8f0"
+                    : "1px solid transparent",
+                  boxShadow: isActive
+                    ? "0 2px 8px rgba(15, 23, 42, 0.04)"
+                    : "none",
                   transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
                   justifyContent: collapsed ? "center" : "flex-start",
                   position: "relative",
@@ -339,7 +346,10 @@ const Sidebar = forwardRef<HTMLDivElement, { collapsed: boolean }>(
                     style: {
                       ...((icon as React.ReactElement)?.props?.style || {}),
                       fontSize: 15,
-                      color: isActive ? "#0f172a" : (icon as React.ReactElement)?.props?.style?.color || "#64748b",
+                      color: isActive
+                        ? "#0f172a"
+                        : (icon as React.ReactElement)?.props?.style?.color ||
+                          "#64748b",
                       transition: "color 0.15s ease",
                     },
                   })}
@@ -512,27 +522,29 @@ const Sidebar = forwardRef<HTMLDivElement, { collapsed: boolean }>(
             style={{
               marginTop: "-8px",
               marginBottom: "8px",
-              borderColor: '#E0E7FF',
+              borderColor: "#E0E7FF",
               flexShrink: 0,
             }}
           />
 
-          <div style={{
-            flex: 1,
-            overflowY: "auto",
-            overflowX: "hidden",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-            paddingBottom: "15px",
-            marginTop: -10,
-          }}>
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              overflowX: "hidden",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+              paddingBottom: "15px",
+              marginTop: -10,
+            }}
+          >
             {/* Dashboard section - show for non-admin menu only */}
             {!showAdminMenu && (
               <div style={{ marginBottom: 12, marginTop: 4, padding: "0 7px" }}>
                 <motion.div
                   whileHover={{
                     scale: 1.02,
-                    transition: { duration: 0.2, ease: "easeOut" }
+                    transition: { duration: 0.2, ease: "easeOut" },
                   }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => router.push(`/${username}/dashboard`)}
@@ -543,9 +555,15 @@ const Sidebar = forwardRef<HTMLDivElement, { collapsed: boolean }>(
                     marginBottom: 2,
                     borderRadius: 9,
                     cursor: "pointer",
-                    backgroundColor: isDashboardActive ? "#f8fafc" : "transparent",
-                    border: isDashboardActive ? "1px solid #e2e8f0" : "1px solid transparent",
-                    boxShadow: isDashboardActive ? "0 2px 8px rgba(15, 23, 42, 0.04)" : "none",
+                    backgroundColor: isDashboardActive
+                      ? "#f8fafc"
+                      : "transparent",
+                    border: isDashboardActive
+                      ? "1px solid #e2e8f0"
+                      : "1px solid transparent",
+                    boxShadow: isDashboardActive
+                      ? "0 2px 8px rgba(15, 23, 42, 0.04)"
+                      : "none",
                     transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
                     justifyContent: collapsed ? "center" : "flex-start",
                     position: "relative",
@@ -654,154 +672,157 @@ const Sidebar = forwardRef<HTMLDivElement, { collapsed: boolean }>(
 
                 {/* Refer Dockly & Feedback Section with consistent styling */}
                 <div style={{ marginBottom: 10, marginTop: 4 }}>
-                    {/* Refer Dockly */}
-                    <motion.div
-                      whileHover={{
-                        scale: 1.02,
-                        transition: { duration: 0.2, ease: "easeOut" }
-                      }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => {/* Add refer dockly functionality */}}
+                  {/* Refer Dockly */}
+                  <motion.div
+                    whileHover={{
+                      scale: 1.02,
+                      transition: { duration: 0.2, ease: "easeOut" },
+                    }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setIsReferDocklyOpen(true)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: collapsed ? "12px 0" : "12px 16px",
+                      marginBottom: 2,
+                      borderRadius: 9,
+                      cursor: "pointer",
+                      backgroundColor: "transparent",
+                      border: "1px solid transparent",
+                      transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+                      justifyContent: collapsed ? "center" : "flex-start",
+                      position: "relative",
+                      overflow: "hidden",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#f1f5f9";
+                      e.currentTarget.style.border = "1px solid #f1f5f9";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.border = "1px solid transparent";
+                    }}
+                  >
+                    <div
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        padding: collapsed ? "12px 0" : "12px 16px",
-                        marginBottom: 2,
-                        borderRadius: 9,
-                        cursor: "pointer",
-                        backgroundColor: "transparent",
-                        border: "1px solid transparent",
-                        transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
-                        justifyContent: collapsed ? "center" : "flex-start",
-                        position: "relative",
-                        overflow: "hidden",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#f1f5f9";
-                        e.currentTarget.style.border = "1px solid #f1f5f9";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "transparent";
-                        e.currentTarget.style.border = "1px solid transparent";
+                        justifyContent: "center",
+                        width: 21,
+                        height: 21,
+                        marginRight: collapsed ? 0 : 10,
                       }}
                     >
-                      <div
+                      <GiftOutlined
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: 21,
-                          height: 21,
-                          marginRight: collapsed ? 0 : 10,
+                          fontSize: 15,
+                          color: "#ad4e00",
+                          transition: "color 0.15s ease",
+                        }}
+                      />
+                    </div>
+
+                    {!collapsed && (
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontFamily: FONT_FAMILY,
+                          fontWeight: 500,
+                          color: "#475569",
+                          letterSpacing: "0.15px",
+                          transition: "color 0.15s ease",
                         }}
                       >
-                        <GiftOutlined
-                          style={{
-                            fontSize: 15,
-                            color: "#ad4e00",
-                            transition: "color 0.15s ease",
-                          }}
-                        />
-                      </div>
+                        Refer Dockly
+                      </span>
+                    )}
 
-                      {!collapsed && (
-                        <span
-                          style={{
-                            fontSize: 13,
-                            fontFamily: FONT_FAMILY,
-                            fontWeight: 500,
-                            color: "#475569",
-                            letterSpacing: "0.15px",
-                            transition: "color 0.15s ease",
-                          }}
-                        >
-                          Refer Dockly
-                        </span>
-                      )}
+                    {collapsed && (
+                      <Tooltip title="Refer Dockly" placement="right">
+                        <div style={{ position: "absolute", inset: 0 }} />
+                      </Tooltip>
+                    )}
+                  </motion.div>
 
-                      {collapsed && (
-                        <Tooltip title="Refer Dockly" placement="right">
-                          <div style={{ position: "absolute", inset: 0 }} />
-                        </Tooltip>
-                      )}
-                    </motion.div>
-
-                    {/* Feedback */}
-                    <motion.div
-                      whileHover={{
-                        scale: 1.02,
-                        transition: { duration: 0.2, ease: "easeOut" }
-                      }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => router.push(`/${username}/profile#feedback`)}
+                  {/* Feedback */}
+                  <motion.div
+                    whileHover={{
+                      scale: 1.02,
+                      transition: { duration: 0.2, ease: "easeOut" },
+                    }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => router.push(`/${username}/profile#feedback`)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: collapsed ? "10.5px 0" : "10.5px 14px",
+                      marginBottom: 2,
+                      borderRadius: 9,
+                      cursor: "pointer",
+                      backgroundColor: "transparent",
+                      border: "1px solid transparent",
+                      transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+                      justifyContent: collapsed ? "center" : "flex-start",
+                      position: "relative",
+                      overflow: "hidden",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#f1f5f9";
+                      e.currentTarget.style.border = "1px solid #f1f5f9";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.border = "1px solid transparent";
+                    }}
+                  >
+                    <div
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        padding: collapsed ? "10.5px 0" : "10.5px 14px",
-                        marginBottom: 2,
-                        borderRadius: 9,
-                        cursor: "pointer",
-                        backgroundColor: "transparent",
-                        border: "1px solid transparent",
-                        transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
-                        justifyContent: collapsed ? "center" : "flex-start",
-                        position: "relative",
-                        overflow: "hidden",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#f1f5f9";
-                        e.currentTarget.style.border = "1px solid #f1f5f9";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "transparent";
-                        e.currentTarget.style.border = "1px solid transparent";
+                        justifyContent: "center",
+                        width: 21,
+                        height: 21,
+                        marginRight: collapsed ? 0 : 10,
                       }}
                     >
-                      <div
+                      <MessageOutlined
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: 21,
-                          height: 21,
-                          marginRight: collapsed ? 0 : 10,
+                          fontSize: 15,
+                          color: PRIMARY_COLOR,
+                          transition: "color 0.15s ease",
+                        }}
+                      />
+                    </div>
+
+                    {!collapsed && (
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontFamily: FONT_FAMILY,
+                          fontWeight: 500,
+                          color: "#475569",
+                          letterSpacing: "0.15px",
+                          transition: "color 0.15s ease",
                         }}
                       >
-                        <MessageOutlined
-                          style={{
-                            fontSize: 15,
-                            color: PRIMARY_COLOR,
-                            transition: "color 0.15s ease",
-                          }}
-                        />
-                      </div>
+                        Feedback
+                      </span>
+                    )}
 
-                      {!collapsed && (
-                        <span
-                          style={{
-                            fontSize: 13,
-                            fontFamily: FONT_FAMILY,
-                            fontWeight: 500,
-                            color: "#475569",
-                            letterSpacing: "0.15px",
-                            transition: "color 0.15s ease",
-                          }}
-                        >
-                          Feedback
-                        </span>
-                      )}
-
-                      {collapsed && (
-                        <Tooltip title="Feedback" placement="right">
-                          <div style={{ position: "absolute", inset: 0 }} />
-                        </Tooltip>
-                      )}
-                    </motion.div>
-                  
+                    {collapsed && (
+                      <Tooltip title="Feedback" placement="right">
+                        <div style={{ position: "absolute", inset: 0 }} />
+                      </Tooltip>
+                    )}
+                  </motion.div>
                 </div>
               </>
             )}
           </div>
+          <ReferralModal
+            visible={isReferDocklyOpen}
+            onClose={() => setIsReferDocklyOpen(false)}
+          />
         </Sider>
       </>
     );

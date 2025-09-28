@@ -980,3 +980,60 @@ export async function deleteActivity(activityId: string): Promise<any> {
     throw error;
   }
 }
+
+
+export async function addMeal(params: any) {
+  return api.post("/add/meal", params);
+}
+
+export async function updateMeal(params: any) {
+  return api.post("/add/meal", { ...params, editing: true });
+}
+
+export async function deleteMeal(params: any) {
+  return api.post("/delete/meal", params);
+}
+
+export async function getMeals(params: any = {}) {
+  return api.get("/get/meals", {
+    params,
+  });
+}
+
+// Chore services
+export async function addChore(params: any) {
+  return api.post("/add/chore", params);
+}
+
+export async function updateChore(params: any) {
+  return api.post("/add/chore", { ...params, editing: true });
+}
+
+export async function deleteChore(params: any) {
+  return api.post("/delete/chore", params);
+}
+
+export async function getChores(params: any = {}) {
+  return api.get("/get/chores", {
+    params,
+  });
+}
+
+// Task services
+export async function addWeeklyTask(params: any) {
+  return api.post("/add/weekly-task", params);
+}
+
+export async function updateWeeklyTask(params: any) {
+  return api.post("/add/weekly-task", { ...params, editing: true });
+}
+
+export async function deleteWeeklyTask(params: any) {
+  return api.post("/delete/weekly-task", params);
+}
+
+export async function getWeeklyTasks(params: any = {}) {
+  return api.get("/get/weekly-tasks", {
+    params,
+  });
+}

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+  import React, { useState } from "react";
+import { ShareAltOutlined } from "@ant-design/icons";
 import { colors, shadows, WellnessTaskData } from "../../../services/health/types";
 
 // Dashboard Design System Constants
@@ -40,7 +41,7 @@ const mockWellnessTasks: WellnessTaskData[] = [
     date: "2025-09-18",
     details: "Practice mindfulness using Headspace or Calm app. Focus on breathing exercises and stress reduction. Best done in the morning or before bed.",
     completed: false,
-    recurring: true
+    recurring: false
   },
 ];
 
@@ -52,6 +53,7 @@ interface WellnessTasksProps {
   onToggleTask: (id: number) => void;
   onEditTask: (task: WellnessTaskData) => void;
   onDeleteTask: (id: number) => void;
+  onShareTask?: (task: WellnessTaskData) => void;
 }
 
 const TaskItem: React.FC<{
@@ -60,9 +62,11 @@ const TaskItem: React.FC<{
   onToggle: (id: number) => void;
   onEdit: (task: WellnessTaskData) => void;
   onDelete: (id: number) => void;
+  onShare?: (task: WellnessTaskData) => void;
   isMockup?: boolean;
   onAddTask?: () => void;
-}> = ({ task, isMobile, onToggle, onEdit, onDelete, isMockup = false, onAddTask }) => {
+}> = ({ task, isMobile, onToggle, onEdit, onDelete, onShare, isMockup = false, onAddTask }) => {
+  console.log("Rendering TaskItem:", task);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -76,6 +80,21 @@ const TaskItem: React.FC<{
 
   const mockupTextColor = isMockup ? '#94a3b8' : (task.completed ? colors.textMuted : colors.text);
 
+  // Format date for display
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return ""; // or return "N/A"
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
   return (
     <div
       style={{
@@ -151,6 +170,19 @@ const TaskItem: React.FC<{
 
         {!isMockup && (
           <div style={{ display: "flex", gap: SPACING.xs }}>
+            {task?.recurring && (
+              <div style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "14px",
+                color: colors.danger,
+                padding: "4px",
+              }}>
+                🔄
+              </div>
+            )}
+
             {!task.completed && (
               <button
                 onClick={(e) => {
@@ -181,36 +213,63 @@ const TaskItem: React.FC<{
                 ✏️
               </button>
             )}
-            {task?.recurring && (
-              <div style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "14px",
-                color: colors.danger,
-                padding: "4px 0px",
-              }}>
-                🔄
-              </div>
+
+            {onShare && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShare(task);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  color: colors.textMuted,
+                  padding: "4px",
+                  transition: "all 0.2s",
+                  borderRadius: "4px",
+                  width: "28px",
+                  height: "28px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#dbeafe";
+                  e.currentTarget.style.color = colors.primary;
+                  e.currentTarget.style.transform = "scale(1.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = colors.textMuted;
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              >
+                <ShareAltOutlined style={{ fontSize: "14px" }} />
+              </button>
             )}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (window.confirm("Are you sure you want to delete this task?")) {
-                  onDelete(task.id!);
-                }
-              }}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "14px",
-                color: colors.danger,
-                padding: "4px 0px",
-              }}
-            >
-              🗑️
-            </button>
+
+            {task?.completed &&
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm("Are you sure you want to delete this task?")) {
+                    onDelete(task.id!);
+                  }
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  color: colors.danger,
+                  padding: "4px 0px",
+                }}
+              >
+                🗑️
+              </button>
+            }
           </div>
         )}
 
@@ -241,7 +300,109 @@ const TaskItem: React.FC<{
             fontFamily: FONT_FAMILY
           }}
         >
-          {task.details}
+          {/* Task Details */}
+          {task.details && (
+            <div style={{ marginBottom: SPACING.md }}>
+              <strong style={{ color: colors.text, display: 'block', marginBottom: SPACING.xs }}>
+                📝 Details:
+              </strong>
+              {task.details}
+            </div>
+          )}
+
+          {/* Date Information */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(150px, 1fr))',
+            gap: SPACING.md,
+            marginBottom: SPACING.md
+          }}>
+            {(task.start_date || task.startDate) && (
+              <div>
+                <strong style={{ color: colors.text, display: 'block', marginBottom: SPACING.xs }}>
+                  🚀 Start Date:
+                </strong>
+                {formatDate(task?.start_date)}
+              </div>
+            )}
+
+            {(task.due_date || task.dueDate) && (
+              <div>
+                <strong style={{ color: colors.text, display: 'block', marginBottom: SPACING.xs }}>
+                  ⏰ Due Date:
+                </strong>
+                {formatDate(task.due_date)}
+              </div>
+            )}
+          </div>
+
+          {/* Status Information */}
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: SPACING.md,
+            marginBottom: SPACING.md
+          }}>
+            <div>
+              <strong style={{ color: colors.text, marginRight: SPACING.xs }}>
+                📊 Status:
+              </strong>
+              <span style={{
+                background: task.completed ? colors.success : colors.warning,
+                color: 'white',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                fontSize: '0.75rem',
+                fontWeight: '500'
+              }}>
+                {task.completed ? 'Completed' : 'Pending'}
+              </span>
+            </div>
+
+            {task.recurring && (
+              <div>
+                <strong style={{ color: colors.text, marginRight: SPACING.xs }}>
+                  🔄 Recurring:
+                </strong>
+                <span style={{
+                  background: colors.primary,
+                  color: 'white',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '0.75rem',
+                  fontWeight: '500'
+                }}>
+                  Yes
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Tagged IDs (if any) */}
+          {task.tagged_ids && task.tagged_ids.length > 0 && (
+            <div>
+              <strong style={{ color: colors.text, display: 'block', marginBottom: SPACING.xs }}>
+                🏷️ Tags:
+              </strong>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACING.xs }}>
+                {task.tagged_ids.map((tagId, index) => (
+                  <span
+                    key={index}
+                    style={{
+                      background: '#f1f5f9',
+                      color: colors.text,
+                      padding: '2px 6px',
+                      borderRadius: '8px',
+                      fontSize: '0.7rem',
+                      border: `1px solid ${colors.border}`
+                    }}
+                  >
+                    {tagId}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -259,6 +420,15 @@ const TaskItem: React.FC<{
           {task.details}
         </div>
       )}
+
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}
+      </style>
     </div>
   );
 };
@@ -271,6 +441,7 @@ const WellnessTasks: React.FC<WellnessTasksProps> = ({
   onToggleTask,
   onEditTask,
   onDeleteTask,
+  onShareTask,
 }) => {
   const [hovered, setHovered] = useState(false);
   const hasUserTasks = wellnessTasks.length > 0;
@@ -412,6 +583,7 @@ const WellnessTasks: React.FC<WellnessTasksProps> = ({
                 onToggle={onToggleTask}
                 onEdit={onEditTask}
                 onDelete={onDeleteTask}
+                onShare={onShareTask}
                 isMockup={!hasUserTasks}
                 onAddTask={onAddTask}
               />

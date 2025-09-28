@@ -1,5 +1,6 @@
 import io
 import json
+import json
 import random
 import re
 from threading import Thread
@@ -11,6 +12,7 @@ from flask import request
 # from root.encryption import encrypt_data_simple
 from root.utilis import (
     format_timestamp,
+    format_timestamp,
     get_device_info,
     get_or_create_subfolder,
     handle_user_session,
@@ -21,6 +23,7 @@ from googleapiclient.http import MediaIoBaseUpload
 from root.files.models import DriveBaseResource
 from root.helpers.logs import AuditLogger
 from flask_restful import Resource
+from datetime import datetime, timedelta, timezone
 from datetime import datetime, timedelta, timezone
 import pytz
 import requests
@@ -43,12 +46,24 @@ from root.utilis import (
 from root.config import (
     EMAIL_PASSWORD,
     EMAIL_SENDER,
+    SEND_GRID_EMAIL,
     SMTP_PORT,
     SMTP_SERVER,
+    SENDGRID_API_KEY,
 )
 from root.db.dbHelper import DBHelper
 import smtplib
 from email.message import EmailMessage
+from sendgrid.helpers.mail import Mail
+
+from sendgrid import SendGridAPIClient
+
+import ssl
+import certifi
+
+ssl._create_default_https_context = lambda: ssl.create_default_context(
+    cafile=certifi.where()
+)
 
 
 def generate_otp():
@@ -58,22 +73,21 @@ def generate_otp():
 def send_otp_email(email, otp):
     print(f"otp: {otp}")
     print(f"email: {email}")
+    message = Mail(
+        from_email="tulasidivya.cc@gmail.com",
+        to_emails=email,
+        subject="Your OTP Code",
+        html_content=f"<p>Your Dockly OTP: <strong>{otp}</strong></p><p>This OTP is valid for 10 minutes.</p>",
+    )
+
     try:
-        msg = EmailMessage()
-        msg["Subject"] = "Your OTP Code for Dockly"
-        msg["From"] = EMAIL_SENDER
-        msg["To"] = email
-        msg.set_content(f"Your OTP is: {otp}\nValid for 10 minutes.")
-
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            server.send_message(msg)
-
-        return {"otp": otp, "email": email}
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        response = sg.send(message)
+        print(f"✅ Email sent to {email}, Status Code: {response.status_code}")
+        return True
     except Exception as e:
-        # Optional: Add error logging
-        return {"otp": None, "email": email, "error": str(e)}
+        print(f"❌ Error sending email: {e}")
+        return False
 
 
 def format_phone_number(mobile):
@@ -327,6 +341,7 @@ class RegisterUser(Resource):
             },
         }
 
+
 class SaveUserEmail(Resource):
     def post(self):
         inputData = request.get_json(silent=True)
@@ -514,7 +529,6 @@ def is_otp_valid(otpId, otp):
         "message": "OTP verified!",
         "payload": {},
     }
-
 
 
 def ensure_user_permissions(user_id):
@@ -772,54 +786,170 @@ class GetUserMenus(Resource):
                 "files": "FolderOpenOutlined",
             }
             return mapping.get(target_data.get("hub_name"), "AppstoreOutlined")
+        force_logout = DBHelper.update_one(
+            "user_sessions", {"user_id": userId}, {"force_logout": False}
+        )
+        ensure_user_permissions(userId)
 
+        return response
+
+
+class GetUserMenus(Resource):
+    @auth_required(isOptional=True)
+    def get(self, uid, user):
+        boards = []
+        hubs = []
+
+        # Get all user permissions
+        all_menus = DBHelper.find_all(
+            table_name="user_permissions",
+            filters={"user_id": uid},
+            select_fields=["id", "target_type", "target_id"],
+        )
+
+        for perm in all_menus:
+            target_type = perm.get("target_type")  # "boards" or "hubs"
+            target_id = perm.get("target_id")
+
+            target_data = DBHelper.find_one(
+                table_name=target_type,
+                filters={"id": target_id},
+            )
+
+            if not target_data:
+                continue
+
+            # Attach only necessary fields
+            menu_item = {
+                "id": target_data.get("id"),
+                "title": target_data.get("title"),
+                "is_active": target_data.get("is_active"),
+                "display_order": target_data.get("display_order"),
+                # Frontend will map this string to actual icon component
+                "icon": self.get_icon_for_menu(target_type, target_data),
+            }
+
+            if target_type == "boards":
+                menu_item["board_name"] = target_data.get("board_name")
+                boards.append(menu_item)
+            elif target_type == "hubs":
+                menu_item["hub_name"] = target_data.get("hub_name")
+                hubs.append(menu_item)
+
+        return {
+            "status": 1,
+            "message": "Menus fetched",
+            "payload": {"boards": boards, "hubs": hubs},
+        }
+
+    def get_icon_for_menu(self, target_type, target_data):
+        # You can make this a mapping dictionary instead of hardcoding
+        if target_type == "boards":
+            mapping = {
+                "family": "TeamOutlined",
+                "finance": "DollarOutlined",
+                "home": "HomeOutlined",
+                "health": "HeartOutlined",
+            }
+            return mapping.get(target_data.get("board_name"), "AppstoreOutlined")
+
+        if target_type == "hubs":
+            mapping = {
+                "notes": "FileTextOutlined",
+                "bookmarks": "IdcardOutlined",
+                "vault": "LockOutlined",
+                "files": "FolderOpenOutlined",
+            }
+            return mapping.get(target_data.get("hub_name"), "AppstoreOutlined")
+
+        return "AppstoreOutlined"
         return "AppstoreOutlined"
 
 
-class MobileVerification(Resource):
-    def post(self):
-        inputData = request.get_json(silent=True)
-        uid = inputData.get("uid")
-        otp = inputData.get("otp")
-        stored_otp = inputData.get("storedOtp")
+# class MobileVerification(Resource):
+#     def post(self):
+#         inputData = request.get_json(silent=True)
+#         uid = inputData.get("uid")
+#         otp = inputData.get("otp")
+#         stored_otp = inputData.get("storedOtp")
 
-        try:
-            response = is_otp_valid(stored_otp, otp)
-            success = response.get("status", 0) == 1
+#         try:
+#             response = is_otp_valid(stored_otp, otp)
+#             success = response.get("status", 0) == 1
 
-            # Create access token
-            userInfo = {"uid": uid}
-            token = getAccessTokens(userInfo)
-            response["payload"]["token"] = token["accessToken"]
+#             # Create access token
+#             userInfo = {"uid": uid}
+#             token = getAccessTokens(userInfo)
+#             response["payload"]["token"] = token["accessToken"]
 
-            # Audit log
-            AuditLogger.log(
-                user_id=uid,
-                action="mobile verification",
-                resource_type="user",
-                resource_id=uid,
-                success=success,
-                error_message=None if success else "OTP validation failed",
-                metadata={"inputOtp": otp, "storedOtp": stored_otp},
-            )
+#             # Audit log
+#             AuditLogger.log(
+#                 user_id=uid,
+#                 action="mobile verification",
+#                 resource_type="user",
+#                 resource_id=uid,
+#                 success=success,
+#                 error_message=None if success else "OTP validation failed",
+#                 metadata={"inputOtp": otp, "storedOtp": stored_otp},
+#             )
 
-            return response
+#             return response
+#         otp = inputData.get("otp")
+#         stored_otp = inputData.get("storedOtp")
 
-        except Exception as e:
-            AuditLogger.log(
-                user_id=uid,
-                action="mobile verification",
-                resource_type="user",
-                resource_id=uid,
-                success=False,
-                error_message=str(e),
-                metadata={"inputOtp": otp, "storedOtp": stored_otp},
-            )
-            return {
-                "status": 0,
-                "message": f"Error verifying mobile: {str(e)}",
-                "payload": {},
-            }
+#         try:
+#             response = is_otp_valid(stored_otp, otp)
+#             success = response.get("status", 0) == 1
+
+#             # Create access token
+#             userInfo = {"uid": uid}
+#             token = getAccessTokens(userInfo)
+#             response["payload"]["token"] = token["accessToken"]
+
+#             # Audit log
+#             AuditLogger.log(
+#                 user_id=uid,
+#                 action="mobile verification",
+#                 resource_type="user",
+#                 resource_id=uid,
+#                 success=success,
+#                 error_message=None if success else "OTP validation failed",
+#                 metadata={"inputOtp": otp, "storedOtp": stored_otp},
+#             )
+
+#             return response
+
+#         except Exception as e:
+#             AuditLogger.log(
+#                 user_id=uid,
+#                 action="mobile verification",
+#                 resource_type="user",
+#                 resource_id=uid,
+#                 success=False,
+#                 error_message=str(e),
+#                 metadata={"inputOtp": otp, "storedOtp": stored_otp},
+#             )
+#             return {
+#                 "status": 0,
+#                 "message": f"Error verifying mobile: {str(e)}",
+#                 "payload": {},
+#             }
+
+#         except Exception as e:
+#             AuditLogger.log(
+#                 user_id=uid,
+#                 action="mobile verification",
+#                 resource_type="user",
+#                 resource_id=uid,
+#                 success=False,
+#                 error_message=str(e),
+#                 metadata={"inputOtp": otp, "storedOtp": stored_otp},
+#             )
+#             return {
+#                 "status": 0,
+#                 "message": f"Error verifying mobile: {str(e)}",
+#                 "payload": {},
+#             }
 
 
 class SignInVerification(Resource):
@@ -868,12 +998,32 @@ class SignInVerification(Resource):
                 "payload": {},
             }
 
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="sign in verification",
+                resource_type="user",
+                resource_id=uid,
+                success=False,
+                error_message=str(e),
+                metadata={"inputOtp": otp, "storedOtp": stored_otp},
+            )
+            return {
+                "status": 0,
+                "message": f"Error verifying sign-in: {str(e)}",
+                "payload": {},
+            }
+
 
 class LoginUser(Resource):
     def post(self):
         inputData = request.get_json(silent=True)
         login_type = inputData.get("type")
         otp = generate_otp()
+        user_id = None
+        action = None
+        success = False
+        error_message = None
         user_id = None
         action = None
         success = False
@@ -904,6 +1054,24 @@ class LoginUser(Resource):
                 otpResponse = send_otp_email(email, otp)
                 action = "Email Login OTP Sent"
                 success = True
+                if not user:
+                    error_message = "User not found with this email"
+                    action = "Email Login Attempt"
+                    AuditLogger.log(
+                        user_id="unknown",
+                        action=action,
+                        resource_type="user",
+                        resource_id="N/A",
+                        success=False,
+                        error_message=error_message,
+                        metadata={"email": email},
+                    )
+                    return {"status": 0, "message": error_message}
+
+                user_id = user.get("uid")
+                otpResponse = send_otp_email(email, otp)
+                action = "Email Login OTP Sent"
+                success = True
 
             elif login_type == "mobile":
                 mobileNumber = inputData.get("mobile")
@@ -912,7 +1080,32 @@ class LoginUser(Resource):
                     filters={"mobile": mobileNumber},
                     select_fields=["uid"],
                 )
+            elif login_type == "mobile":
+                mobileNumber = inputData.get("mobile")
+                user = DBHelper.find_one(
+                    table_name="users",
+                    filters={"mobile": mobileNumber},
+                    select_fields=["uid"],
+                )
 
+                if not user:
+                    error_message = "User not found with this mobile number"
+                    action = "Mobile Login Attempt"
+                    AuditLogger.log(
+                        user_id="unknown",
+                        action=action,
+                        resource_type="user",
+                        resource_id="N/A",
+                        success=False,
+                        error_message=error_message,
+                        metadata={"mobile": mobileNumber},
+                    )
+                    return {"status": 0, "message": error_message}
+
+                user_id = user.get("uid")
+                otpResponse = {"otp": otp, "mobileNumber": mobileNumber}
+                action = "Mobile Login OTP Sent"
+                success = True
                 if not user:
                     error_message = "User not found with this mobile number"
                     action = "Mobile Login Attempt"
@@ -973,7 +1166,10 @@ class LoginUser(Resource):
                 error_message=error_message,
                 metadata={"inputData": inputData},
             )
-            return {"status": 0, "message": "Login failed", "error": error_message}
+            return {
+                "status": 1,
+                "payload": {"otpStatus": {**otpResponse, "userId": user_id}},
+            }
 
 
 class GetStarted(Resource):
@@ -1053,6 +1249,56 @@ class GetRecentActivities(Resource):
         }
 
 
+class GetRecentActivities(Resource):
+    @auth_required(isOptional=True)
+    def get(self, uid, user):
+        if not uid:
+            return {"status": 0, "message": "User ID is required", "payload": {}}
+
+        # Use DBHelper to fetch recent activities
+        rows = DBHelper.find_all(
+            table_name="audit_logs",
+            filters={"user_id": uid},
+            select_fields=[
+                "id",
+                "user_id",
+                "action",
+                "resource_type",
+                "resource_id",
+                "ip_address",
+                "user_agent",
+                "created_at",
+            ],
+            order_by="created_at DESC",
+        )
+
+        # Convert into frontend-friendly format
+        activities = []
+        for row in rows:
+            activities.append(
+                {
+                    "id": str(row["id"]),
+                    "user_id": row["user_id"],
+                    "action": row["action"],
+                    "resource_type": row["resource_type"],
+                    "resource_id": row["resource_id"],
+                    "ip_address": row["ip_address"],
+                    "user_agent": row["user_agent"],
+                    "timestamp": format_timestamp(row["created_at"]),
+                }
+            )
+
+        return {
+            "status": 1,
+            "message": "Fetched recent activities",
+            "payload": {
+                "username": user.get("username", ""),
+                "uid": uid,
+                "activities": activities,
+            },
+        }
+
+
 def parse_dob(dob_str):
     """
     Safely parse a date of birth string in ISO format.
@@ -1070,6 +1316,9 @@ class AddDetails(Resource):
     @auth_required(isOptional=True)
     def post(self, uid, user):
         inputData = request.get_json(silent=True)
+        action = None
+        success = False
+        error_message = None
         action = None
         success = False
         error_message = None
@@ -1101,7 +1350,31 @@ class AddDetails(Resource):
                     updates["gender"] = personal["gender"]
                 if "additional_email" in personal:
                     updates["additional_emails"] = personal["additional_email"]
+            # --- Update case ---
+            if existingUser:
+                updates = {}
 
+                # Personal updates
+                if "first_name" in personal:
+                    updates["first_name"] = personal["first_name"]
+                if "last_name" in personal:
+                    updates["last_name"] = personal["last_name"]
+                if "dob" in personal and personal["dob"]:
+                    updates["date_of_birth"] = parse_dob(personal["dob"])
+                if "phone" in personal:
+                    updates["phone_number"] = personal["phone"]
+                if "gender" in personal:
+                    updates["gender"] = personal["gender"]
+                if "additional_email" in personal:
+                    updates["additional_emails"] = personal["additional_email"]
+
+                # Address updates
+                if "country" in address:
+                    updates["country"] = address["country"]
+                if "city" in address:
+                    updates["city"] = address["city"]
+                if "postal_code" in address:
+                    updates["postal_code"] = address["postal_code"]
                 # Address updates
                 if "country" in address:
                     updates["country"] = address["country"]
@@ -1127,7 +1400,29 @@ class AddDetails(Resource):
                         success=success,
                         metadata={"updates": updates},
                     )
+                if updates:
+                    DBHelper.update_one(
+                        table_name="personal_information",
+                        filters={"user_id": uid},
+                        updates=updates,
+                        return_fields=["user_id"],
+                    )
+                    action = "Update User Details"
+                    success = True
+                    AuditLogger.log(
+                        user_id=uid,
+                        action=action,
+                        resource_type="personal_information",
+                        resource_id=uid,
+                        success=success,
+                        metadata={"updates": updates},
+                    )
 
+                return {
+                    "status": 1,
+                    "message": "User details updated successfully",
+                    "payload": {"user_id": uid, "username": user.get("username", "")},
+                }
                 return {
                     "status": 1,
                     "message": "User details updated successfully",
@@ -1154,7 +1449,42 @@ class AddDetails(Resource):
                     "users", filters={"uid": uid}, select_fields=["email"]
                 )
                 primary_email = userEmailDetails.get("email", "")
+                userEmailDetails = DBHelper.find_one(
+                    "users", filters={"uid": uid}, select_fields=["email"]
+                )
+                primary_email = userEmailDetails.get("email", "")
 
+                name = DBHelper.insert(
+                    "personal_information",
+                    return_column="first_name",
+                    user_id=uid,
+                    family_member_user_id=uid,
+                    first_name=personal.get("first_name", ""),
+                    last_name=personal.get("last_name", ""),
+                    gender=personal.get("gender", None),
+                    date_of_birth=parse_dob(personal.get("dob")),
+                    phone_number=personal.get("phone", ""),
+                    primary_email=primary_email,
+                    additional_emails=personal.get("additional_email", None),
+                    country=address.get("country", ""),
+                    city=address.get("city", ""),
+                    postal_code=address.get("postal_code", ""),
+                    added_by=uid,
+                    edited_by=uid,
+                    added_time=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+
+                action = "Insert User Details"
+                success = True
+                AuditLogger.log(
+                    user_id=uid,
+                    action=action,
+                    resource_type="personal_information",
+                    resource_id=uid,
+                    success=success,
+                    metadata={"inserted_name": name, "inputData": inputData},
+                )
                 name = DBHelper.insert(
                     "personal_information",
                     return_column="first_name",
@@ -1192,6 +1522,25 @@ class AddDetails(Resource):
                     "message": f"{name}'s Details added successfully",
                     "payload": {"name": name, "username": user.get("username", "")},
                 }
+
+        except Exception as e:
+            error_message = str(e)
+            action = "Add Details Error"
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type="personal_information",
+                resource_id=uid,
+                success=False,
+                error_message=error_message,
+                metadata={"inputData": inputData},
+            )
+
+            return {
+                "status": 1,
+                "message": f"{name}'s Details added successfully",
+                "payload": {"name": name, "username": user.get("username", "")},
+            }
 
         except Exception as e:
             error_message = str(e)
@@ -1318,6 +1667,14 @@ class SendFeedback(Resource):
                 success=False,
                 error_message=str(e),
             )
+            AuditLogger.log(
+                user_id=uid,
+                action="SEND_FEEDBACK_INVALID_JSON",
+                resource_type="feedback",
+                resource_id="N/A",
+                success=False,
+                error_message=str(e),
+            )
             return {"status": 0, "message": f"Invalid JSON: {str(e)}"}, 400
 
         rating = data.get("rating")
@@ -1325,6 +1682,15 @@ class SendFeedback(Resource):
         experience = data.get("experience")
 
         if not (rating or feedback_type or experience):
+            AuditLogger.log(
+                user_id=uid,
+                action="SEND_FEEDBACK_VALIDATION_FAILED",
+                resource_type="feedback",
+                resource_id="N/A",
+                success=False,
+                error_message="At least one of rating, type, or experience is required",
+                metadata={"inputData": data},
+            )
             AuditLogger.log(
                 user_id=uid,
                 action="SEND_FEEDBACK_VALIDATION_FAILED",
@@ -1363,6 +1729,20 @@ class SendFeedback(Resource):
             },
         )
 
+        AuditLogger.log(
+            user_id=uid,
+            action="SEND_FEEDBACK",
+            resource_type="feedback",
+            resource_id="N/A",
+            success=success,
+            error_message=None if success else msg,
+            metadata={
+                "rating": rating,
+                "type": feedback_type,
+                "experience": experience,
+            },
+        )
+
         if not success:
             return {
                 "status": 0,
@@ -1370,7 +1750,6 @@ class SendFeedback(Resource):
             }, 500
 
         return {"status": 1, "message": "Feedback sent successfully"}, 200
-
 
 
 class SendAdditionalEmailOtp(Resource):
@@ -1394,7 +1773,25 @@ class SendAdditionalEmailOtp(Resource):
                     "message": "This email is already registered as an additional email",
                     "payload": {},
                 }
+            # Check if email exists as an additional email for another user
+            existing_additional = DBHelper.find_one(
+                "personal_information",
+                filters={"additional_emails": additional_email},
+                select_fields=["user_id"],
+            )
+            if existing_additional and existing_additional.get("user_id") != uid:
+                return {
+                    "status": 0,
+                    "message": "This email is already registered as an additional email",
+                    "payload": {},
+                }
 
+            # Generate OTP and set expiration time (10 minutes from now)
+            otp = generate_otp()
+            expiration_time = datetime.now(tz=pytz.UTC) + timedelta(minutes=10)
+
+            # Send OTP in a separate thread
+            Thread(target=send_otp_email, args=(additional_email, otp)).start()
             # Generate OTP and set expiration time (10 minutes from now)
             otp = generate_otp()
             expiration_time = datetime.now(tz=pytz.UTC) + timedelta(minutes=10)
@@ -1415,7 +1812,46 @@ class SendAdditionalEmailOtp(Resource):
                     "expires_at": expiration_time.isoformat(),
                 },
             )
+            # ✅ Log OTP with expiration in audit logs
+            otpLogId = AuditLogger.log(
+                user_id=uid,
+                action="SEND_ADDITIONAL_EMAIL_OTP",
+                resource_type="users",
+                resource_id=uid,
+                success=True,
+                metadata={
+                    "email": additional_email,
+                    "otp": otp,
+                    "expires_at": expiration_time.isoformat(),
+                },
+            )
 
+            return {
+                "status": 1,
+                "message": f"OTP sent to {additional_email}",
+                "payload": {
+                    "email": additional_email,
+                    "otpId": otpLogId,
+                    "expires_at": expiration_time.isoformat(),
+                },
+            }
+
+        except Exception as e:
+            # ✅ Log failure
+            AuditLogger.log(
+                user_id=uid,
+                action="SEND_ADDITIONAL_EMAIL_OTP",
+                resource_type="users",
+                resource_id=uid,
+                success=False,
+                error_message="Failed to send OTP",
+                metadata={"error": str(e)},
+            )
+            return {
+                "status": 0,
+                "message": f"Failed to send OTP: {str(e)}",
+                "payload": {},
+            }, 500
             return {
                 "status": 1,
                 "message": f"OTP sent to {additional_email}",
@@ -1459,7 +1895,26 @@ class VerifyAdditionalEmailOtp(Resource):
                     "message": "Email, OTP, and OTP ID are required",
                     "payload": {},
                 }
+            if not all([email, otp, otpId]):
+                return {
+                    "status": 0,
+                    "message": "Email, OTP, and OTP ID are required",
+                    "payload": {},
+                }
 
+            # Validate OTP and check expiration
+            response = is_otp_valid(otpId, otp)
+            if not response.get("status"):
+                AuditLogger.log(
+                    user_id=uid,
+                    action="VERIFY_ADDITIONAL_EMAIL_OTP",
+                    resource_type="users",
+                    resource_id=uid,
+                    success=False,
+                    error_message=response.get("message", "Invalid OTP"),
+                    metadata={"email": email, "otp": otp},
+                )
+                return response
             # Validate OTP and check expiration
             response = is_otp_valid(otpId, otp)
             if not response.get("status"):
@@ -1483,7 +1938,21 @@ class VerifyAdditionalEmailOtp(Resource):
                 success=True,
                 metadata={"email": email},
             )
+            # ✅ Log successful verification
+            AuditLogger.log(
+                user_id=uid,
+                action="VERIFY_ADDITIONAL_EMAIL_OTP",
+                resource_type="users",
+                resource_id=uid,
+                success=True,
+                metadata={"email": email},
+            )
 
+            return {
+                "status": 1,
+                "message": "Additional email verified successfully",
+                "payload": {"email": email, "verified": True},
+            }
             return {
                 "status": 1,
                 "message": "Additional email verified successfully",
@@ -1507,12 +1976,21 @@ class VerifyAdditionalEmailOtp(Resource):
                 "payload": {},
             }, 500
 
+
 class UploadProfilePicture(DriveBaseResource):
     @auth_required(isOptional=True)
     def post(self, uid, user):
         try:
-            target_uid = request.args.get("userId") or uid 
+            target_uid = request.args.get("userId") or uid
             if "file" not in request.files:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="UPLOAD_PROFILE_PICTURE_FAILED",
+                    resource_type="users",
+                    resource_id=target_uid,
+                    success=False,
+                    error_message="No file provided",
+                )
                 AuditLogger.log(
                     user_id=uid,
                     action="UPLOAD_PROFILE_PICTURE_FAILED",
@@ -1527,6 +2005,14 @@ class UploadProfilePicture(DriveBaseResource):
 
             service = self.get_drive_service(target_uid)
             if not service:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="UPLOAD_PROFILE_PICTURE_FAILED",
+                    resource_type="users",
+                    resource_id=target_uid,
+                    success=False,
+                    error_message="Google Drive not connected",
+                )
                 AuditLogger.log(
                     user_id=uid,
                     action="UPLOAD_PROFILE_PICTURE_FAILED",
@@ -1569,7 +2055,9 @@ class UploadProfilePicture(DriveBaseResource):
             ).execute()
 
             # ✅ Add public URL for direct image usage
-            uploaded_file["publicUrl"] = f"https://drive.google.com/uc?id={uploaded_file['id']}"
+            uploaded_file["publicUrl"] = (
+                f"https://drive.google.com/uc?id={uploaded_file['id']}"
+            )
 
             # ✅ Log successful upload
             AuditLogger.log(
@@ -1578,7 +2066,10 @@ class UploadProfilePicture(DriveBaseResource):
                 resource_type="users",
                 resource_id=target_uid,
                 success=True,
-                metadata={"file_name": uploaded_file["name"], "file_id": uploaded_file["id"]},
+                metadata={
+                    "file_name": uploaded_file["name"],
+                    "file_id": uploaded_file["id"],
+                },
             )
 
             return {
@@ -1597,7 +2088,16 @@ class UploadProfilePicture(DriveBaseResource):
                 success=False,
                 error_message=str(e),
             )
+            AuditLogger.log(
+                user_id=uid,
+                action="UPLOAD_PROFILE_PICTURE_FAILED",
+                resource_type="users",
+                resource_id=target_uid,
+                success=False,
+                error_message=str(e),
+            )
             return {"status": 0, "message": f"Upload failed: {str(e)}"}, 500
+
 
 class GetProfilePictures(DriveBaseResource):
     @auth_required(isOptional=True)
@@ -1629,10 +2129,16 @@ class GetProfilePictures(DriveBaseResource):
 
             files = results.get("files", [])
             if not files:
-                return {"status": 1, "message": "No profile picture found", "payload": {"file": None}}
+                return {
+                    "status": 1,
+                    "message": "No profile picture found",
+                    "payload": {"file": None},
+                }
 
             latest_file = files[0]
-            latest_file["publicUrl"] = f"https://drive.google.com/uc?id={latest_file['id']}"
+            latest_file["publicUrl"] = (
+                f"https://drive.google.com/uc?id={latest_file['id']}"
+            )
 
             return {
                 "status": 1,
@@ -1644,6 +2150,57 @@ class GetProfilePictures(DriveBaseResource):
             traceback.print_exc()
             return {"status": 0, "message": f"Failed to fetch files: {str(e)}"}, 500
 
+
+class GetProfilePictures(DriveBaseResource):
+    @auth_required(isOptional=True)
+    def get(self, uid, user):
+        try:
+            target_uid = request.args.get("userId") or uid
+
+            service = self.get_drive_service(target_uid)
+            if not service:
+                return {"status": 0, "message": "Google Drive not connected"}, 401
+
+            # ✅ Navigate to Dockly/Profile Pictures
+            root_id = get_or_create_subfolder(service, "DOCKLY", "root")
+            profile_id = get_or_create_subfolder(service, "Profile Pictures", root_id)
+
+            # ✅ Fetch files ordered by modifiedTime (latest first)
+            query = f"'{profile_id}' in parents and trashed = false"
+            results = (
+                service.files()
+                .list(
+                    q=query,
+                    orderBy="modifiedTime desc",
+                    pageSize=1,  # only latest file
+                    fields="files(id, name, mimeType, size, modifiedTime, webViewLink)",
+                    spaces="drive",
+                )
+                .execute()
+            )
+
+            files = results.get("files", [])
+            if not files:
+                return {
+                    "status": 1,
+                    "message": "No profile picture found",
+                    "payload": {"file": None},
+                }
+
+            latest_file = files[0]
+            latest_file["publicUrl"] = (
+                f"https://drive.google.com/uc?id={latest_file['id']}"
+            )
+
+            return {
+                "status": 1,
+                "message": "Latest profile picture fetched successfully",
+                "payload": {"file": latest_file},
+            }
+
+        except Exception as e:
+            traceback.print_exc()
+            return {"status": 0, "message": f"Failed to fetch files: {str(e)}"}, 500
 
 
 class GetProfilePictures(DriveBaseResource):
@@ -1680,6 +2237,103 @@ class GetProfilePictures(DriveBaseResource):
         except Exception as e:
             traceback.print_exc()
             return {"status": 0, "message": f"Failed to fetch files: {str(e)}"}, 500
+
+
+class UpdateUsername(Resource):
+    @auth_required()
+    def post(self, uid, user):
+        try:
+            data = request.get_json()
+            new_username = data.get("user_name")
+
+            if not new_username:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="UPDATE_USERNAME_FAILED",
+                    resource_type="users",
+                    resource_id=uid,
+                    success=False,
+                    error_message="Username is required",
+                )
+                return {"status": 0, "message": "Username is required", "payload": {}}
+
+            # Validate username format (alphanumeric, underscores, 3-20 chars)
+            if not re.match(r"^[a-zA-Z0-9_]{3,20}$", new_username):
+                AuditLogger.log(
+                    user_id=uid,
+                    action="UPDATE_USERNAME_FAILED",
+                    resource_type="users",
+                    resource_id=uid,
+                    success=False,
+                    error_message="Invalid username format",
+                    metadata={"attempted_username": new_username},
+                )
+                return {
+                    "status": 0,
+                    "message": "Invalid username format. Use 3-20 alphanumeric characters or underscores.",
+                    "payload": {},
+                }
+
+            # Check if username is already taken
+            existing_user = DBHelper.find_one(
+                "users",
+                filters={"user_name": new_username},
+                select_fields=["uid"],
+            )
+
+            if existing_user and existing_user.get("uid") != uid:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="UPDATE_USERNAME_FAILED",
+                    resource_type="users",
+                    resource_id=uid,
+                    success=False,
+                    error_message="Username already taken",
+                    metadata={"attempted_username": new_username},
+                )
+                return {
+                    "status": 0,
+                    "message": "Username is already taken",
+                    "payload": {},
+                }
+
+            # Update username in users table
+            DBHelper.update_one(
+                table_name="users",
+                filters={"uid": uid},
+                updates={"user_name": new_username, "updated_at": datetime.utcnow()},
+            )
+
+            # Log the successful update
+            AuditLogger.log(
+                user_id=uid,
+                action="UPDATE_USERNAME",
+                resource_type="users",
+                resource_id=uid,
+                success=True,
+                metadata={"new_username": new_username},
+            )
+
+            return {
+                "status": 1,
+                "message": "Username updated successfully",
+                "payload": {"user_name": new_username},
+            }
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="UPDATE_USERNAME_FAILED",
+                resource_type="users",
+                resource_id=uid,
+                success=False,
+                error_message=str(e),
+            )
+            return {
+                "status": 0,
+                "message": f"Failed to update username: {str(e)}",
+                "payload": {},
+            }
 
 
 class UpdateUsername(Resource):

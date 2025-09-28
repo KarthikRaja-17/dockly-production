@@ -7,11 +7,11 @@ import uuid
 from flask import json, request, session
 from datetime import datetime, timedelta
 import requests
+from root.helpers.logs import AuditLogger
 from root.config import CLIENT_ID, CLIENT_SECRET, SCOPE, WEB_URL, uri
 from root.db.dbHelper import DBHelper
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
-
 
 def numGenerator(size=6, chars=string.digits):
     return "".join(choice(chars) for _ in range(size))
@@ -122,93 +122,111 @@ def uniqueId(digit=4, isNum=False, ref={}, prefix=None, suffix=None):
 
 
 def create_calendar_event(user_id, title, start_dt, end_dt=None, attendees=None):
-    user_cred = DBHelper.find_one(
-        "connected_accounts",
-        filters={"user_id": user_id},
-        select_fields=["access_token", "refresh_token", "email"],
-    )
-    if not user_cred:
-        raise Exception("No connected Google account found.")
+    try:
+        user_cred = DBHelper.find_one(
+            "connected_accounts",
+            filters={"user_id": user_id},
+            select_fields=["access_token", "refresh_token", "email"],
+        )
+        if not user_cred:
+            raise Exception("No connected Google account found.")
 
-    creds = Credentials(
-        token=user_cred["access_token"],
-        refresh_token=user_cred["refresh_token"],
-        token_uri=uri,
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
-        scopes=SCOPE.split(),
-    )
+        creds = Credentials(
+            token=user_cred["access_token"],
+            refresh_token=user_cred["refresh_token"],
+            token_uri=uri,
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET,
+            scopes=SCOPE.split(),
+        )
 
-    service = build("calendar", "v3", credentials=creds)
+        service = build("calendar", "v3", credentials=creds)
 
-    if end_dt is None:
-        end_dt = start_dt + timedelta(hours=1)
+        if end_dt is None:
+            end_dt = start_dt + timedelta(hours=1)
 
-    event = {
-        "summary": title,
-        "start": {"dateTime": start_dt.isoformat(), "timeZone": "Asia/Kolkata"},
-        "end": {"dateTime": end_dt.isoformat(), "timeZone": "Asia/Kolkata"},
-        "attendees": attendees or [],
-        "guestsCanModify": True,
-        "guestsCanInviteOthers": True,
-        "guestsCanSeeOtherGuests": True,
-    }
+        event = {
+            "summary": title,
+            "start": {"dateTime": start_dt.isoformat(), "timeZone": "Asia/Kolkata"},
+            "end": {"dateTime": end_dt.isoformat(), "timeZone": "Asia/Kolkata"},
+            "attendees": attendees or [],
+            "guestsCanModify": True,
+            "guestsCanInviteOthers": True,
+            "guestsCanSeeOtherGuests": True,
+        }
 
-    created_event = service.events().insert(calendarId="primary", body=event).execute()
-
-    return created_event.get("id")  # ✅ return only the Google event ID
-
+        created_event = service.events().insert(calendarId="primary", body=event).execute()
+        return created_event.get("id")
+        
+    except Exception as e:
+        AuditLogger.log(
+            user_id=user_id,
+            action="create_calendar_event",
+            resource_type="calendar_event",
+            resource_id="unknown",
+            success=False,
+            error_message="Failed to create calendar event",
+            metadata={"title": title, "error": str(e)},
+        )
+        raise e
 
 def update_calendar_event(
     user_id, calendar_event_id, title, start_dt, end_dt=None, attendees=None
 ):
-    user_cred = DBHelper.find_one(
-        "connected_accounts",
-        filters={"user_id": user_id},
-        select_fields=["access_token", "refresh_token", "email"],
-    )
-    if not user_cred:
-        raise Exception("No connected Google account found.")
+    try:
+        user_cred = DBHelper.find_one(
+            "connected_accounts",
+            filters={"user_id": user_id},
+            select_fields=["access_token", "refresh_token", "email"],
+        )
+        if not user_cred:
+            raise Exception("No connected Google account found.")
 
-    creds = Credentials(
-        token=user_cred["access_token"],
-        refresh_token=user_cred["refresh_token"],
-        token_uri=uri,
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
-        scopes=SCOPE.split(),
-    )
+        creds = Credentials(
+            token=user_cred["access_token"],
+            refresh_token=user_cred["refresh_token"],
+            token_uri=uri,
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET,
+            scopes=SCOPE.split(),
+        )
 
-    service = build("calendar", "v3", credentials=creds)
+        service = build("calendar", "v3", credentials=creds)
 
-    if end_dt is None:
-        end_dt = start_dt + timedelta(hours=1)
+        if end_dt is None:
+            end_dt = start_dt + timedelta(hours=1)
 
-    # First: Get the existing event from Google
-    existing_event = (
-        service.events().get(calendarId="primary", eventId=calendar_event_id).execute()
-    )
+        existing_event = (
+            service.events().get(calendarId="primary", eventId=calendar_event_id).execute()
+        )
 
-    # Update fields
-    existing_event["summary"] = title
-    existing_event["start"] = {
-        "dateTime": start_dt.isoformat(),
-        "timeZone": "Asia/Kolkata",
-    }
-    existing_event["end"] = {"dateTime": end_dt.isoformat(), "timeZone": "Asia/Kolkata"}
-    existing_event["attendees"] = attendees or []
-    existing_event["guestsCanModify"] = True
-    existing_event["guestsCanInviteOthers"] = True
-    existing_event["guestsCanSeeOtherGuests"] = True
+        existing_event["summary"] = title
+        existing_event["start"] = {
+            "dateTime": start_dt.isoformat(),
+            "timeZone": "Asia/Kolkata",
+        }
+        existing_event["end"] = {"dateTime": end_dt.isoformat(), "timeZone": "Asia/Kolkata"}
+        existing_event["attendees"] = attendees or []
 
-    # Update on Google Calendar
-    updated_event = (
-        service.events()
-        .update(calendarId="primary", eventId=calendar_event_id, body=existing_event)
-        .execute()
-    )
+        updated_event = (
+            service.events()
+            .update(calendarId="primary", eventId=calendar_event_id, body=existing_event)
+            .execute()
+        )
 
-    return updated_event.get("id")  # Optional return
+        return updated_event.get("id")
+        
+    except Exception as e:
+        AuditLogger.log(
+            user_id=user_id,
+            action="update_calendar_event",
+            resource_type="calendar_event",
+            resource_id=calendar_event_id,
+            success=False,
+            error_message="Failed to update calendar event",
+            metadata={"title": title, "error": str(e)},
+        )
+        raise e
 
 
 def delete_calendar_event(user_id, calendar_event_id):
@@ -438,49 +456,150 @@ from werkzeug.utils import secure_filename
 from googleapiclient.http import MediaIoBaseUpload
 
 
-def ensure_drive_folder_structure(service, root_name="DOCKLY", subfolders=None):
+def ensure_drive_folder_structure(service, user_id, storage_account_id, root_name="DOCKLY", subfolders=None):
     if subfolders is None:
         subfolders = ["Home", "Family", "Finance", "Health", "Planner"]
 
-    def find_or_create_folder(name, parent_id=None):
-        # Search for folder
-        query = f"name='{name}' and mimeType='application/vnd.google-apps.folder'"
+    def find_or_create_folder(name, parent_id=None, parent_db_id=None):
+        # Search for folder in Google Drive
+        query = f"name='{name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
         if parent_id:
             query += f" and '{parent_id}' in parents"
         else:
             query += " and 'root' in parents"
 
-        response = service.files().list(q=query, fields="files(id, name)").execute()
+        response = service.files().list(q=query, fields="files(id, name, modifiedTime)").execute()
         files = response.get("files", [])
 
         if files:
-            return files[0]["id"]
+            folder = files[0]
+            folder_id = folder["id"]
+            modified_time = folder.get("modifiedTime")
         else:
-            # Create folder
+            # Create folder in Google Drive
             folder_metadata = {
                 "name": name,
                 "mimeType": "application/vnd.google-apps.folder",
             }
             if parent_id:
                 folder_metadata["parents"] = [parent_id]
-            folder = service.files().create(body=folder_metadata, fields="id").execute()
-            return folder["id"]
+
+            folder = service.files().create(body=folder_metadata, fields="id, name, modifiedTime,webViewLink").execute()
+            folder_id = folder["id"]
+            modified_time = folder.get("modifiedTime")
+            web_link = folder.get("webViewLink") or folder["name"]
+        # Check if already in files_index
+        existing = DBHelper.find_one(
+            table_name="files_index",
+            filters={"external_file_id": folder_id, "user_id": user_id}
+        )
+
+        if existing:
+            db_id = existing["id"]
+        else:
+            db_id = str(uuid.uuid4())
+            DBHelper.insert(
+                table_name="files_index",
+                id=db_id,
+                user_id=user_id,
+                storage_account_id=storage_account_id,
+                file_path=web_link,
+                file_name=name,
+                file_size=0,
+                file_type="folder",
+                mime_type="application/vnd.google-apps.folder",
+                is_folder=True,
+                parent_folder_id=parent_db_id,
+                external_file_id=folder_id,
+                last_modified=modified_time or datetime.now().isoformat(),
+                created_at=datetime.now().isoformat(),
+                indexed_at=datetime.now().isoformat(),
+            )
+
+        return folder_id, db_id
 
     # Ensure root folder
-    root_folder_id = find_or_create_folder(root_name)
+    root_folder_id, root_db_id = find_or_create_folder(root_name)
 
     # Ensure subfolders
     folder_ids = {}
+    folder_db_ids = {}
     for name in subfolders:
-        folder_ids[name] = find_or_create_folder(name, parent_id=root_folder_id)
+        g_id, db_id = find_or_create_folder(name, parent_id=root_folder_id, parent_db_id=root_db_id)
+        folder_ids[name] = g_id
+        folder_db_ids[name] = db_id
 
     return {
-        "root": root_folder_id,  # ✅ This is what you need
-        "subfolders": folder_ids,
+        "root": root_folder_id,
+        "root_db": root_db_id,
+        "subfolders": folder_ids,       # Google IDs
+        "subfolders_db": folder_db_ids  # DB UUIDs
     }
 
 
-def upload_file_to_hub_folder(service, file, hub_name):
+def get_or_create_subfolder(service, folder_name: str, parent_google_id: str, parent_db_id: str,
+                            user_id: str, storage_account_id: str):
+    """Check if a subfolder exists under parent, else create it.
+       Always ensure it's in files_index and return both IDs.
+    """
+    # Check in Google Drive
+    query = (
+        f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' "
+        f"and '{parent_google_id}' in parents and trashed = false"
+    )
+    response = service.files().list(q=query, fields="files(id, name, modifiedTime)").execute()
+    folders = response.get("files", [])
+
+    if folders:
+        folder = folders[0]
+        folder_id = folder["id"]
+        modified_time = folder.get("modifiedTime")
+    else:
+        # Create in Google Drive
+        metadata = {
+            "name": folder_name,
+            "mimeType": "application/vnd.google-apps.folder",
+            "parents": [parent_google_id],
+        }
+        folder = service.files().create(body=metadata, fields="id, name, modifiedTime,webViewLink").execute()
+        folder_id = folder["id"]
+        modified_time = folder.get("modifiedTime")
+        web_link = folder.get("webViewLink") or folder["name"]
+
+    # Check if already in files_index
+    existing = DBHelper.find_one(
+        table_name="files_index",
+        filters={"external_file_id": folder_id, "user_id": user_id}
+    )
+
+    if existing:
+        db_id = existing["id"]
+    else:
+        db_id = str(uuid.uuid4())
+        DBHelper.insert(
+            table_name="files_index",
+            id=db_id,
+            user_id=user_id,
+            storage_account_id=storage_account_id,
+            file_path=folder_name,
+            file_name=web_link,
+            file_size=0,
+            file_type="folder",
+            mime_type="application/vnd.google-apps.folder",
+            is_folder=True,
+            parent_folder_id=parent_db_id,
+            external_file_id=folder_id,
+            last_modified=modified_time or datetime.now().isoformat(),
+            created_at=datetime.now().isoformat(),
+            indexed_at=datetime.now().isoformat(),
+        )
+
+    return {
+        "google_id": folder_id,
+        "db_id": db_id
+    }
+
+def upload_file_to_hub_folder(service, file, hub_name, user_id, storage_account_id):
     try:
         if hub_name not in ["Home", "Family", "Finance", "Health", "Planner"]:
             return {
@@ -489,22 +608,23 @@ def upload_file_to_hub_folder(service, file, hub_name):
                 "payload": {},
             }
 
-        # Ensure folders
-        folder_ids = ensure_drive_folder_structure(service)
-        parent_id = folder_ids.get(hub_name)
+        # Ensure folders (returns both Google IDs and DB IDs)
+        folder_info = ensure_drive_folder_structure(service, user_id, storage_account_id)
+        parent_google_id = folder_info["subfolders"][hub_name]
+        parent_db_id = folder_info["subfolders_db"][hub_name]
 
-        # Prepare file metadata
+        # Prepare file metadata for Google Drive
         file_metadata = {
             "name": secure_filename(file.filename),
-            "parents": [parent_id],
+            "parents": [parent_google_id],
         }
-
         media = MediaIoBaseUpload(
             io.BytesIO(file.read()),
             mimetype=file.content_type or "application/octet-stream",
             resumable=True,
         )
 
+        # Upload to Google Drive
         uploaded_file = (
             service.files()
             .create(
@@ -515,10 +635,30 @@ def upload_file_to_hub_folder(service, file, hub_name):
             .execute()
         )
 
+        # Insert into files_index (direct column kwargs, not a 'data' dict)
+        file_db_id = str(uuid.uuid4())
+        DBHelper.insert(
+            table_name="files_index",
+            id=file_db_id,
+            user_id=user_id,
+            storage_account_id=storage_account_id,
+            file_path=uploaded_file.get("webViewLink"),
+            file_name=uploaded_file.get("name"),
+            file_size=int(uploaded_file.get("size", 0)),
+            file_type=uploaded_file.get("mimeType", "file"),
+            mime_type=uploaded_file.get("mimeType"),
+            is_folder=False,
+            parent_folder_id=parent_db_id,      # DB UUID of hub folder
+            external_file_id=uploaded_file["id"],  # Google Drive ID
+            last_modified=uploaded_file.get("modifiedTime", datetime.now().isoformat()),
+            created_at=datetime.now().isoformat(),
+            indexed_at=datetime.now().isoformat(),
+        )
+
         return {
             "status": 1,
             "message": f"File '{file.filename}' uploaded successfully to {hub_name}",
-            "payload": {"file": uploaded_file},
+            "payload": {"file": uploaded_file, "db_id": file_db_id},
         }
 
     except Exception as e:
@@ -537,20 +677,6 @@ def get_or_create_subfolder(service, folder_name: str, parent_id: str):
         f"and '{parent_id}' in parents and trashed = false"
     )
 
-    response = service.files().list(q=query, fields="files(id, name)").execute()
-    folders = response.get("files", [])
-
-    if folders:
-        return folders[0]["id"]
-
-    # Folder not found, so create it
-    metadata = {
-        "name": folder_name,
-        "mimeType": "application/vnd.google-apps.folder",
-        "parents": [parent_id],
-    }
-    created_folder = service.files().create(body=metadata, fields="id").execute()
-    return created_folder["id"]
 
 
 FAMILY_MEMBER_COLORS = [

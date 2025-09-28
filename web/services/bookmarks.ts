@@ -45,3 +45,14 @@ export async function shareBookmarks(params: {
 }) {
   return api.post("/bookmarks/share/bookmarks", params);
 }
+
+export interface ShareItemParams {
+  email: string | string[];
+  item_type: 'bookmark' | 'note' | 'project' | 'goal' | 'todo' | 'maintenance_task';
+  item_data: any;
+  tagged_members?: string[];
+}
+
+export async function shareItem(params: ShareItemParams) {
+  return api.post('/bookmarks/share/item', params);
+}

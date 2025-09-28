@@ -14,7 +14,7 @@ import {
   getFitbitSyncLogs,
   getFitbitGoals,
   syncFitbitGoals
-} from '../services/fitbit';
+} from '../services/health/fitbit';
 
 // Import types from the centralized types file
 import { FitbitDashboardData, FitbitUserGoals, HealthGoal } from '../services/health/types';

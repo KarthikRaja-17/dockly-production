@@ -50,6 +50,7 @@ import dayjs from "dayjs";
 import SmartInputBox from "./smartInput";
 import { addEvent } from "../../services/google";
 import { showNotification } from "../../utils/notification";
+import { CustomButton } from "../../app/comman";
 
 // Professional color palette
 const COLORS = {
@@ -383,13 +384,13 @@ const CustomCalendar: React.FC<CalendarProps> = ({
   // }
 
   const [storedWorkingHours, setStoredWorkingHours] = useState<string | null>(
-      null
-    );
-    
-    useEffect(() => {
-      const hours = localStorage.getItem("workingHours");
-      setStoredWorkingHours(hours);
-    }, []);
+    null
+  );
+
+  useEffect(() => {
+    const hours = localStorage.getItem("workingHours");
+    setStoredWorkingHours(hours);
+  }, []);
 
   const getPersonData = (person: string): PersonData => {
     return personColors[person] || { color: COLORS.accent, email: "" };
@@ -1500,9 +1501,10 @@ const CustomCalendar: React.FC<CalendarProps> = ({
                 onMouseLeave={() => setHoveredEvent(null)}
                 style={{
                   fontFamily: FONT_FAMILY,
-                  background: view === "Week" && event.provider === "dockly"
-                    ? `linear-gradient(to right, ${event.color}15 0%, ${event.color}15 85%, #1890FF15 85%, #1890FF15 100%)`
-                    : `linear-gradient(135deg, ${event.color}15, ${event.color}08)`,
+                  background:
+                    view === "Week" && event.provider === "dockly"
+                      ? `linear-gradient(to right, ${event.color}15 0%, ${event.color}15 85%, #1890FF15 85%, #1890FF15 100%)`
+                      : `linear-gradient(135deg, ${event.color}15, ${event.color}08)`,
                   borderLeft: `3px solid ${event.color}`,
                   border: `1px solid ${event.color}20`,
                   padding: "4px 8px",
@@ -1946,9 +1948,10 @@ const CustomCalendar: React.FC<CalendarProps> = ({
                       backgroundColor:
                         event.color || getProviderColor(event.provider || ""),
                       color: "black",
-                      background: event.provider === "dockly"
-                        ? `linear-gradient(to left, ${event.color} 0%, ${event.color} 95%, #0033FF 95%, #0033FF 100%)`
-                        : event.color,
+                      background:
+                        event.provider === "dockly"
+                          ? `linear-gradient(to left, ${event.color} 0%, ${event.color} 95%, #0033FF 95%, #0033FF 100%)`
+                          : event.color,
                       fontSize: "9px",
                       padding: "7px 10px",
                       borderRadius: "4px",
@@ -2252,9 +2255,10 @@ const CustomCalendar: React.FC<CalendarProps> = ({
                             left: leftOffset,
                             width: eventWidth,
                             height: `${eventHeight}px`,
-                            background: event.provider === "dockly"
-                              ? `linear-gradient(to left, ${event.color} 0%, ${event.color} 95%, #0033FF 95%, #0033FF 100%)`
-                              : `linear-gradient(135deg, ${event.color}, ${event.color}dd)`,
+                            background:
+                              event.provider === "dockly"
+                                ? `linear-gradient(to left, ${event.color} 0%, ${event.color} 95%, #0033FF 95%, #0033FF 100%)`
+                                : `linear-gradient(135deg, ${event.color}, ${event.color}dd)`,
                             color: "black",
                             padding: "3px 6px",
                             borderRadius: "5px",
@@ -3769,21 +3773,21 @@ const CustomCalendar: React.FC<CalendarProps> = ({
                 </Option>
               ))}
             </Select>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
+            <CustomButton
+              label="Add Event" // tooltip text
+              // icon={<PlusOutlined />}
               onClick={() => setIsModalVisible(true)}
-              style={{
-                backgroundColor: COLORS.accent,
-                borderColor: COLORS.accent,
-                borderRadius: "6px",
-                height: "32px",
-                width: "32px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 0,
-              }}
+              // style={{
+              //   backgroundColor: COLORS.accent,
+              //   borderColor: COLORS.accent,
+              //   borderRadius: "6px",
+              //   height: "32px",
+              //   width: "32px",
+              //   display: "flex",
+              //   alignItems: "center",
+              //   justifyContent: "center",
+              //   padding: 0,
+              // }}
             />
           </div>
         </div>

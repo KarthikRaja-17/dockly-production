@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { colors, shadows, MedicationData } from "../../../services/health/types";
 import { Button, Popconfirm } from "antd";
-import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EditOutlined, ShareAltOutlined } from "@ant-design/icons";
 
 // Dashboard Design System Constants
 const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
@@ -60,6 +60,7 @@ interface MedicationsProps {
   onAddMedication: () => void;
   onEditMedication: (medication: MedicationData) => void;
   onDeleteMedication: (id: number) => void;
+  onShareMedication?: (medication: MedicationData) => void; // Added sharing prop
 }
 
 const MedicationItem: React.FC<{
@@ -69,6 +70,7 @@ const MedicationItem: React.FC<{
   onToggleExpanded: () => void;
   onEditMedication: (medication: MedicationData) => void;
   onDeleteMedication: (id: number) => void;
+  onShareMedication?: (medication: MedicationData) => void; // Added sharing prop
   isMockup?: boolean;
   onAddMedication?: () => void;
 }> = ({
@@ -78,6 +80,7 @@ const MedicationItem: React.FC<{
   onToggleExpanded,
   onEditMedication,
   onDeleteMedication,
+  onShareMedication, // Added sharing prop
   isMockup = false,
   onAddMedication
 }) => {
@@ -435,85 +438,114 @@ const MedicationItem: React.FC<{
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div style={{ display: "flex", gap: SPACING.sm, justifyContent: "flex-end" }}>
-              <Button
-                icon={<EditOutlined />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEditMedication(medication);
-                }}
+            {/* Action Buttons - Following bookmarks pattern */}
+            <div
+              style={{
+                borderTop: "1px solid #f0f0f0",
+                padding: "8px 16px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                backgroundColor: "#fafafa",
+                width: "100%",
+                maxWidth: "100%",
+              }}
+            >
+              <div
                 style={{
-                  padding: `${SPACING.sm}px ${SPACING.md}px`,
-                  background: colors.healthPrimary,
-                  color: "white",
-                  border: "none",
-                  borderRadius: '6px',
-                  cursor: "pointer",
-                  fontSize: "0.75rem",
-                  fontWeight: 500,
-                  transition: "all 0.2s",
-                  fontFamily: FONT_FAMILY,
                   display: "flex",
-                  alignItems: "center",
-                  gap: SPACING.xs,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = colors.healthPrimary;
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = colors.healthPrimary;
-                  e.currentTarget.style.transform = "translateY(0)";
+                  justifyContent: "space-between",
+                  flex: 1,
+                  maxWidth: "100%",
                 }}
               >
-              </Button>
-
-              {medication.id != null && (
-                <Popconfirm
-                  title="Are you sure to delete this medication?"
-                  onConfirm={(e) => {
-                    if (e) e.stopPropagation();
-                    onDeleteMedication(medication.id!);
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EditOutlined style={{ fontSize: "14px" }} />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditMedication(medication);
                   }}
-                  onCancel={(e) => { if (e) e.stopPropagation(); }}
-                  okText="Yes"
-                  cancelText="No"
-                >
-                  <Button
-                    icon={<DeleteOutlined />}
-                    onClick={(e) => {
-                      e.stopPropagation();
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                />
+
+                <div
+                  style={{
+                    borderLeft: "1px solid #e0e0e0",
+                    height: "16px",
+                    alignSelf: "center",
+                  }}
+                />
+
+                {/* Share Button - Following bookmarks pattern */}
+                {onShareMedication && (
+                  <>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<ShareAltOutlined style={{ fontSize: "14px" }} />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShareMedication(medication);
+                      }}
+                      style={{
+                        width: "28px",
+                        height: "28px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    />
+
+                    <div
+                      style={{
+                        borderLeft: "1px solid #e0e0e0",
+                        height: "16px",
+                        alignSelf: "center",
+                      }}
+                    />
+                  </>
+                )}
+
+                {medication.id != null && (
+                  <Popconfirm
+                    title="Are you sure to delete this medication?"
+                    onConfirm={(e) => {
+                      if (e) e.stopPropagation();
+                      onDeleteMedication(medication.id!);
                     }}
-                    style={{
-                      padding: `${SPACING.sm}px ${SPACING.md}px`,
-                      background: colors.surface,
-                      color: colors.danger,
-                      border: `1px solid ${colors.danger}`,
-                      borderRadius: '6px',
-                      cursor: "pointer",
-                      fontSize: "0.75rem",
-                      fontWeight: 500,
-                      transition: "all 0.2s",
-                      fontFamily: FONT_FAMILY,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: SPACING.xs,
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = colors.danger;
-                      e.currentTarget.style.color = "white";
-                      e.currentTarget.style.transform = "translateY(-1px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = colors.surface;
-                      e.currentTarget.style.color = colors.danger;
-                      e.currentTarget.style.transform = "translateY(0)";
-                    }}
+                    onCancel={(e) => { if (e) e.stopPropagation(); }}
+                    okText="Yes"
+                    cancelText="No"
                   >
-                  </Button>
-                </Popconfirm>
-              )}
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DeleteOutlined style={{ fontSize: "14px", color: "#ff0207ff" }} />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                      style={{
+                        width: "28px",
+                        height: "28px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    />
+                  </Popconfirm>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -528,6 +560,7 @@ const Medications: React.FC<MedicationsProps> = ({
   onAddMedication,
   onEditMedication,
   onDeleteMedication,
+  onShareMedication, // Added sharing prop
 }) => {
   const [expandedMedications, setExpandedMedications] = useState<Set<number | string>>(new Set());
   const [hovered, setHovered] = useState(false);
@@ -698,6 +731,7 @@ const Medications: React.FC<MedicationsProps> = ({
                   onToggleExpanded={() => toggleExpanded(medicationKey)}
                   onEditMedication={onEditMedication}
                   onDeleteMedication={onDeleteMedication}
+                  onShareMedication={onShareMedication} // Pass sharing handler
                   isMockup={!hasUserMedications}
                   onAddMedication={onAddMedication}
                 />

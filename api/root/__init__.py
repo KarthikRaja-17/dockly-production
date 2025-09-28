@@ -57,6 +57,7 @@ def create_app(test_config=None):
     app.register_blueprint(settings_bp)
 
   
+  
     from root.dashboard import dashboard_bp
 
     app.register_blueprint(dashboard_bp)
@@ -96,6 +97,10 @@ def create_app(test_config=None):
     # Import and register Fitbit module
     from root.fitbit import fitbit_bp
     app.register_blueprint(fitbit_bp)
+    
+    
+    from root.subscriptions import subscriptions_bp
+    app.register_blueprint(subscriptions_bp)
 
 
     #  from root.admin.users import admin_users_bp

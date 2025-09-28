@@ -5,3 +5,7 @@ export async function getSubscriptions(params: any) {
     params,
   });
 }
+
+export async function addSubscription(params: any) {
+  return api.post('/create-checkout-session', params);
+}

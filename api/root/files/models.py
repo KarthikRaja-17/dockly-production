@@ -1,6 +1,7 @@
 import os
 import json
 import traceback
+import uuid
 import requests
 from datetime import datetime, timedelta
 from flask import Request, request, jsonify, send_file
@@ -16,7 +17,8 @@ from root.common import Status
 from root.config import CLIENT_ID, CLIENT_SECRET, SCOPE
 from root.db.dbHelper import DBHelper
 from google.auth.exceptions import RefreshError
-from root.utilis import get_or_create_subfolder
+from root.utilis import ensure_drive_folder_structure, get_or_create_subfolder
+from root.helpers.logs import AuditLogger
 
 class DriveBaseResource(Resource):
     """Base class for Google Drive operations"""
@@ -1830,44 +1832,71 @@ class UploadHubFile(DriveBaseResource):
             if not hub:
                 return {"status": 0, "message": "Missing hub name"}, 400
 
+            # Get Google Drive service
             service = self.get_drive_service(uid)
             if not service:
-                return {
-                    "status": 0,
-                    "message": "Google Drive not connected or token expired",
-                }, 401
+                return {"status": 0, "message": "Google Drive not connected or token expired"}, 401
 
-            # Step 1: Get or create DOCKLY root
-            root_id = get_or_create_subfolder(service, "DOCKLY", "root")
-
-            # Step 2: Get or create the hub folder under DOCKLY
-            hub_folder_id = get_or_create_subfolder(service, hub, root_id)
-
-            # Step 3: Upload directly into hub folder
-            file_metadata = {
-                "name": secure_filename(file.filename),
-                "parents": [hub_folder_id],
-            }
-
-            media = MediaIoBaseUpload(
-                io.BytesIO(file.read()),
-                mimetype=file.content_type or "application/octet-stream",
+            # Get storage account ID
+            account = DBHelper.find_one(
+                table_name="connected_accounts",
+                filters={"user_id": uid, "provider": "google", "is_active": 1},
+                select_fields=["id"],
             )
+            if not account:
+                return {"status": 0, "message": "Google Drive not connected"}, 401
 
-            uploaded_file = (
-                service.files()
-                .create(
-                    body=file_metadata,
-                    media_body=media,
-                    fields="id, name, webViewLink, mimeType, size, modifiedTime",
+            # Ensure DOCKLY root and subfolders
+            folder_info = ensure_drive_folder_structure(service, uid, account["id"])
+            if hub not in folder_info["subfolders"]:
+                # create dynamically if hub not in default list
+                hub_folder = get_or_create_subfolder(
+                    service,
+                    hub,
+                    parent_google_id=folder_info["root"],
+                    parent_db_id=folder_info["root_db"],
+                    user_id=uid,
+                    storage_account_id=account["id"],
                 )
-                .execute()
+                hub_google_id = hub_folder["google_id"]
+                hub_db_id = hub_folder["db_id"]
+            else:
+                hub_google_id = folder_info["subfolders"][hub]
+                hub_db_id = folder_info["subfolders_db"][hub]
+
+            # Upload file to Google Drive
+            file_metadata = {"name": secure_filename(file.filename), "parents": [hub_google_id]}
+            media = MediaIoBaseUpload(io.BytesIO(file.read()), mimetype=file.content_type or "application/octet-stream", resumable=True)
+            uploaded_file = service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields="id, name, webViewLink, mimeType, size, modifiedTime",
+            ).execute()
+
+            # Insert file in DB
+            file_db_id = DBHelper.insert(
+                table_name="files_index",
+                id=str(uuid.uuid4()),
+                return_column="id",
+                user_id=uid,
+                storage_account_id=account["id"],
+                file_path=uploaded_file.get("webViewLink"),
+                file_name=uploaded_file.get("name"),
+                file_size=int(uploaded_file.get("size", 0)),
+                file_type=uploaded_file.get("mimeType"),
+                mime_type=uploaded_file.get("mimeType"),
+                is_folder=False,
+                parent_folder_id=hub_db_id,
+                external_file_id=uploaded_file["id"],
+                last_modified=uploaded_file.get("modifiedTime", datetime.now().isoformat()),
+                created_at=datetime.now().isoformat(),
+                indexed_at=datetime.now().isoformat(),
             )
 
             return {
                 "status": 1,
                 "message": f"File uploaded to {hub} hub successfully",
-                "payload": {"file": uploaded_file},
+                "payload": {"file": uploaded_file, "db_id": file_db_id},
             }, 200
 
         except Exception as e:
@@ -1887,7 +1916,7 @@ class GetHubFiles(DriveBaseResource):
             family_members = self._get_family_members(uid)
             all_user_ids = list({uid} | {m.get("user_id") for m in family_members if m.get("user_id")})
 
-            # Fetch user details for name/email
+            # Fetch user details
             user_details = self._get_users_details(all_user_ids)
 
             files_by_member = []
@@ -1898,12 +1927,7 @@ class GetHubFiles(DriveBaseResource):
                     "connected_accounts": {
                         "filters": {"is_active": 1, "provider": "google"},
                         "select_fields": [
-                            "user_id",
-                            "access_token",
-                            "refresh_token",
-                            "email",
-                            "provider",
-                            "user_object",
+                            "user_id", "access_token", "refresh_token", "email", "provider", "user_object", "id"
                         ],
                     }
                 },
@@ -1913,8 +1937,7 @@ class GetHubFiles(DriveBaseResource):
             for account in connected_accounts:
                 user_id = account.get("user_id")
                 email = account.get("email")
-                user_info = user_details.get(user_id, {})
-                username = user_info.get("user_name", email.split("@")[0])
+                username = user_details.get(user_id, {}).get("user_name", email.split("@")[0])
 
                 try:
                     creds = Credentials(
@@ -1932,64 +1955,56 @@ class GetHubFiles(DriveBaseResource):
                             DBHelper.update(
                                 "connected_accounts",
                                 filters={"user_id": user_id, "provider": "google"},
-                                data={
-                                    "access_token": creds.token,
-                                    "token_expiry": creds.expiry,
-                                },
+                                data={"access_token": creds.token, "token_expiry": creds.expiry},
                             )
                         else:
                             continue
 
                     service = build("drive", "v3", credentials=creds, cache_discovery=False)
 
-                    # Ensure DOCKLY > Hub folder exists
-                    root_id = get_or_create_subfolder(service, "DOCKLY", "root")
-                    hub_folder_id = get_or_create_subfolder(service, hub, root_id)
-
-                    query = f"'{hub_folder_id}' in parents and trashed = false"
-                    results = (
-                        service.files()
-                        .list(
-                            q=query,
-                            fields="files(id, name, mimeType, size, modifiedTime, webViewLink)",
+                    # Ensure folders
+                    folder_info = ensure_drive_folder_structure(service, user_id, account["id"])
+                    if hub not in folder_info["subfolders"]:
+                        hub_folder = get_or_create_subfolder(
+                            service,
+                            hub,
+                            parent_google_id=folder_info["root"],
+                            parent_db_id=folder_info["root_db"],
+                            user_id=user_id,
+                            storage_account_id=account["id"],
                         )
-                        .execute()
-                    )
+                        hub_google_id = hub_folder["google_id"]
+                    else:
+                        hub_google_id = folder_info["subfolders"][hub]
+
+                    # Fetch files from Google Drive
+                    query = f"'{hub_google_id}' in parents and trashed=false"
+                    results = service.files().list(
+                        q=query,
+                        fields="files(id, name, mimeType, size, modifiedTime, webViewLink)",
+                    ).execute()
                     member_files = results.get("files", [])
 
                     files_by_member.append({
                         "user_id": user_id,
                         "username": username,
                         "email": email,
-                        "files": member_files
+                        "files": member_files,
                     })
 
                 except Exception as e:
                     print(f"Error fetching files for {email}: {e}")
                     continue
 
+            # Prepare payload
             if hub == "Family":
                 payload = {"files_by_member": files_by_member}
             else:
-               my_files = next(
-                    (
-                        {
-                            "user_id": uid,
-                            "username": user_details.get(uid, {}).get("user_name", user.get("email").split("@")[0]),
-                            "email": user.get("email"),
-                            "files": m["files"],
-                        }
-                        for m in files_by_member
-                        if m["user_id"] == uid
-                    ),
-                    {
-                        "user_id": uid,
-                        "username": user_details.get(uid, {}).get("user_name", user.get("email").split("@")[0]),
-                        "email": user.get("email"),
-                        "files": [],
-                    },
+                my_files = next(
+                    (f for f in files_by_member if f["user_id"] == uid),
+                    {"user_id": uid, "username": user_details.get(uid, {}).get("user_name", user.get("email").split("@")[0]), "email": user.get("email"), "files": []},
                 )
-               payload = {"files_by_member": [my_files]}
+                payload = {"files_by_member": [my_files]}
 
             return {
                 "status": 1,
@@ -2000,7 +2015,6 @@ class GetHubFiles(DriveBaseResource):
         except Exception as e:
             traceback.print_exc()
             return {"status": 0, "message": f"Failed to fetch files: {str(e)}"}, 500
-        
         
     def _get_family_members(self, user_id):
         """Get all family members (including the current user) for a user."""

@@ -60,8 +60,9 @@ import {
 } from "../../../services/family";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "../../../app/userContext";
-import { PRIMARY_COLOR } from "../../../app/comman";
+import { CustomButton, PRIMARY_COLOR } from "../../../app/comman";
 import DocklyLoader from "../../../utils/docklyLoader";
+import ShareModal from "../../components/ShareModal";
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -160,7 +161,7 @@ const categoryColorMap: Record<string, string> = {
   "Pet Care": "#ea580c",
   "Kids Activities": "#0891b2",
   "Ideas & Inspiration": "#be185d",
- "Add Custom Category": "#6b7280",
+  "Add Custom Category": "#6b7280",
 };
 
 const stringToColor = (str: string): string => {
@@ -297,15 +298,17 @@ const RichTextEditor = ({
 
   const checkActiveFormats = () => {
     const formats = new Set<string>();
-    
+
     try {
-      if (document.queryCommandState('bold')) formats.add('bold');
-      if (document.queryCommandState('insertUnorderedList')) formats.add('unorderedList');
-      if (document.queryCommandState('insertOrderedList')) formats.add('orderedList');
+      if (document.queryCommandState("bold")) formats.add("bold");
+      if (document.queryCommandState("insertUnorderedList"))
+        formats.add("unorderedList");
+      if (document.queryCommandState("insertOrderedList"))
+        formats.add("orderedList");
     } catch (e) {
       // Ignore errors in queryCommandState
     }
-    
+
     setActiveFormats(formats);
   };
 
@@ -329,9 +332,9 @@ const RichTextEditor = ({
   };
 
   useEffect(() => {
-    document.addEventListener('selectionchange', handleSelectionChange);
+    document.addEventListener("selectionchange", handleSelectionChange);
     return () => {
-      document.removeEventListener('selectionchange', handleSelectionChange);
+      document.removeEventListener("selectionchange", handleSelectionChange);
     };
   }, []);
 
@@ -377,12 +380,14 @@ const RichTextEditor = ({
               size="small"
               icon={<BoldOutlined />}
               onClick={() => applyFormat("bold")}
-              style={{ 
-                minWidth: 28, 
+              style={{
+                minWidth: 28,
                 height: 24,
-                backgroundColor: activeFormats.has('bold') ? '#1890ff' : 'transparent',
-                color: activeFormats.has('bold') ? '#fff' : 'inherit',
-                borderColor: activeFormats.has('bold') ? '#1890ff' : '#d9d9d9',
+                backgroundColor: activeFormats.has("bold")
+                  ? "#1890ff"
+                  : "transparent",
+                color: activeFormats.has("bold") ? "#fff" : "inherit",
+                borderColor: activeFormats.has("bold") ? "#1890ff" : "#d9d9d9",
               }}
             />
           </Tooltip>
@@ -392,12 +397,16 @@ const RichTextEditor = ({
               size="small"
               icon={<UnorderedListOutlined />}
               onClick={() => applyFormat("insertUnorderedList")}
-              style={{ 
-                minWidth: 28, 
+              style={{
+                minWidth: 28,
                 height: 24,
-                backgroundColor: activeFormats.has('unorderedList') ? '#1890ff' : 'transparent',
-                color: activeFormats.has('unorderedList') ? '#fff' : 'inherit',
-                borderColor: activeFormats.has('unorderedList') ? '#1890ff' : '#d9d9d9',
+                backgroundColor: activeFormats.has("unorderedList")
+                  ? "#1890ff"
+                  : "transparent",
+                color: activeFormats.has("unorderedList") ? "#fff" : "inherit",
+                borderColor: activeFormats.has("unorderedList")
+                  ? "#1890ff"
+                  : "#d9d9d9",
               }}
             />
           </Tooltip>
@@ -407,12 +416,16 @@ const RichTextEditor = ({
               size="small"
               icon={<OrderedListOutlined />}
               onClick={() => applyFormat("insertOrderedList")}
-              style={{ 
-                minWidth: 28, 
+              style={{
+                minWidth: 28,
                 height: 24,
-                backgroundColor: activeFormats.has('orderedList') ? '#1890ff' : 'transparent',
-                color: activeFormats.has('orderedList') ? '#fff' : 'inherit',
-                borderColor: activeFormats.has('orderedList') ? '#1890ff' : '#d9d9d9',
+                backgroundColor: activeFormats.has("orderedList")
+                  ? "#1890ff"
+                  : "transparent",
+                color: activeFormats.has("orderedList") ? "#fff" : "inherit",
+                borderColor: activeFormats.has("orderedList")
+                  ? "#1890ff"
+                  : "#d9d9d9",
               }}
             />
           </Tooltip>
@@ -493,13 +506,13 @@ const RichTextEditor = ({
           color: #1890ff !important;
           font-weight: bold;
         }
-        
+
         div[contenteditable] ul,
         div[contenteditable] ol {
           color: #1890ff !important;
           padding-left: 20px;
         }
-        
+
         div[contenteditable] ul li,
         div[contenteditable] ol li {
           color: #1890ff !important;
@@ -510,7 +523,7 @@ const RichTextEditor = ({
           hyphens: auto;
           max-width: 100%;
         }
-        
+
         div[contenteditable] ul li::marker,
         div[contenteditable] ol li::marker {
           color: #1890ff !important;
@@ -584,17 +597,16 @@ const NotesLists: React.FC<NotesListsProps> = ({
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [shareForm] = Form.useForm();
   const [familyMembers, setFamilyMembers] = useState([]);
-  
+
   // Add search term state for share modal - SAME AS BOOKMARKS
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Filter family members based on search term AND excluding pending/me - SAME LOGIC AS BOOKMARKS
-  const filteredFamilyMembers = familyMembers
+  const filteredFamilyMembers = (familyMembers || [])
     .filter((member: any) => member.relationship !== "me")
-    .filter((member: any) => member.status?.toLowerCase() !== "pending") // Added pending filter
-    .filter((member: any) => member.email && member.email.trim()) 
+    .filter((member: any) => member.status?.toLowerCase() !== "pending")
+    .filter((member: any) => member.email && member.email.trim())
     .filter((member: any) =>
-      member.name.toLowerCase().includes(searchTerm.toLowerCase())
+      member.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
   useEffect(() => {
@@ -1251,7 +1263,7 @@ const NotesLists: React.FC<NotesListsProps> = ({
     <div style={{ fontFamily: FONT_FAMILY }}>
       {/* Loading overlay */}
       {loading && <DocklyLoader />}
-      
+
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;
@@ -1286,13 +1298,13 @@ const NotesLists: React.FC<NotesListsProps> = ({
           color: #1890ff !important;
           font-weight: bold;
         }
-        
+
         .formatted-content ul,
         .formatted-content ol {
           color: #1890ff !important;
           padding-left: 20px;
         }
-        
+
         .formatted-content ul li,
         .formatted-content ol li {
           color: #1890ff !important;
@@ -1303,7 +1315,7 @@ const NotesLists: React.FC<NotesListsProps> = ({
           hyphens: auto;
           max-width: 100%;
         }
-        
+
         .formatted-content ul li::marker,
         .formatted-content ol li::marker {
           color: #1890ff !important;
@@ -1418,25 +1430,12 @@ const NotesLists: React.FC<NotesListsProps> = ({
             </div>
           </div>
 
-          <Button
-            type="primary"
-            shape="default"
-            icon={<PlusOutlined />}
-            size="large"
+          <CustomButton
+            label="Add Note" // Tooltip text
+            // icon={<PlusOutlined style={{ color: "white" }} />}
+            // size="small"
+            // type="primary"
             onClick={() => showCombinedModal()}
-            style={{
-              borderRadius: 6,
-              background: PRIMARY_COLOR,
-              borderColor: PRIMARY_COLOR,
-              fontSize: 11,
-              height: 28,
-              width: 28,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 0,
-              flexShrink: 0,
-            }}
           />
         </div>
 
@@ -1626,27 +1625,10 @@ const NotesLists: React.FC<NotesListsProps> = ({
                       </div>
 
                       {/* Add Note Button */}
-                      <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
+                      <CustomButton
+                        label="Add Note" // tooltip text
+                        onClick={() => {
                           showCombinedModal(category.category_id);
-                        }}
-                        style={{
-                          borderRadius: 6,
-                          background: PRIMARY_COLOR,
-                          borderColor: PRIMARY_COLOR,
-                          fontSize: 11,
-                          height: 24,
-                          width: 24,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          padding: 0,
-                          marginRight: "8px",
-                          flexShrink: 0,
                         }}
                       />
 
@@ -2364,423 +2346,27 @@ const NotesLists: React.FC<NotesListsProps> = ({
               {showAllHubs ? "All Hubs" : `${getHubDisplayName(activeHub)} Hub`}
             </div>
           </div>
-         
         </Form>
       </Modal>
-
-      {/* Enhanced Share Modal with White Theme and 4-Column Grid */}
-      <Modal
-        title={null}
-        open={shareModalVisible}
-        onCancel={() => {
-          setShareModalVisible(false);
-          setCurrentShareNote(null);
-          setSelectedMemberIds([]);
-          shareForm.resetFields();
-          setSearchTerm("");
-        }}
-        footer={null}
-        centered
-        width={520}
-        destroyOnClose
-        style={{
-          fontFamily: FONT_FAMILY,
-        }}
-        styles={{
-          body: {
-            padding: "0px",
-            background: "#ffffff",
-            borderRadius: "16px",
-            overflow: "hidden",
-          },
-          header: {
-            padding: "0px",
-            marginBottom: "0px",
-            border: "none",
-          },
-          mask: {
-            backdropFilter: "blur(8px)",
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-          },
-          content: {
-            borderRadius: "16px",
-            overflow: "hidden",
-            boxShadow: "0 25px 50px rgba(0, 0, 0, 0.15)",
-            border: "1px solid #e5e7eb",
-          },
-        }}
-      >
-        {currentShareNote && (
-          <div>
-            {/* Header with Search */}
-            <div
-              style={{
-                padding: "20px 20px 16px",
-                borderBottom: "1px solid #e5e7eb",
-                background: "#ffffff",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: "16px",
-                }}
-              >
-                <div
-                  style={{
-                    background: "#f3f4f6",
-                    borderRadius: "50%",
-                    padding: "10px",
-                    marginRight: "12px",
-                  }}
-                >
-                  <ShareAltOutlined
-                    style={{
-                      color: "#374151",
-                      fontSize: "18px",
-                    }}
-                  />
-                </div>
-                <Text
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: 600,
-                    color: "#1f2937",
-                    fontFamily: FONT_FAMILY,
-                    wordBreak: "break-word",
-                    overflowWrap: "break-word",
-                  }}
-                >
-                  Share Note
-                </Text>
-              </div>
-
-              <Input
-                placeholder="Search family members..."
-                prefix={<SearchOutlined style={{ color: "#9ca3af" }} />}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  background: "#f9fafb",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "8px",
-                  color: "#374151",
-                  fontFamily: FONT_FAMILY,
-                  height: "36px",
-                }}
-              />
-            </div>
-
-            {/* Family Members Grid OR Empty State */}
-            <div style={{ padding: "16px 20px" }}>
-              {filteredFamilyMembers.length > 0 ? (
-                <div
-                  style={{
-                    maxHeight: "280px",
-                    overflowY: "auto",
-                    marginBottom: "20px",
-                    scrollbarWidth: "none", // Firefox
-                    msOverflowStyle: "none",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(4, 1fr)",
-                      gap: "10px",
-                    }}
-                  >
-                    {filteredFamilyMembers.map((member: any) => (
-                      <div
-                        key={member.id}
-                        onClick={() => {
-                          setSelectedMemberIds((prev) =>
-                            prev.includes(member.id)
-                              ? prev.filter((id) => id !== member.id)
-                              : [...prev, member.id]
-                          );
-                        }}
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          cursor: "pointer",
-                          padding: "12px 8px",
-                          borderRadius: "12px",
-                          transition: "all 0.3s ease",
-                          background: selectedMemberIds.includes(member.id)
-                            ? "#f0f9ff"
-                            : "transparent",
-                          border: selectedMemberIds.includes(member.id)
-                            ? "2px solid #3b82f6"
-                            : "2px solid transparent",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!selectedMemberIds.includes(member.id)) {
-                            e.currentTarget.style.background = "#f9fafb";
-                            e.currentTarget.style.transform = "scale(1.02)";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!selectedMemberIds.includes(member.id)) {
-                            e.currentTarget.style.background = "transparent";
-                            e.currentTarget.style.transform = "scale(1)";
-                          }
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: "relative",
-                            marginBottom: "8px",
-                          }}
-                        >
-                          <Avatar
-                            size={60}
-                            style={{
-                              background: selectedMemberIds.includes(member.id)
-                                ? "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
-                                : "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)",
-                              fontSize: "24px",
-                              fontWeight: "600",
-                              border: selectedMemberIds.includes(member.id)
-                                ? "3px solid #3b82f6"
-                                : "3px solid #e5e7eb",
-                              boxShadow: selectedMemberIds.includes(member.id)
-                                ? "0 4px 20px rgba(59, 130, 246, 0.3)"
-                                : "0 2px 8px rgba(0, 0, 0, 0.1)",
-                              transition: "all 0.3s ease",
-                              color: "#ffffff",
-                            }}
-                            icon={<UserOutlined />}
-                          >
-                            {member.name?.charAt(0)?.toUpperCase() || "U"}
-                          </Avatar>
-                          {selectedMemberIds.includes(member.id) && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                bottom: "-2px",
-                                right: "-2px",
-                                width: "20px",
-                                height: "20px",
-                                background: "#10b981",
-                                borderRadius: "50%",
-                                border: "2px solid #ffffff",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                boxShadow: "0 2px 8px rgba(16, 185, 129, 0.4)",
-                              }}
-                            >
-                              <CheckCircleOutlined
-                                style={{
-                                  fontSize: "10px",
-                                  color: "#fff",
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                        <Text
-                          style={{
-                            color: "#374151",
-                            fontSize: "13px",
-                            fontWeight: selectedMemberIds.includes(member.id)
-                              ? 600
-                              : 500,
-                            fontFamily: FONT_FAMILY,
-                            textAlign: "center",
-                            lineHeight: "1.2",
-                            maxWidth: "80px",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            wordBreak: "break-word",
-                            overflowWrap: "break-word",
-                          }}
-                        >
-                          {member.name}
-                        </Text>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "40px 20px",
-                    color: "#6b7280",
-                    fontFamily: FONT_FAMILY,
-                  }}
-                >
-                  <TeamOutlined style={{ fontSize: "40px", marginBottom: "12px" }} />
-                  <div style={{ fontSize: "15px", fontWeight: 500, wordBreak: "break-word", overflowWrap: "break-word" }}>
-                    {searchTerm ? "No members found" : "No family members with email addresses"}
-                  </div>
-                  <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "4px", wordBreak: "break-word", overflowWrap: "break-word" }}>
-                    {searchTerm 
-                      ? "Try adjusting your search terms" 
-                      : "Add family members with email addresses to share notes."}
-                  </div>
-                </div>
-              )}
-
-              {/* Share Button */}
-              {selectedMemberIds.length > 0 && (
-                <Button
-                  type="primary"
-                  block
-                  size="large"
-                  onClick={handleShareToMembers}
-                  loading={loading}
-                  style={{
-                    borderRadius: "12px",
-                    height: "44px",
-                    fontSize: "15px",
-                    fontWeight: 600,
-                    fontFamily: FONT_FAMILY,
-                    marginBottom: "20px",
-                    background: "#255198ff",
-                    border: "none",
-                    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
-                    transition: "all 0.3s ease",
-                    wordBreak: "break-word",
-                    overflowWrap: "break-word",
-                  }}
-                >
-                  Share with {selectedMemberIds.length} member
-                  {selectedMemberIds.length > 1 ? "s" : ""}
-                </Button>
-              )}
-
-              {/* Email Share Section */}
-              <div
-                style={{
-                  borderTop: "1px solid #e5e7eb",
-                  paddingTop: "20px",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    marginBottom: "12px",
-                  }}
-                >
-                  <div
-                    style={{
-                      background: "#f3f4f6",
-                      borderRadius: "50%",
-                      padding: "6px",
-                      marginRight: "10px",
-                    }}
-                  >
-                    <MailOutlined
-                      style={{
-                        color: "#374151",
-                        fontSize: "14px",
-                      }}
-                    />
-                  </div>
-                  <Text
-                    style={{
-                      color: "#374151",
-                      fontSize: "15px",
-                      fontWeight: 600,
-                      fontFamily: FONT_FAMILY,
-                      wordBreak: "break-word",
-                      overflowWrap: "break-word",
-                    }}
-                  >
-                    Or share via email
-                  </Text>
-                </div>
-
-                <Form form={shareForm} onFinish={handleEmailShare}>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "10px",
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <Form.Item
-                      name="email"
-                      rules={[
-                        {
-                          required: true,
-                          message: "Please enter an email address",
-                        },
-                        {
-                          type: "email",
-                          message: "Please enter a valid email address",
-                        },
-                      ]}
-                      style={{ flex: 1, marginBottom: 0 }}
-                    >
-                      <Input
-                        placeholder="Enter email address"
-                        style={{
-                          background: "#f9fafb",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: "8px",
-                          color: "#374151",
-                          fontFamily: FONT_FAMILY,
-                          height: "40px",
-                          fontSize: "14px",
-                          wordBreak: "break-all",
-                          overflowWrap: "break-word",
-                        }}
-                      />
-                    </Form.Item>
-                    <Button
-                      type="primary"
-                      htmlType="submit"
-                      loading={loading}
-                      style={{
-                        height: "40px",
-                        minWidth: "100px",
-                        fontFamily: FONT_FAMILY,
-                        borderRadius: "8px",
-                        fontWeight: 600,
-                        background: "#10b981",
-                        border: "none",
-                        boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
-                        fontSize: "14px",
-                        flexShrink: 0,
-                      }}
-                    >
-                      Send
-                    </Button>
-                  </div>
-                </Form>
-
-                <div
-                  style={{
-                    marginTop: "12px",
-                    fontSize: "12px",
-                    color: "#6b7280",
-                    fontFamily: FONT_FAMILY,
-                    textAlign: "center",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "6px",
-                    wordBreak: "break-word",
-                    overflowWrap: "break-word",
-                  }}
-                >
-                  <MailOutlined style={{ fontSize: "11px" }} />
-                  <span>Email will be sent with note content</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {currentShareNote && (
+        <ShareModal
+          isVisible={shareModalVisible}
+          onClose={() => {
+            setShareModalVisible(false);
+            setCurrentShareNote(null);
+          }}
+          title="Share Note"
+          item={currentShareNote}
+          itemType="note"
+          familyMembers={familyMembers}
+          loading={loading}
+          currentHubId="1a2b3c4d-1111-2222-3333-abcdef123744" // Notes hub ID
+          onShareSuccess={(message) => {
+            // Optional: handle success callback
+            console.log("Share success:", message);
+          }}
+        />
+      )}
     </div>
   );
 };

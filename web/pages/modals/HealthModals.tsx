@@ -1,5 +1,5 @@
-// components/modals/HealthModals.tsx - All modal components separated
-import React from "react";
+// Enhanced HealthModals.tsx - Updated with conditional date fields for wellness tasks
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   Form,
@@ -9,13 +9,17 @@ import {
   InputNumber,
   Button,
   Space,
+  DatePicker,
+  Alert,
 } from "antd";
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 import {
   MedicationData,
   WellnessTaskData,
   HealthcareProviderData,
   InsuranceAccountData,
+  FamilyMemberForHealth,
 } from "../../services/health/types";
 import {
   HealthSummaryInfoData,
@@ -27,6 +31,7 @@ import {
   CONDITION_STATUSES,
   SEVERITY_LEVELS,
 } from "../../services/health/healthSummary";
+import { validateWellnessTaskDates } from "../../services/health/wellness";
 
 // Medication Modal
 interface MedicationModalProps {
@@ -137,7 +142,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
   </Modal>
 );
 
-// Wellness Task Modal
+// UPDATED: Wellness Task Modal with Conditional Date Fields
 interface WellnessTaskModalProps {
   visible: boolean;
   loading: boolean;
@@ -154,85 +159,240 @@ export const WellnessTaskModal: React.FC<WellnessTaskModalProps> = ({
   form,
   onCancel,
   onSubmit,
-}) => (
-  <Modal
-    title={editingData ? "Edit Wellness Task" : "Add New Wellness Task"}
-    open={visible}
-    onCancel={onCancel}
-    onOk={() => form.submit()}
-    confirmLoading={loading}
-    width={600}
-  >
-    <Form
-      form={form}
-      layout="vertical"
-      onFinish={onSubmit}
-      initialValues={
-        editingData || {
+}) => {
+  // NEW: State for conditional date field visibility
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [dateValidation, setDateValidation] = useState<{
+    isValid: boolean;
+    errors: string[];
+    warnings: string[];
+  }>({ isValid: true, errors: [], warnings: [] });
+
+  // NEW: Watch form values for date validation
+  const startDate = Form.useWatch("startDate", form);
+  const dueDate = Form.useWatch("dueDate", form);
+  const recurring = Form.useWatch("recurring", form);
+
+  // NEW: Update recurring state and validate dates
+  useEffect(() => {
+    setIsRecurring(recurring || false);
+
+    // Validate dates when they change
+    const validation = validateWellnessTaskDates(startDate, dueDate, recurring);
+    setDateValidation(validation);
+  }, [startDate, dueDate, recurring]);
+
+  // NEW: Initialize form values based on editing data
+  useEffect(() => {
+    if (visible) {
+      if (editingData) {
+        setIsRecurring(editingData.recurring || false);
+        form.setFieldsValue({
+          text: editingData.text,
+          // Handle legacy date field
+          date: editingData.date,
+          // NEW: Handle new date fields
+          startDate:
+            editingData.start_date || editingData.startDate
+              ? dayjs(editingData.start_date || editingData.startDate)
+              : undefined,
+          dueDate:
+            editingData.due_date || editingData.dueDate
+              ? dayjs(editingData.due_date || editingData.dueDate)
+              : undefined,
+          recurring: editingData.recurring || false,
+          details: editingData.details || "",
+          icon: editingData.icon || "✅",
+        });
+      } else {
+        // Default values for new task
+        setIsRecurring(false);
+        form.setFieldsValue({
           text: "",
           date: "Daily",
+          startDate: undefined,
+          dueDate: undefined,
           recurring: false,
           details: "",
           icon: "✅",
-        }
+        });
       }
+    }
+  }, [visible, editingData, form]);
+
+  // NEW: Handle recurring toggle
+  const handleRecurringChange = (checked: boolean) => {
+    setIsRecurring(checked);
+
+    // Clear date validation when toggling
+    if (!checked) {
+      setDateValidation({ isValid: true, errors: [], warnings: [] });
+    }
+  };
+
+  // NEW: Enhanced form submission with date handling
+  const handleSubmit = async (values: any) => {
+    // Prepare the data with proper date formatting
+    const submissionData: any = {
+      text: values.text,
+      recurring: values.recurring || false,
+      details: values.details || "",
+      icon: values.icon || "✅",
+    };
+
+    if (values.recurring) {
+      // For recurring tasks, use the new date fields
+      if (values.startDate) {
+        submissionData.start_date = values.startDate.format("YYYY-MM-DD");
+        submissionData.startDate = values.startDate.format("YYYY-MM-DD");
+      }
+      if (values.dueDate) {
+        submissionData.due_date = values.dueDate.format("YYYY-MM-DD");
+        submissionData.dueDate = values.dueDate.format("YYYY-MM-DD");
+      }
+    } else {
+      // For non-recurring tasks, use legacy date field or convert from new fields
+      if (values.date) {
+        submissionData.date = values.date;
+      } else if (values.dueDate) {
+        submissionData.date = values.dueDate.format("YYYY-MM-DD");
+      }
+
+      // Also include new date fields if provided for non-recurring tasks
+      if (values.startDate) {
+        submissionData.start_date = values.startDate.format("YYYY-MM-DD");
+        submissionData.startDate = values.startDate.format("YYYY-MM-DD");
+      }
+      if (values.dueDate) {
+        submissionData.due_date = values.dueDate.format("YYYY-MM-DD");
+        submissionData.dueDate = values.dueDate.format("YYYY-MM-DD");
+      }
+    }
+
+    await onSubmit(submissionData);
+  };
+
+  return (
+    <Modal
+      title={editingData ? "Edit Wellness Task" : "Add New Wellness Task"}
+      open={visible}
+      onCancel={onCancel}
+      onOk={() => form.submit()}
+      confirmLoading={loading}
+      width={600}
     >
-      <Form.Item
-        name="text"
-        label="Task Description"
-        rules={[{ required: true, message: "Please enter task description" }]}
-      >
-        <Input placeholder="e.g., Schedule dental cleaning, Morning workout routine" />
-      </Form.Item>
+      <Form form={form} layout="vertical" onFinish={handleSubmit}>
+        <Form.Item
+          name="text"
+          label="Task Description"
+          rules={[{ required: true, message: "Please enter task description" }]}
+        >
+          <Input placeholder="e.g., Schedule dental cleaning, Morning workout routine" />
+        </Form.Item>
 
-      <Form.Item
-        name="date"
-        label="Due Date / Schedule"
-        rules={[
-          { required: true, message: "Please enter due date or schedule" },
-        ]}
-      >
-        <Select>
-          <Select.Option value="Daily">Daily</Select.Option>
-          <Select.Option value="Weekly">Weekly</Select.Option>
-          <Select.Option value="Monthly">Monthly</Select.Option>
-          <Select.Option value="Today">Today</Select.Option>
-          <Select.Option value="Tomorrow">Tomorrow</Select.Option>
-          <Select.Option value="This Week">This Week</Select.Option>
-          <Select.Option value="Next Week">Next Week</Select.Option>
-        </Select>
-      </Form.Item>
+        <Form.Item name="details" label="Additional Details">
+          <Input.TextArea
+            rows={3}
+            placeholder="e.g., 6-month cleaning due. Dr. Johnson at Brightsmile Dental. Last cleaning: Oct 2024."
+          />
+        </Form.Item>
 
-      <Form.Item name="details" label="Additional Details">
-        <Input.TextArea
-          rows={3}
-          placeholder="e.g., 6-month cleaning due. Dr. Johnson at Brightsmile Dental. Last cleaning: Oct 2024."
-        />
-      </Form.Item>
+        {/* NEW: Recurring Task Toggle */}
+        <Form.Item
+          name="recurring"
+          label="Recurring Task"
+          valuePropName="checked"
+          // extra="Enable recurring to set specific start and due dates with reminder notifications"
+        >
+          <Switch onChange={handleRecurringChange} />
+        </Form.Item>
 
-      <Form.Item
-        name="recurring"
-        label="Recurring Task"
-        valuePropName="checked"
-      >
-        <Switch />
-      </Form.Item>
+        {/* CONDITIONAL: Show different date fields based on recurring status */}
+        {isRecurring ? (
+          <>
+            <div style={{ display: "flex", gap: "16px" }}>
+              <Form.Item
+                name="startDate"
+                label="Start Date"
+                style={{ flex: 1 }}
+                rules={[
+                  {
+                    required: true,
+                    message: "Start date is required for recurring tasks",
+                  },
+                ]}
+              >
+                <DatePicker
+                  style={{ width: "100%" }}
+                  placeholder="Select start date"
+                  // UPDATED: No date restrictions for start date
+                />
+              </Form.Item>
 
-      <Form.Item name="icon" label="Icon">
-        <Select defaultValue="✅">
-          <Select.Option value="✅">✅ Checkmark</Select.Option>
-          <Select.Option value="🦷">🦷 Dental</Select.Option>
-          <Select.Option value="👁️">👁️ Vision</Select.Option>
-          <Select.Option value="💊">💊 Medication</Select.Option>
-          <Select.Option value="🏃">🏃 Exercise</Select.Option>
-          <Select.Option value="🩺">🩺 Medical</Select.Option>
-          <Select.Option value="💉">💉 Vaccination</Select.Option>
-          <Select.Option value="🧘">🧘 Wellness</Select.Option>
-        </Select>
-      </Form.Item>
-    </Form>
-  </Modal>
-);
+              <Form.Item
+                name="dueDate"
+                label="Due Date"
+                style={{ flex: 1 }}
+                rules={[
+                  {
+                    required: true,
+                    message: "Due date is required for recurring tasks",
+                  },
+                ]}
+              >
+                <DatePicker
+                  style={{ width: "100%" }}
+                  placeholder="Select due date"
+                  // UPDATED: Due date must be after start date
+                  disabledDate={(current) => {
+                    if (!startDate) return false;
+                    return current && current <= startDate.startOf("day");
+                  }}
+                />
+              </Form.Item>
+            </div>
+
+            {/* NEW: Date validation feedback */}
+            {!dateValidation.isValid && (
+              <Alert
+                message="Date Validation Error"
+                description={dateValidation.errors.join(", ")}
+                type="error"
+                showIcon
+                style={{ marginBottom: "16px" }}
+              />
+            )}
+
+            {dateValidation.warnings.length > 0 && (
+              <Alert
+                message="Date Warning"
+                description={dateValidation.warnings.join(", ")}
+                type="warning"
+                showIcon
+                style={{ marginBottom: "16px" }}
+              />
+            )}
+          </>
+        ) : (
+          <></>
+        )}
+
+        <Form.Item name="icon" label="Category">
+          <Select defaultValue="✅">
+            <Select.Option value="✅">✅ Task</Select.Option>
+            <Select.Option value="🦷">🦷 Dental</Select.Option>
+            <Select.Option value="👁️">👁️ Vision</Select.Option>
+            <Select.Option value="💊">💊 Medication</Select.Option>
+            <Select.Option value="🏃">🏃 Exercise</Select.Option>
+            <Select.Option value="🩺">🩺 Medical</Select.Option>
+            <Select.Option value="💉">💉 Vaccination</Select.Option>
+            <Select.Option value="🧘">🧘 Wellness</Select.Option>
+          </Select>
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+};
 
 // Healthcare Provider Modal
 interface ProviderModalProps {
@@ -990,7 +1150,7 @@ export const ConditionModal: React.FC<ConditionModalProps> = ({
         rules={[{ required: true, message: "Please select status" }]}
       >
         <Select>
-          {CONDITION_STATUSES.map((status:any) => (
+          {CONDITION_STATUSES.map((status: any) => (
             <Select.Option key={status} value={status}>
               {status.charAt(0).toUpperCase() + status.slice(1)}
             </Select.Option>
@@ -1090,11 +1250,12 @@ export const ConditionViewModal: React.FC<ConditionViewModalProps> = ({
   </Modal>
 );
 
-// Family History Modal
+// ENHANCED: Family History Modal with Family Member Selection
 interface FamilyHistoryModalProps {
   visible: boolean;
   loading: boolean;
   editingData: FamilyMedicalHistoryData | null;
+  familyMembers: FamilyMemberForHealth[]; // NEW: Add family members prop
   form: any;
   onCancel: () => void;
   onSubmit: (values: any) => Promise<void>;
@@ -1104,6 +1265,7 @@ export const FamilyHistoryModal: React.FC<FamilyHistoryModalProps> = ({
   visible,
   loading,
   editingData,
+  familyMembers = [], // NEW: Family members for dropdown
   form,
   onCancel,
   onSubmit,
@@ -1124,7 +1286,7 @@ export const FamilyHistoryModal: React.FC<FamilyHistoryModalProps> = ({
       onFinish={onSubmit}
       initialValues={
         editingData || {
-          familyMemberRelation: "",
+          familyMemberUserId: "", // NEW: Use family member user ID
           conditionName: "",
           ageOfOnset: null,
           status: "",
@@ -1132,15 +1294,30 @@ export const FamilyHistoryModal: React.FC<FamilyHistoryModalProps> = ({
         }
       }
     >
+      {/* ENHANCED: Family Member Selection - Replace text input with dropdown */}
       <Form.Item
-        name="familyMemberRelation"
+        name="familyMemberUserId"
         label="Family Member"
         rules={[{ required: true, message: "Please select family member" }]}
       >
-        <Select placeholder="Select family member">
-          {FAMILY_RELATIONS.map((relation:any) => (
-            <Select.Option key={relation} value={relation}>
-              {relation}
+        <Select
+          placeholder="Select family member"
+          showSearch
+          optionFilterProp="children"
+          filterOption={(input, option) =>
+            (option?.children as unknown as string)
+              ?.toLowerCase()
+              .includes(input.toLowerCase())
+          }
+          notFoundContent={
+            familyMembers.length === 0
+              ? "No family members available. Add family members first."
+              : "No matching family members found"
+          }
+        >
+          {familyMembers.map((member) => (
+            <Select.Option key={member.user_id} value={member.user_id}>
+              {member.name} ({member.relationship})
             </Select.Option>
           ))}
         </Select>
@@ -1173,6 +1350,24 @@ export const FamilyHistoryModal: React.FC<FamilyHistoryModalProps> = ({
           placeholder="Any additional information about this family medical history"
         />
       </Form.Item>
+
+      {/* Show helper text if no family members */}
+      {familyMembers.length === 0 && (
+        <div
+          style={{
+            padding: "12px",
+            background: "#fef3c7",
+            border: "1px solid #f59e0b",
+            borderRadius: "6px",
+            fontSize: "0.875rem",
+            color: "#92400e",
+            marginTop: "16px",
+          }}
+        >
+          <strong>Note:</strong> You need to add family members first before you
+          can record their medical history.
+        </div>
+      )}
     </Form>
   </Modal>
 );
@@ -1202,11 +1397,33 @@ export const FamilyHistoryViewModal: React.FC<FamilyHistoryViewModalProps> = ({
   >
     {familyHistoryData && (
       <div style={{ padding: "16px 0" }}>
+        {/* ENHANCED: Show permission info */}
+        {familyHistoryData.addedBy && (
+          <div
+            style={{
+              marginBottom: "16px",
+              padding: "8px 12px",
+              background: familyHistoryData.canEdit ? "#d1fae5" : "#f3f4f6",
+              borderRadius: "6px",
+              fontSize: "0.875rem",
+            }}
+          >
+            <strong>Record Status:</strong>{" "}
+            {familyHistoryData.addedBy === "me"
+              ? "Added by you - You can edit and delete this record"
+              : `Added by ${familyHistoryData.addedBy} - This is a read-only record`}
+          </div>
+        )}
+
         <div style={{ marginBottom: "16px" }}>
           <strong style={{ display: "block", marginBottom: "4px" }}>
             Family Member:
           </strong>
-          <span>{familyHistoryData.familyMemberRelation}</span>
+          <span>
+            {familyHistoryData.familyMemberName || "Unknown Member"}
+            {familyHistoryData.familyMemberRelation &&
+              ` (${familyHistoryData.familyMemberRelation})`}
+          </span>
         </div>
 
         <div style={{ marginBottom: "16px" }}>

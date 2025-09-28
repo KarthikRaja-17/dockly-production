@@ -35,11 +35,18 @@ import FamilyInviteForm from "../../pages/family-hub/FamilyInviteForm";
 import PetInviteForm from "../../pages/family-hub/PetsInviteForm";
 import FamilyMembersCard from "./components/FamilyMembersCard";
 import FamilyTasks from "./components/FamilyTask";
-import TodaysSchedule from "./components/TodaysSchedule";
 import WeekHighlights from "./components/WeekHighlights";
 import BookmarkHub from "../components/bookmarks";
 import FileHub from "../components/files";
 import ProfileClient from "../../app/[username]/family-hub/profile/[id]/profileClient";
+
+// Import new components
+import WeeklyChores from "./components/WeeklyChores";
+import WeeklyTasks from "./components/WeeklyTasks";
+import MealPlan from "./components/MealPlan";
+import AddSectionModal from "./components/AddSectionModal";
+import FamilyContacts from "./components/FamilyContact";
+
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
 const { TabPane } = Tabs;
@@ -88,11 +95,26 @@ const FamilyHubPage: React.FC = () => {
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState("family");
   const [currentFamilyGroupId, setCurrentFamilyGroupId] = useState<string | null>(null);
+  const [isAddSectionModalVisible, setIsAddSectionModalVisible] = useState(false);
+  const [enabledSections, setEnabledSections] = useState<string[]>([]);
 
   useEffect(() => {
       const stored = localStorage.getItem("currentFamilyGroupId");
       setCurrentFamilyGroupId(stored);
     }, []);
+
+  // Load enabled sections from localStorage
+  useEffect(() => {
+    const storedSections = localStorage.getItem("familyHubEnabledSections");
+    if (storedSections) {
+      setEnabledSections(JSON.parse(storedSections));
+    }
+  }, []);
+
+  // Save enabled sections to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("familyHubEnabledSections", JSON.stringify(enabledSections));
+  }, [enabledSections]);
 
   // Contexts for backend integration
   const currentUser = useCurrentUser();
@@ -302,6 +324,13 @@ const FamilyHubPage: React.FC = () => {
   const handleFamilyCancel = () => setIsFamilyModalVisible(false);
   const handlePetCancel = () => setIsPetModalVisible(false);
 
+  const handleAddSection = (sectionType: 'bookmarks' | 'projects') => {
+    if (!enabledSections.includes(sectionType)) {
+      setEnabledSections(prev => [...prev, sectionType]);
+      message.success(`${sectionType === 'bookmarks' ? 'Bookmarks' : 'Projects & Tasks'} section added successfully!`);
+    }
+  };
+
   // Fetch data on component mount
   useEffect(() => {
     getFamilyGroups();
@@ -341,10 +370,6 @@ const FamilyHubPage: React.FC = () => {
 
   // Dynamic title and icon based on selected member
   const getPageTitle = () => {
-    // if (selectedMemberId) {
-    //   return "Profile Details";
-    // }
-
     if (selectedFamilyGroup) {
       const group = familyGroups.find(g => g.id === selectedFamilyGroup);
       if (group) {
@@ -355,7 +380,6 @@ const FamilyHubPage: React.FC = () => {
     return "Family Board";
   };
 
-
   const handleCloseProfile = () => {
     setSelectedMemberId(null);
   };
@@ -363,6 +387,72 @@ const FamilyHubPage: React.FC = () => {
   const getPageIcon = () => {
     return "👨‍👩‍👧‍👦";
   };
+
+  // Render the Add New Section button
+  const renderAddNewButton = () => (
+    <div
+      style={{
+        backgroundColor: "white",
+        border: "2px dashed #e5e7eb",
+        borderRadius: "12px",
+        padding: "24px",
+        textAlign: "center",
+        cursor: "pointer",
+        transition: "all 0.2s",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+      onClick={() => setIsAddSectionModalVisible(true)}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "#3355ff";
+        e.currentTarget.style.backgroundColor = "#fafbff";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "#e5e7eb";
+        e.currentTarget.style.backgroundColor = "white";
+      }}
+    >
+      <div
+        style={{
+          width: "48px",
+          height: "48px",
+          borderRadius: "24px",
+          backgroundColor: "#eef1ff",
+          color: "#3355ff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "24px",
+          margin: "0 auto 16px",
+        }}
+      >
+        +
+      </div>
+      <div
+        style={{
+          fontSize: "16px",
+          fontWeight: 500,
+          color: "#3355ff",
+          marginBottom: "8px",
+          fontFamily: FONT_FAMILY,
+        }}
+      >
+        Add a new section
+      </div>
+      <div
+        style={{
+          fontSize: "14px",
+          color: "#6b7280",
+          fontFamily: FONT_FAMILY,
+        }}
+      >
+        Customize your board with additional sections
+      </div>
+    </div>
+  );
 
   return (
     <Layout
@@ -416,13 +506,6 @@ const FamilyHubPage: React.FC = () => {
                 }}
               >
                 <HomeOutlined style={{ color: "#6b7280", fontSize: "16px" }} />
-                {/* <span style={{ 
-                  fontSize: "14px", 
-                  fontWeight: 500, 
-                  color: "#374151",
-                  fontFamily: FONT_FAMILY 
-                }}>
-                </span> */}
                 <Select
                   value={selectedFamilyGroup}
                   onChange={handleFamilyGroupChange}
@@ -464,7 +547,7 @@ const FamilyHubPage: React.FC = () => {
           {/* Only show other sections when no member is selected */}
           <Tabs
             activeKey={activeTab}
-            onChange={setActiveTab}
+            onChange={(key) => setActiveTab(key)}
             style={{
               marginTop: "24px",
             }}
@@ -551,42 +634,112 @@ const FamilyHubPage: React.FC = () => {
                     onMemberAdded={handleMemberAdded}
                   />
 
-                  {/* Your schedule, highlights, tasks, etc */}
+                  {/* Family Dashboard Section */}
                   <div style={{ marginTop: "24px" }}>
-                    <Row gutter={12} style={{ marginBottom: "16px" }}>
-                      <Col xs={24} lg={12}>
-                        <TodaysSchedule familyMembers={familyMembers} />
-                      </Col>
-                      <Col xs={24} lg={12}>
-                        <WeekHighlights familyMembers={familyMembers} />
-                      </Col>
-                    </Row>
+                    <div
+                      style={{
+                        backgroundColor: "white",
+                        borderRadius: "12px",
+                        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
+                        overflow: "hidden",
+                        marginBottom: "24px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          padding: "16px 20px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          borderBottom: "1px solid #e5e7eb",
+                        }}
+                      >
+                        <h3
+                          style={{
+                            fontSize: "16px",
+                            fontWeight: 600,
+                            color: "#111827",
+                            display: "flex",
+                            alignItems: "center",
+                            margin: 0,
+                            fontFamily: FONT_FAMILY,
+                          }}
+                        >
+                          <span style={{ marginRight: "8px", opacity: 0.8 }}>📊</span>
+                          Family Dashboard
+                        </h3>
+                      </div>
+                      <div style={{ padding: "20px" }}>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(4, 1fr)",
+                            gap: "20px",
+                           height: "460px",
+                          }}
+                        >
+                          <WeekHighlights familyMembers={familyMembers} />
+                          <WeeklyChores  familyMembers={familyMembers}/>
+                          <WeeklyTasks familyMembers={familyMembers}/>
+                          <MealPlan familyMembers={familyMembers}/>
+                        </div>
+                      </div>
+                    </div>
 
+                    {/* Bottom Three Sections */}
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1.2fr 1fr 1fr",
-                        gap: "8px",
-                        marginBottom: "8px",
+                        gridTemplateColumns: "repeat(3, 1fr)",
+                        gap: "24px",
+                        marginBottom: "24px",
                       }}
                     >
-                      <FamilyTasks
-                        familyMembers={familyMembers.filter((m) => m.type === "family")}
-                        currentFamilyGroupId={currentFamilyGroupId}
-                      />
-
-                      <BookmarkHub hub={"family"} />
                       <NotesLists currentHub="family" />
+                      <FileHub hubName="Family" title="Files" />
+                      <FamilyContacts />
                     </div>
 
-                    <Row
-                      gutter={[SPACING.xs, SPACING.xs]}
-                      style={{ marginTop: 10 }}
+                    {/* Dynamic Optional Sections Layout */}
+                    {/* Dynamic Optional Sections Layout */}
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: enabledSections.length === 0 ? "1fr" : "repeat(2, 1fr)",
+                        gap: "24px",
+                        marginBottom: "24px",
+                      }}
                     >
-                      <Col span={10}>
-                        <FileHub hubName="Family" title="Files" />
-                      </Col>
-                    </Row>
+                      {enabledSections.length === 0 && (
+                        // Case 1: No sections → full width Add New
+                        renderAddNewButton()
+                      )}
+                      {enabledSections.length === 1 && (
+                        <>
+                          {/* Left side = whichever is enabled */}
+                          {enabledSections.includes("bookmarks") && <BookmarkHub hub="family" />}
+                          {enabledSections.includes("projects") && (
+                            <FamilyTasks
+                              familyMembers={familyMembers.filter((m) => m.type === "family")}
+                              currentFamilyGroupId={currentFamilyGroupId}
+                            />
+                          )}
+
+                          {/* Right side = Add New */}
+                          {renderAddNewButton()}
+                        </>
+                      )}
+                      {enabledSections.length === 2 && (
+                        <>
+                          {/* Both sections → no Add New */}
+                          <BookmarkHub hub="family" />
+                          <FamilyTasks
+                            familyMembers={familyMembers.filter((m) => m.type === "family")}
+                            currentFamilyGroupId={currentFamilyGroupId}
+                          />
+                        </>
+                      )}
+                    </div>
                   </div>
                 </>
               )}
@@ -620,7 +773,7 @@ const FamilyHubPage: React.FC = () => {
             </TabPane>
           </Tabs>
 
-          {/* Modals for adding members */}
+          {/* Modals */}
           <FamilyInviteForm
             visible={isFamilyModalVisible}
             onCancel={handleFamilyCancel}
@@ -631,6 +784,11 @@ const FamilyHubPage: React.FC = () => {
             visible={isPetModalVisible}
             onCancel={handlePetCancel}
             onSubmit={handlePetFormSubmit}
+          />
+          <AddSectionModal
+            visible={isAddSectionModalVisible}
+            onClose={() => setIsAddSectionModalVisible(false)}
+            onAddSection={handleAddSection}
           />
         </Content>
       </Layout>

@@ -25,6 +25,7 @@ import {
   HeartOutlined,
   InsuranceOutlined,
   AlertOutlined,
+  SaveOutlined,
 } from "@ant-design/icons";
 import {
   getPersonalInfo,
@@ -59,22 +60,20 @@ type ProviderField = {
 
 interface MedicalInfoSectionProps {
   memberId?: string | string[];
-  isEditing?: boolean;
 }
 
 const MedicalInfoPage: React.FC<MedicalInfoSectionProps> = ({
   memberId,
-  isEditing = false,
 }) => {
   const [form] = Form.useForm();
   const [providerModalVisible, setProviderModalVisible] = useState(false);
   const [providerFields, setProviderFields] = useState<ProviderField[]>([]);
   const [providerForm] = Form.useForm();
-  // const [personalInfoId, setPersonalInfoId] = useState<string | null>(null);
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [medicalRecords, setMedicalRecords] = useState<any[]>([]);
   const [activeKey, setActiveKey] = useState<string | string[]>(["basic"]);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Coerce memberId prop to a flat string userId
   const userId = Array.isArray(memberId) ? memberId[0] : memberId ?? "";
@@ -174,12 +173,20 @@ const MedicalInfoPage: React.FC<MedicalInfoSectionProps> = ({
 
       if (personalRes.status === 1) {
         message.success("Medical information saved");
-        // Edit state is now controlled by parent
+        setIsEditing(false);
       } else {
         message.error(personalRes.message);
       }
     } catch {
       message.error("Validation or save failed");
+    }
+  };
+
+  const handleEditToggle = () => {
+    if (isEditing) {
+      handleSave();
+    } else {
+      setIsEditing(true);
     }
   };
 
@@ -522,11 +529,21 @@ const MedicalInfoPage: React.FC<MedicalInfoSectionProps> = ({
           </>
         }
         extra={
-          isEditing && (
-            <Button type="primary" onClick={handleSave}>
-              Save
-            </Button>
-          )
+          <Button 
+            type={isEditing ? "primary" : "default"}
+            icon={isEditing ? <SaveOutlined /> : <EditOutlined />}
+            onClick={handleEditToggle}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              border: isEditing ? '1px solid #1890ff' : '1px solid #d9d9d9',
+              backgroundColor: isEditing ? '#1890ff' : '#ffffff',
+              color: isEditing ? '#ffffff' : '#000000',
+            }}
+          >
+            {isEditing ? 'Save' : 'Edit'}
+          </Button>
         }
         style={{ borderRadius: 12 }}
       >

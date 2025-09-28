@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { App, Form, Input, Button, Typography, Modal, message, Select, Spin, Popconfirm } from 'antd';
@@ -9,6 +8,71 @@ import { PRIMARY_COLOR } from '../../app/comman';
 const { Text } = Typography;
 
 const SHADOW_COLOR = 'rgba(0, 0, 0, 0.12)';
+
+const predefinedAssets = [
+  { id: 'primary', name: 'Add Your First Asset', icon: '📦', desc: 'Storage unit • Equipment • Collectibles • Other valuables' },
+  { id: 'additional', name: 'Add Another Asset', icon: '+', desc: 'Add more items to your portfolio' },
+];
+
+const AssetPlaceholderCard: React.FC<{ predefined: typeof predefinedAssets[0]; onAdd: () => void }> = ({ predefined, onAdd }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const placeholderCardStyle: React.CSSProperties = {
+    background: '#e2e8f0', // Gray background
+    borderRadius: '0.5rem',
+    padding: '1.25rem',
+    marginBottom: '1rem',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    position: 'relative',
+    border: '1px dashed #6b7280', // Gray border
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+  };
+
+  const placeholderIconStyle: React.CSSProperties = {
+    fontSize: '2rem',
+    color: '#6b7280', // Gray icon
+  };
+
+  const placeholderNameStyle: React.CSSProperties = {
+    fontWeight: 600,
+    fontSize: '1rem',
+    color: '#6b7280', // Gray text
+  };
+
+  const placeholderDescStyle: React.CSSProperties = {
+    fontSize: '0.8125rem',
+    color: '#9ca3af', // Lighter gray description
+  };
+
+  const arrowStyle: React.CSSProperties = {
+    position: 'absolute',
+    right: '1rem',
+    color: '#6b7280',
+    opacity: isHovered ? 1 : 0,
+    transition: 'opacity 0.2s',
+    pointerEvents: 'none',
+    fontSize: '16px',
+  };
+
+  return (
+    <div
+      style={placeholderCardStyle}
+      onClick={onAdd}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div style={placeholderIconStyle}>{predefined.icon}</div>
+      <div>
+        <div style={placeholderNameStyle}>{predefined.name}</div>
+        <div style={placeholderDescStyle}>{predefined.desc}</div>
+      </div>
+      <div style={arrowStyle}><Plus size={16} /></div>
+    </div>
+  );
+};
 
 const OtherAssets = forwardRef((props, ref) => {
   const { modal } = App.useApp();
@@ -269,190 +333,182 @@ const OtherAssets = forwardRef((props, ref) => {
     console.log('Editing asset:', asset);
   };
 
+  const openAddModal = () => {
+    setEditingAsset(null);
+    form.resetFields();
+    setIsModalVisible(true);
+    console.log('Opening add asset modal');
+  };
+
   return (
     <div style={{ padding: '1.25rem', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <style>{customScrollbarWebkitStyle}</style>
       <Spin spinning={isLoading}>
-        {assets.length === 0 ? (
-          <div
-            style={{
-              border: '1px dashed #d9d9d9',
-              borderRadius: '4px',
-              padding: '20px',
-              textAlign: 'center',
-              margin: '16px 1.25rem',
-              backgroundColor: '#fafafa',
-              marginTop: '6rem',
-              cursor: 'pointer',
-            }}
-            onClick={() => {
-              setEditingAsset(null);
-              form.resetFields();
-              setIsModalVisible(true);
-              console.log('Opening add asset modal');
-            }}
-          >
-            <div style={{ fontSize: '24px', color: '#bfbfbf' }}>+</div>
-            <div style={{ marginTop: '8px', color: '#8c8c8c' }}>Add New Asset</div>
-            <div style={{ color: '#bfbfbf' }}>Asset description...</div>
-          </div>
-        ) : (
-          <div
-            className="assets-custom-scrollbar"
-            style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: '0 1.25rem',
-              maxHeight: '350px',
-              paddingRight: '1.75rem',
-              ...customScrollbarStyle,
-            }}
-          >
-            {assets.map((asset) => (
-              <div
-                key={asset.id}
-                style={assetItemStyle}
-                onClick={() => toggleExpanded(asset.id)}
-                onMouseEnter={handleItemHover}
-                onMouseLeave={handleItemLeave}
-              >
-                <div style={assetItemHeaderStyle}>
-                  <div style={assetItemIconStyle}>{asset.icon}</div>
-                  <div style={assetItemTitleStyle}>
-                    <div style={assetItemNameStyle}>{asset.name}</div>
-                    <div style={assetItemTypeStyle}>
+        <div
+          className="assets-custom-scrollbar"
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            // padding: '0 1.25rem',
+            maxHeight: '350px',
+            paddingRight: '1.75rem',
+            ...customScrollbarStyle,
+          }}
+        >
+          {assets.map((asset) => (
+            <div
+              key={asset.id}
+              style={assetItemStyle}
+              onClick={() => toggleExpanded(asset.id)}
+              onMouseEnter={handleItemHover}
+              onMouseLeave={handleItemLeave}
+            >
+              <div style={assetItemHeaderStyle}>
+                <div style={assetItemIconStyle}>{asset.icon}</div>
+                <div style={assetItemTitleStyle}>
+                  <div style={assetItemNameStyle}>{asset.name}</div>
+                  <div style={assetItemTypeStyle}>
+                    {asset.icon}
+                    {asset.type}
+                  </div>
+                </div>
+                <div style={assetItemValueStyle}>{asset.payment}</div>
+              </div>
+              {expandedItems.has(asset.id) && (
+                <div style={assetItemDetailsStyle}>
+                  <div style={detailItemStyle}>
+                    <div style={detailLabelStyle}>Type</div>
+                    <div style={detailValueStyle}>
                       {asset.icon}
                       {asset.type}
                     </div>
                   </div>
-                  <div style={assetItemValueStyle}>{asset.payment}</div>
-                </div>
-                {expandedItems.has(asset.id) && (
-                  <div style={assetItemDetailsStyle}>
-                    <div style={detailItemStyle}>
-                      <div style={detailLabelStyle}>Type</div>
-                      <div style={detailValueStyle}>
-                        {asset.icon}
-                        {asset.type}
-                      </div>
-                    </div>
-                    <div style={detailItemStyle}>
-                      <div style={detailLabelStyle}>Value</div>
-                      <div style={detailValueStyle}>${asset.value.toLocaleString()}</div>
-                    </div>
-                    <div style={detailItemStyle}>
-                      <div style={detailLabelStyle}>Payment</div>
-                      <div style={detailValueStyle}>{asset.payment}</div>
-                    </div>
-                    <div style={{
-                      display: 'flex',
-                      gap: '12px',
-                      marginTop: '1rem',
-                      gridColumn: '1 / -1',
-                      justifyContent: 'flex-start',
-                      alignItems: 'center',
-                    }}>
+                  <div style={detailItemStyle}>
+                    <div style={detailLabelStyle}>Value</div>
+                    <div style={detailValueStyle}>${asset.value.toLocaleString()}</div>
+                  </div>
+                  <div style={detailItemStyle}>
+                    <div style={detailLabelStyle}>Payment</div>
+                    <div style={detailValueStyle}>{asset.payment}</div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    gap: '12px',
+                    marginTop: '1rem',
+                    gridColumn: '1 / -1',
+                    justifyContent: 'flex-start',
+                    alignItems: 'center',
+                  }}>
+                    <button
+                      onClick={(e) => handleEdit(asset, e)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '10px 16px',
+                        backgroundColor: PRIMARY_COLOR,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        transition: 'all 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(24, 144, 255, 0.2)',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                        e.currentTarget.style.boxShadow = '0 4px 8px rgba(24, 144, 255, 0.3)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(24, 144, 255, 0.2)';
+                      }}
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <Popconfirm
+                      title="Are you sure to delete this asset?"
+                      onConfirm={() => handleDelete(asset.id)}
+                      onCancel={(e) => { if (e) e.stopPropagation(); }}
+                      okText="Yes"
+                      cancelText="No"
+                    >
                       <button
-                        onClick={(e) => handleEdit(asset, e)}
+                        onClick={(e) => e.stopPropagation()}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
                           gap: '8px',
                           padding: '10px 16px',
-                          backgroundColor: PRIMARY_COLOR,
+                          backgroundColor: '#ff4d4f',
                           color: 'white',
                           border: 'none',
                           borderRadius: '8px',
-                          cursor: 'pointer',
+                          cursor: isDeleting === asset.id ? 'not-allowed' : 'pointer',
                           fontSize: '0.875rem',
                           fontWeight: 500,
                           transition: 'all 0.2s ease',
-                          boxShadow: '0 2px 4px rgba(24, 144, 255, 0.2)',
+                          boxShadow: '0 2px 4px rgba(255, 77, 79, 0.2)',
+                          opacity: isDeleting === asset.id ? 0.7 : 1,
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
-                          e.currentTarget.style.transform = 'translateY(-1px)';
-                          e.currentTarget.style.boxShadow = '0 4px 8px rgba(24, 144, 255, 0.3)';
+                          if (isDeleting !== asset.id) {
+                            e.currentTarget.style.backgroundColor = '#d9363e';
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                            e.currentTarget.style.boxShadow = '0 4px 8px rgba(255, 77, 79, 0.3)';
+                          }
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
-                          e.currentTarget.style.transform = 'translateY(0)';
-                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(24, 144, 255, 0.2)';
+                          if (isDeleting !== asset.id) {
+                            e.currentTarget.style.backgroundColor = '#ff4d4f';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(255, 77, 79, 0.2)';
+                          }
                         }}
                       >
-                        <Edit size={16} />
+                        <Trash2 size={16} />
+                        {isDeleting === asset.id ? 'Deleting...' : ''}
                       </button>
-                      <Popconfirm
-                        title="Are you sure to delete this asset?"
-                        onConfirm={() => handleDelete(asset.id)}
-                        onCancel={(e) => { if (e) e.stopPropagation(); }}
-                        okText="Yes"
-                        cancelText="No"
-                      >
-                        <button
-                          onClick={(e) => e.stopPropagation()}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '10px 16px',
-                            backgroundColor: '#ff4d4f',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: isDeleting === asset.id ? 'not-allowed' : 'pointer',
-                            fontSize: '0.875rem',
-                            fontWeight: 500,
-                            transition: 'all 0.2s ease',
-                            boxShadow: '0 2px 4px rgba(255, 77, 79, 0.2)',
-                            opacity: isDeleting === asset.id ? 0.7 : 1,
-                          }}
-                          onMouseEnter={(e) => {
-                            if (isDeleting !== asset.id) {
-                              e.currentTarget.style.backgroundColor = '#d9363e';
-                              e.currentTarget.style.transform = 'translateY(-1px)';
-                              e.currentTarget.style.boxShadow = '0 4px 8px rgba(255, 77, 79, 0.3)';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (isDeleting !== asset.id) {
-                              e.currentTarget.style.backgroundColor = '#ff4d4f';
-                              e.currentTarget.style.transform = 'translateY(0)';
-                              e.currentTarget.style.boxShadow = '0 2px 4px rgba(255, 77, 79, 0.2)';
-                            }
-                          }}
-                        >
-                          <Trash2 size={16} />
-                          {isDeleting === asset.id ? 'Deleting...' : ''}
-                        </button>
-                      </Popconfirm>
-                    </div>
+                    </Popconfirm>
                   </div>
-                )}
-                <div
-                  style={{
-                    position: 'absolute',
-                    right: '1rem',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: PRIMARY_COLOR,
-                    transition: 'transform 0.2s ease',
-                    pointerEvents: 'none',
-                    fontSize: '16px',
-                  }}
-                >
-                  <ChevronRight 
-                    size={20} 
-                    style={{
-                      transform: expandedItems.has(asset.id) ? 'rotate(90deg)' : 'rotate(0deg)',
-                      transition: 'transform 0.2s ease',
-                    }}
-                  />
                 </div>
+              )}
+              <div
+                style={{
+                  position: 'absolute',
+                  right: '1rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: PRIMARY_COLOR,
+                  transition: 'transform 0.2s ease',
+                  pointerEvents: 'none',
+                  fontSize: '16px',
+                }}
+              >
+                <ChevronRight 
+                  size={20} 
+                  style={{
+                    transform: expandedItems.has(asset.id) ? 'rotate(90deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease',
+                  }}
+                />
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+          {assets.length === 0 && (
+            <AssetPlaceholderCard
+              predefined={predefinedAssets[0]}
+              onAdd={openAddModal}
+            />
+          )}
+          <AssetPlaceholderCard
+            predefined={predefinedAssets[1]}
+            onAdd={openAddModal}
+          />
+        </div>
       </Spin>
       {errorMessage && (
         <div style={{
@@ -485,10 +541,45 @@ const OtherAssets = forwardRef((props, ref) => {
       )}
       <Modal
         title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' }}>
-            <Text style={{ fontSize: '16px', fontWeight: 600, color: PRIMARY_COLOR }}>
-              {editingAsset ? 'Edit Asset' : 'Add Asset'}
-            </Text>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '12px', 
+            padding: '8px 0',
+            borderBottom: '1px solid #f0f0f0',
+            paddingBottom: '16px',
+            marginBottom: '8px'
+          }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '12px',
+              background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, #096dd9 100%)`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: `0 4px 12px ${PRIMARY_COLOR}30`
+            }}>
+              <span style={{ fontSize: '20px', color: 'white' }}>📦</span>
+            </div>
+            <div>
+              <div style={{ 
+                fontSize: '18px', 
+                fontWeight: 600, 
+                color: '#1a202c',
+                lineHeight: 1.2,
+                marginBottom: '2px'
+              }}>
+                {editingAsset ? 'Edit Asset' : 'Add New Asset'}
+              </div>
+              <div style={{ 
+                fontSize: '13px', 
+                color: '#64748b',
+                fontWeight: 400
+              }}>
+                {editingAsset ? 'Update asset information' : 'Add asset to your portfolio'}
+              </div>
+            </div>
           </div>
         }
         open={isModalVisible}
@@ -499,68 +590,191 @@ const OtherAssets = forwardRef((props, ref) => {
           console.log('Modal closed');
         }}
         footer={null}
-        width={800}
+        width={700}
         style={{ top: 20 }}
-        bodyStyle={{ maxHeight: '80vh', overflowY: 'auto' }}
+        bodyStyle={{ 
+          padding: '24px',
+          maxHeight: '70vh', 
+          overflowY: 'auto',
+          background: '#fafbfc'
+        }}
+        maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
       >
         <Form
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
-          style={{ padding: '20px 0' }}
+          style={{ gap: '0' }}
         >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr', 
+            gap: '20px',
+            marginBottom: '8px'
+          }}>
             <Form.Item
-              label="Name"
+              label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Asset Name</span>}
               name="name"
               rules={[{ required: true, message: 'Please enter asset name!' }]}
+              style={{ marginBottom: '16px' }}
             >
-              <Input size="large" placeholder="Enter asset name" />
+              <Input 
+                size="large" 
+                placeholder="Enter asset name"
+                style={{
+                  borderRadius: '10px',
+                  border: '2px solid #e2e8f0',
+                  fontSize: '15px',
+                  height: '48px',
+                  background: 'white',
+                  transition: 'all 0.2s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = PRIMARY_COLOR;
+                  e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}15`;
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#e2e8f0';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
             </Form.Item>
             <Form.Item
-              label="Asset Type"
+              label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Asset Type</span>}
               name="type_icon"
               rules={[{ required: true, message: 'Please select asset type!' }]}
+              style={{ marginBottom: '16px' }}
             >
-              <Select size="large" placeholder="Select asset type">
+              <Select 
+                size="large" 
+                placeholder="Select asset type"
+                style={{
+                  borderRadius: '10px'
+                }}
+                dropdownStyle={{
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)'
+                }}
+              >
                 <Select.Option value="📦|Public Storage • 10x20">📦 Public Storage • 10x20</Select.Option>
                 <Select.Option value="🛠|Riding Mower • 2021">🛠 Riding Mower • 2021</Select.Option>
                 <Select.Option value="🚤|Professional Grade • Garage Workshop">🚤 Professional Grade • Garage Workshop</Select.Option>
               </Select>
             </Form.Item>
+          </div>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr', 
+            gap: '20px',
+            marginBottom: '24px'
+          }}>
             <Form.Item
-              label="Value"
+              label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Value ($)</span>}
               name="value"
               rules={[{ required: true, message: 'Please enter asset value!' }]}
+              style={{ marginBottom: '16px' }}
             >
-              <Input size="large" placeholder="Enter value" prefix="$" type="number" />
+              <Input 
+                size="large" 
+                placeholder="Enter value" 
+                type="number"
+                prefix={<span style={{ color: '#9ca3af', fontSize: '15px' }}>$</span>}
+                style={{
+                  borderRadius: '10px',
+                  border: '2px solid #e2e8f0',
+                  fontSize: '15px',
+                  height: '48px',
+                  background: 'white',
+                  transition: 'all 0.2s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = PRIMARY_COLOR;
+                  e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}15`;
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#e2e8f0';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
             </Form.Item>
             <Form.Item
-              label="Payment"
+              label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Payment Details</span>}
               name="payment"
               rules={[{ required: true, message: 'Please enter payment details!' }]}
+              style={{ marginBottom: '16px' }}
             >
-              <Input size="large" placeholder="Enter payment details (e.g., $135/mo)" />
+              <Input 
+                size="large" 
+                placeholder="e.g., $135/mo"
+                style={{
+                  borderRadius: '10px',
+                  border: '2px solid #e2e8f0',
+                  fontSize: '15px',
+                  height: '48px',
+                  background: 'white',
+                  transition: 'all 0.2s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = PRIMARY_COLOR;
+                  e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}15`;
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#e2e8f0';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
             </Form.Item>
           </div>
-          <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              size="large"
-              style={{
-                width: '100%',
-                height: '50px',
-                borderRadius: '8px',
-                fontSize: '16px',
-                fontWeight: 600,
-                background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
-                border: 'none',
-                boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
-              }}
-            >
-              {editingAsset ? 'Update Asset' : 'Add Asset'}
-            </Button>
+          <Form.Item style={{ marginBottom: '0' }}>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <Button
+                size="large"
+                onClick={() => {
+                  setIsModalVisible(false);
+                  form.resetFields();
+                  setEditingAsset(null);
+                }}
+                style={{
+                  height: '48px',
+                  borderRadius: '10px',
+                  paddingLeft: '24px',
+                  paddingRight: '24px',
+                  fontSize: '15px',
+                  fontWeight: 500,
+                  border: '2px solid #e2e8f0',
+                  color: '#64748b'
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                size="large"
+                style={{
+                  height: '48px',
+                  borderRadius: '10px',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  paddingLeft: '32px',
+                  paddingRight: '32px',
+                  background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, #096dd9 100%)`,
+                  border: 'none',
+                  boxShadow: `0 4px 12px ${PRIMARY_COLOR}30`,
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = `0 6px 16px ${PRIMARY_COLOR}40`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = `0 4px 12px ${PRIMARY_COLOR}30`;
+                }}
+              >
+                {editingAsset ? 'Update Asset' : 'Add Asset'}
+              </Button>
+            </div>
           </Form.Item>
         </Form>
       </Modal>

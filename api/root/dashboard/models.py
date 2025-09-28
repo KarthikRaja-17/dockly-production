@@ -165,18 +165,6 @@ class GetConnectedAccounts(Resource):
                         "user_object": account.get("user_object"),
                     }
                 )
-
-            # Success log
-            AuditLogger.log(
-                user_id=uid,
-                action="GET_CONNECTED_ACCOUNTS",
-                resource_type="connected_accounts",
-                resource_id=None,
-                success=True,
-                error_message=None,
-                metadata={"count": len(connectedAccounts)},
-            )
-
             return {
                 "status": 1,
                 "payload": {"connectedAccounts": connectedAccounts},

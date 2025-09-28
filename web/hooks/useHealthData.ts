@@ -1,13 +1,17 @@
-// hooks/useHealthData.ts - Centralized data management
-import { useState, useEffect } from 'react';
-import { message } from 'antd';
+// Enhanced useHealthData.ts - Updated with date validation for wellness tasks
+import { useState, useEffect } from "react";
+import { message } from "antd";
 
-// Import types
+// Import types - Enhanced with new family medical history types
 import {
   MedicationData,
   WellnessTaskData,
   HealthcareProviderData,
   InsuranceAccountData,
+  HealthDataState,
+  HealthDataActions,
+  FamilyMemberForHealth,
+  FamilyMedicalHistoryStats,
 } from "../services/health/types";
 
 import {
@@ -29,11 +33,15 @@ import {
   createFamilyMedicalHistory,
   editFamilyMedicalHistory,
   removeFamilyMedicalHistory,
+  fetchFamilyMembersForHealth,
   transformHealthSummaryInfoData,
   transformUserAllergyData,
   transformUserConditionData,
   transformFamilyMedicalHistoryData,
-} from '../services/health/healthSummary';
+  transformFamilyMemberForHealth,
+  calculateFamilyMedicalHistoryStats,
+  validateFamilyMedicalHistoryData,
+} from "../services/health/healthSummary";
 
 // Import health services
 import {
@@ -42,8 +50,9 @@ import {
   editMedication,
   removeMedication,
   transformMedicationData,
-} from '../services/health/medications';
+} from "../services/health/medications";
 
+// UPDATED: Import enhanced wellness functions with date validation
 import {
   fetchWellnessTasks,
   createWellnessTask,
@@ -51,7 +60,9 @@ import {
   removeWellnessTask,
   toggleTaskCompletion,
   transformWellnessTaskData,
-} from '../services/health/wellness';
+  validateWellnessTaskDates, // NEW: Import validation function
+  sortWellnessTasks, // NEW: Import sorting function
+} from "../services/health/wellness";
 
 import {
   fetchProviders,
@@ -59,7 +70,7 @@ import {
   editProvider,
   removeProvider,
   transformProviderData,
-} from '../services/health/providers';
+} from "../services/health/providers";
 
 import {
   fetchInsuranceAccounts,
@@ -67,87 +78,30 @@ import {
   editInsuranceAccount,
   removeInsuranceAccount,
   transformInsuranceData,
-} from '../services/health/insurance';
-
-export interface HealthDataState {
-  // Data states
-  medications: MedicationData[];
-  wellnessTasks: WellnessTaskData[];
-  providers: HealthcareProviderData[];
-  insuranceAccounts: InsuranceAccountData[];
-  healthInfo: HealthSummaryInfoData;
-  allergies: UserAllergyData[];
-  conditions: UserConditionData[];
-  familyHistory: FamilyMedicalHistoryData[];
-
-  // Loading states
-  medicationsLoading: boolean;
-  wellnessLoading: boolean;
-  providersLoading: boolean;
-  insuranceLoading: boolean;
-  healthInfoLoading: boolean;
-  allergiesLoading: boolean;
-  conditionsLoading: boolean;
-  familyHistoryLoading: boolean;
-  generalLoading: boolean;
-}
-
-export interface HealthDataActions {
-  // Load functions
-  loadAllHealthData: () => Promise<void>;
-  loadMedications: () => Promise<void>;
-  loadWellnessTasks: () => Promise<void>;
-  loadProviders: () => Promise<void>;
-  loadInsuranceAccounts: () => Promise<void>;
-  loadHealthSummaryInfo: () => Promise<void>;
-  loadAllergies: () => Promise<void>;
-  loadConditions: () => Promise<void>;
-  loadFamilyMedicalHistory: () => Promise<void>;
-
-  // Medication actions
-  handleAddMedication: (medicationData: MedicationData) => Promise<void>;
-  handleEditMedication: (id: number, medicationData: MedicationData) => Promise<void>;
-  handleDeleteMedication: (id: number) => Promise<void>;
-
-  // Wellness task actions
-  handleAddWellnessTask: (taskData: WellnessTaskData) => Promise<void>;
-  handleEditWellnessTask: (id: number, taskData: WellnessTaskData) => Promise<void>;
-  handleDeleteWellnessTask: (id: number) => Promise<void>;
-  handleToggleWellnessTask: (id: number) => Promise<void>;
-
-  // Provider actions
-  handleAddProvider: (providerData: HealthcareProviderData) => Promise<void>;
-  handleEditProvider: (id: number, providerData: HealthcareProviderData) => Promise<void>;
-  handleDeleteProvider: (id: number) => Promise<void>;
-
-  // Insurance actions
-  handleAddInsurance: (insuranceData: InsuranceAccountData) => Promise<void>;
-  handleEditInsurance: (id: number, insuranceData: InsuranceAccountData) => Promise<void>;
-  handleDeleteInsurance: (id: number) => Promise<void>;
-
-  // Health summary actions
-  handleSaveHealthInfo: (infoData: HealthSummaryInfoData) => Promise<void>;
-  handleAddAllergy: (allergyData: UserAllergyData) => Promise<void>;
-  handleEditAllergy: (id: number, allergyData: UserAllergyData) => Promise<void>;
-  handleDeleteAllergy: (id: number) => Promise<void>;
-  handleAddCondition: (conditionData: UserConditionData) => Promise<void>;
-  handleEditCondition: (id: number, conditionData: UserConditionData) => Promise<void>;
-  handleDeleteCondition: (id: number) => Promise<void>;
-  handleAddFamilyHistory: (historyData: FamilyMedicalHistoryData) => Promise<void>;
-  handleEditFamilyHistory: (id: number, historyData: FamilyMedicalHistoryData) => Promise<void>;
-  handleDeleteFamilyHistory: (id: number) => Promise<void>;
-}
+} from "../services/health/insurance";
 
 export const useHealthData = (): [HealthDataState, HealthDataActions] => {
   // Data states
   const [medications, setMedications] = useState<MedicationData[]>([]);
   const [wellnessTasks, setWellnessTasks] = useState<WellnessTaskData[]>([]);
   const [providers, setProviders] = useState<HealthcareProviderData[]>([]);
-  const [insuranceAccounts, setInsuranceAccounts] = useState<InsuranceAccountData[]>([]);
+  const [insuranceAccounts, setInsuranceAccounts] = useState<
+    InsuranceAccountData[]
+  >([]);
   const [healthInfo, setHealthInfo] = useState<HealthSummaryInfoData>({});
   const [allergies, setAllergies] = useState<UserAllergyData[]>([]);
   const [conditions, setConditions] = useState<UserConditionData[]>([]);
-  const [familyHistory, setFamilyHistory] = useState<FamilyMedicalHistoryData[]>([]);
+  const [familyHistory, setFamilyHistory] = useState<
+    FamilyMedicalHistoryData[]
+  >([]);
+
+  // NEW: Family members state
+  const [familyMembers, setFamilyMembers] = useState<FamilyMemberForHealth[]>(
+    []
+  );
+  const [familyHistoryStats, setFamilyHistoryStats] = useState<
+    FamilyMedicalHistoryStats | undefined
+  >(undefined);
 
   // Loading states
   const [medicationsLoading, setMedicationsLoading] = useState(false);
@@ -158,9 +112,10 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
   const [allergiesLoading, setAllergiesLoading] = useState(false);
   const [conditionsLoading, setConditionsLoading] = useState(false);
   const [familyHistoryLoading, setFamilyHistoryLoading] = useState(false);
+  const [familyMembersLoading, setFamilyMembersLoading] = useState(false); // NEW
   const [generalLoading, setGeneralLoading] = useState(false);
 
-  // Load all health data
+  // Enhanced load all health data - includes family members
   const loadAllHealthData = async () => {
     await Promise.all([
       loadMedications(),
@@ -170,7 +125,8 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
       loadHealthSummaryInfo(),
       loadAllergies(),
       loadConditions(),
-      loadFamilyMedicalHistory()
+      loadFamilyMembers(), // NEW: Load family members first
+      loadFamilyMedicalHistory(), // Then load family medical history
     ]);
   };
 
@@ -197,7 +153,7 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
     }
   };
 
-  // Load wellness tasks from API
+  // UPDATED: Load wellness tasks from API with enhanced sorting
   const loadWellnessTasks = async () => {
     try {
       setWellnessLoading(true);
@@ -207,7 +163,10 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
         const transformedTasks = response.data.payload.tasks.map(
           transformWellnessTaskData
         );
-        setWellnessTasks(transformedTasks);
+
+        // NEW: Sort tasks by urgency and date
+        const sortedTasks = sortWellnessTasks(transformedTasks);
+        setWellnessTasks(sortedTasks);
       } else {
         console.error("Failed to fetch wellness tasks:", response.data.message);
         setWellnessTasks([]);
@@ -282,11 +241,14 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
           setHealthInfo({});
         }
       } else {
-        console.error('Failed to fetch health summary info:', response.data.message);
+        console.error(
+          "Failed to fetch health summary info:",
+          response.data.message
+        );
         setHealthInfo({});
       }
     } catch (error) {
-      console.error('Error fetching health summary info:', error);
+      console.error("Error fetching health summary info:", error);
       setHealthInfo({});
     } finally {
       setHealthInfoLoading(false);
@@ -300,14 +262,16 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
       const response = await fetchUserAllergies();
 
       if (response.data.status === 1) {
-        const transformedAllergies = response.data.payload.allergies.map(transformUserAllergyData);
+        const transformedAllergies = response.data.payload.allergies.map(
+          transformUserAllergyData
+        );
         setAllergies(transformedAllergies);
       } else {
-        console.error('Failed to fetch allergies:', response.data.message);
+        console.error("Failed to fetch allergies:", response.data.message);
         setAllergies([]);
       }
     } catch (error) {
-      console.error('Error fetching allergies:', error);
+      console.error("Error fetching allergies:", error);
       setAllergies([]);
     } finally {
       setAllergiesLoading(false);
@@ -321,36 +285,87 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
       const response = await fetchUserConditions();
 
       if (response.data.status === 1) {
-        const transformedConditions = response.data.payload.conditions.map(transformUserConditionData);
+        const transformedConditions = response.data.payload.conditions.map(
+          transformUserConditionData
+        );
         setConditions(transformedConditions);
       } else {
-        console.error('Failed to fetch conditions:', response.data.message);
+        console.error("Failed to fetch conditions:", response.data.message);
         setConditions([]);
       }
     } catch (error) {
-      console.error('Error fetching conditions:', error);
+      console.error("Error fetching conditions:", error);
       setConditions([]);
     } finally {
       setConditionsLoading(false);
     }
   };
 
-  // Load family medical history from API
+  // NEW: Load family members for health context
+  const loadFamilyMembers = async () => {
+    try {
+      setFamilyMembersLoading(true);
+      const response = await fetchFamilyMembersForHealth();
+
+      if (response.data.status === 1) {
+        const transformedMembers = response.data.payload.familyMembers.map(
+          transformFamilyMemberForHealth
+        );
+        setFamilyMembers(transformedMembers);
+      } else {
+        console.error("Failed to fetch family members:", response.data.message);
+        setFamilyMembers([]);
+      }
+    } catch (error) {
+      console.error("Error fetching family members:", error);
+      setFamilyMembers([]);
+    } finally {
+      setFamilyMembersLoading(false);
+    }
+  };
+
+  // Enhanced load family medical history with permissions and stats
   const loadFamilyMedicalHistory = async () => {
     try {
       setFamilyHistoryLoading(true);
       const response = await fetchFamilyMedicalHistory();
 
       if (response.data.status === 1) {
-        const transformedHistory = response.data.payload.familyHistory.map(transformFamilyMedicalHistoryData);
+        const transformedHistory = response.data.payload.familyHistory.map(
+          transformFamilyMedicalHistoryData
+        );
         setFamilyHistory(transformedHistory);
+
+        // Update family members if they came with the response
+        if (response.data.payload.familyMembers) {
+          const transformedMembers = response.data.payload.familyMembers.map(
+            transformFamilyMemberForHealth
+          );
+          setFamilyMembers(transformedMembers);
+        }
+
+        // Calculate and set stats
+        const currentMembers =
+          response.data.payload.familyMembers || familyMembers;
+        const stats =
+          response.data.payload.stats ||
+          calculateFamilyMedicalHistoryStats(
+            transformedHistory,
+            currentMembers
+          );
+        setFamilyHistoryStats(stats);
       } else {
-        console.error('Failed to fetch family medical history:', response.data.message);
+        console.error(
+          "Failed to fetch family medical history:",
+          response.data.message
+        );
         setFamilyHistory([]);
+        setFamilyHistoryStats(undefined);
       }
     } catch (error) {
-      console.error('Error fetching family medical history:', error);
+      console.error("Error fetching family medical history:", error);
       setFamilyHistory([]);
+      setFamilyHistoryStats(undefined);
     } finally {
       setFamilyHistoryLoading(false);
     }
@@ -376,7 +391,10 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
     }
   };
 
-  const handleEditMedication = async (id: number, medicationData: MedicationData) => {
+  const handleEditMedication = async (
+    id: number,
+    medicationData: MedicationData
+  ) => {
     try {
       setGeneralLoading(true);
       const response = await editMedication(id, medicationData);
@@ -414,44 +432,107 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
     }
   };
 
-  // CRUD handlers for wellness tasks
+  // UPDATED: CRUD handlers for wellness tasks with enhanced validation
   const handleAddWellnessTask = async (taskData: WellnessTaskData) => {
     try {
       setGeneralLoading(true);
+
+      // NEW: Validate dates before submission
+      const validation = validateWellnessTaskDates(
+        taskData.start_date || taskData.startDate,
+        taskData.due_date || taskData.dueDate,
+        taskData.recurring
+      );
+
+      if (!validation.isValid) {
+        message.error(`Validation error: ${validation.errors.join(", ")}`);
+        return;
+      }
+
+      // Show warnings if any
+      if (validation.warnings.length > 0) {
+        validation.warnings.forEach((warning) => {
+          message.warning(warning);
+        });
+      }
+
       const wellnessTaskData: WellnessTaskData = {
         ...taskData,
-        recurring: taskData.recurring !== undefined ? taskData.recurring : false,
+        recurring:
+          taskData.recurring !== undefined ? taskData.recurring : false,
       };
+
       const response = await createWellnessTask(wellnessTaskData);
 
       if (response.data.status === 1) {
         message.success("Wellness task added successfully!");
-        await loadWellnessTasks();
+        await loadWellnessTasks(); // Reload to get updated sorting
       } else {
         message.error(response.data.message || "Failed to add wellness task");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding wellness task:", error);
-      message.error("Failed to add wellness task");
+      // NEW: Show specific validation errors from the service layer
+      if (
+        (error.message && error.message.includes("Start date")) ||
+        error.message.includes("Due date")
+      ) {
+        message.error(`Date validation error: ${error.message}`);
+      } else {
+        message.error("Failed to add wellness task");
+      }
     } finally {
       setGeneralLoading(false);
     }
   };
 
-  const handleEditWellnessTask = async (id: number, taskData: WellnessTaskData) => {
+  const handleEditWellnessTask = async (
+    id: number,
+    taskData: WellnessTaskData
+  ) => {
     try {
       setGeneralLoading(true);
+
+      // NEW: Validate dates before submission
+      const validation = validateWellnessTaskDates(
+        taskData.start_date || taskData.startDate,
+        taskData.due_date || taskData.dueDate,
+        taskData.recurring
+      );
+
+      if (!validation.isValid) {
+        message.error(`Validation error: ${validation.errors.join(", ")}`);
+        return;
+      }
+
+      // Show warnings if any
+      if (validation.warnings.length > 0) {
+        validation.warnings.forEach((warning) => {
+          message.warning(warning);
+        });
+      }
+
       const response = await editWellnessTask(id, taskData);
 
       if (response.data.status === 1) {
         message.success("Wellness task updated successfully!");
-        await loadWellnessTasks();
+        await loadWellnessTasks(); // Reload to get updated sorting
       } else {
-        message.error(response.data.message || "Failed to update wellness task");
+        message.error(
+          response.data.message || "Failed to update wellness task"
+        );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating wellness task:", error);
-      message.error("Failed to update wellness task");
+      // NEW: Show specific validation errors from the service layer
+      if (
+        (error.message && error.message.includes("Start date")) ||
+        error.message.includes("Due date")
+      ) {
+        message.error(`Date validation error: ${error.message}`);
+      } else {
+        message.error("Failed to update wellness task");
+      }
     } finally {
       setGeneralLoading(false);
     }
@@ -464,9 +545,11 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
 
       if (response.data.status === 1) {
         message.success("Wellness task deleted successfully!");
-        await loadWellnessTasks();
+        await loadWellnessTasks(); // Reload to get updated sorting
       } else {
-        message.error(response.data.message || "Failed to delete wellness task");
+        message.error(
+          response.data.message || "Failed to delete wellness task"
+        );
       }
     } catch (error) {
       console.error("Error deleting wellness task:", error);
@@ -483,9 +566,11 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
       if (response.data.status === 1) {
         const newCompletedStatus = response.data.payload.completed;
         message.success(
-          `Task ${newCompletedStatus ? "completed" : "uncompleted"} successfully!`
+          `Task ${
+            newCompletedStatus ? "completed" : "uncompleted"
+          } successfully!`
         );
-        await loadWellnessTasks();
+        await loadWellnessTasks(); // Reload to get updated sorting
       } else {
         message.error(response.data.message || "Failed to toggle task status");
       }
@@ -505,7 +590,9 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
         message.success("Healthcare provider added successfully!");
         await loadProviders();
       } else {
-        message.error(response.data.message || "Failed to add healthcare provider");
+        message.error(
+          response.data.message || "Failed to add healthcare provider"
+        );
       }
     } catch (error) {
       console.error("Error adding healthcare provider:", error);
@@ -515,7 +602,10 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
     }
   };
 
-  const handleEditProvider = async (id: number, providerData: HealthcareProviderData) => {
+  const handleEditProvider = async (
+    id: number,
+    providerData: HealthcareProviderData
+  ) => {
     try {
       setGeneralLoading(true);
       const response = await editProvider(id, providerData);
@@ -524,7 +614,9 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
         message.success("Healthcare provider updated successfully!");
         await loadProviders();
       } else {
-        message.error(response.data.message || "Failed to update healthcare provider");
+        message.error(
+          response.data.message || "Failed to update healthcare provider"
+        );
       }
     } catch (error) {
       console.error("Error updating healthcare provider:", error);
@@ -543,7 +635,9 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
         message.success("Healthcare provider deleted successfully!");
         await loadProviders();
       } else {
-        message.error(response.data.message || "Failed to delete healthcare provider");
+        message.error(
+          response.data.message || "Failed to delete healthcare provider"
+        );
       }
     } catch (error) {
       console.error("Error deleting healthcare provider:", error);
@@ -563,7 +657,9 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
         message.success("Insurance account added successfully!");
         await loadInsuranceAccounts();
       } else {
-        message.error(response.data.message || "Failed to add insurance account");
+        message.error(
+          response.data.message || "Failed to add insurance account"
+        );
       }
     } catch (error) {
       console.error("Error adding insurance account:", error);
@@ -573,7 +669,10 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
     }
   };
 
-  const handleEditInsurance = async (id: number, insuranceData: InsuranceAccountData) => {
+  const handleEditInsurance = async (
+    id: number,
+    insuranceData: InsuranceAccountData
+  ) => {
     try {
       setGeneralLoading(true);
       const response = await editInsuranceAccount(id, insuranceData);
@@ -582,7 +681,9 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
         message.success("Insurance account updated successfully!");
         await loadInsuranceAccounts();
       } else {
-        message.error(response.data.message || "Failed to update insurance account");
+        message.error(
+          response.data.message || "Failed to update insurance account"
+        );
       }
     } catch (error) {
       console.error("Error updating insurance account:", error);
@@ -601,7 +702,9 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
         message.success("Insurance account deleted successfully!");
         await loadInsuranceAccounts();
       } else {
-        message.error(response.data.message || "Failed to delete insurance account");
+        message.error(
+          response.data.message || "Failed to delete insurance account"
+        );
       }
     } catch (error) {
       console.error("Error deleting insurance account:", error);
@@ -618,14 +721,16 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
       const response = await saveHealthSummaryInfo(infoData);
 
       if (response.data.status === 1) {
-        message.success('Health information saved successfully!');
+        message.success("Health information saved successfully!");
         await loadHealthSummaryInfo();
       } else {
-        message.error(response.data.message || 'Failed to save health information');
+        message.error(
+          response.data.message || "Failed to save health information"
+        );
       }
     } catch (error) {
-      console.error('Error saving health information:', error);
-      message.error('Failed to save health information');
+      console.error("Error saving health information:", error);
+      message.error("Failed to save health information");
     } finally {
       setGeneralLoading(false);
     }
@@ -638,33 +743,36 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
       const response = await createUserAllergy(allergyData);
 
       if (response.data.status === 1) {
-        message.success('Allergy added successfully!');
+        message.success("Allergy added successfully!");
         await loadAllergies();
       } else {
-        message.error(response.data.message || 'Failed to add allergy');
+        message.error(response.data.message || "Failed to add allergy");
       }
     } catch (error) {
-      console.error('Error adding allergy:', error);
-      message.error('Failed to add allergy');
+      console.error("Error adding allergy:", error);
+      message.error("Failed to add allergy");
     } finally {
       setGeneralLoading(false);
     }
   };
 
-  const handleEditAllergy = async (id: number, allergyData: UserAllergyData) => {
+  const handleEditAllergy = async (
+    id: number,
+    allergyData: UserAllergyData
+  ) => {
     try {
       setGeneralLoading(true);
       const response = await editUserAllergy(id, allergyData);
 
       if (response.data.status === 1) {
-        message.success('Allergy updated successfully!');
+        message.success("Allergy updated successfully!");
         await loadAllergies();
       } else {
-        message.error(response.data.message || 'Failed to update allergy');
+        message.error(response.data.message || "Failed to update allergy");
       }
     } catch (error) {
-      console.error('Error updating allergy:', error);
-      message.error('Failed to update allergy');
+      console.error("Error updating allergy:", error);
+      message.error("Failed to update allergy");
     } finally {
       setGeneralLoading(false);
     }
@@ -676,14 +784,14 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
       const response = await removeUserAllergy(id);
 
       if (response.data.status === 1) {
-        message.success('Allergy deleted successfully!');
+        message.success("Allergy deleted successfully!");
         await loadAllergies();
       } else {
-        message.error(response.data.message || 'Failed to delete allergy');
+        message.error(response.data.message || "Failed to delete allergy");
       }
     } catch (error) {
-      console.error('Error deleting allergy:', error);
-      message.error('Failed to delete allergy');
+      console.error("Error deleting allergy:", error);
+      message.error("Failed to delete allergy");
     } finally {
       setGeneralLoading(false);
     }
@@ -696,33 +804,36 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
       const response = await createUserCondition(conditionData);
 
       if (response.data.status === 1) {
-        message.success('Condition added successfully!');
+        message.success("Condition added successfully!");
         await loadConditions();
       } else {
-        message.error(response.data.message || 'Failed to add condition');
+        message.error(response.data.message || "Failed to add condition");
       }
     } catch (error) {
-      console.error('Error adding condition:', error);
-      message.error('Failed to add condition');
+      console.error("Error adding condition:", error);
+      message.error("Failed to add condition");
     } finally {
       setGeneralLoading(false);
     }
   };
 
-  const handleEditCondition = async (id: number, conditionData: UserConditionData) => {
+  const handleEditCondition = async (
+    id: number,
+    conditionData: UserConditionData
+  ) => {
     try {
       setGeneralLoading(true);
       const response = await editUserCondition(id, conditionData);
 
       if (response.data.status === 1) {
-        message.success('Condition updated successfully!');
+        message.success("Condition updated successfully!");
         await loadConditions();
       } else {
-        message.error(response.data.message || 'Failed to update condition');
+        message.error(response.data.message || "Failed to update condition");
       }
     } catch (error) {
-      console.error('Error updating condition:', error);
-      message.error('Failed to update condition');
+      console.error("Error updating condition:", error);
+      message.error("Failed to update condition");
     } finally {
       setGeneralLoading(false);
     }
@@ -734,53 +845,84 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
       const response = await removeUserCondition(id);
 
       if (response.data.status === 1) {
-        message.success('Condition deleted successfully!');
+        message.success("Condition deleted successfully!");
         await loadConditions();
       } else {
-        message.error(response.data.message || 'Failed to delete condition');
+        message.error(response.data.message || "Failed to delete condition");
       }
     } catch (error) {
-      console.error('Error deleting condition:', error);
-      message.error('Failed to delete condition');
+      console.error("Error deleting condition:", error);
+      message.error("Failed to delete condition");
     } finally {
       setGeneralLoading(false);
     }
   };
 
-  // CRUD handlers for family medical history
-  const handleAddFamilyHistory = async (historyData: FamilyMedicalHistoryData) => {
+  // ENHANCED: CRUD handlers for family medical history with validation and permissions
+  const handleAddFamilyHistory = async (
+    historyData: FamilyMedicalHistoryData
+  ) => {
     try {
+      // Validate family member selection
+      const validationErrors = validateFamilyMedicalHistoryData(
+        historyData,
+        familyMembers
+      );
+      if (validationErrors.length > 0) {
+        message.error(validationErrors.join(", "));
+        return;
+      }
+
       setGeneralLoading(true);
       const response = await createFamilyMedicalHistory(historyData);
 
       if (response.data.status === 1) {
-        message.success('Family medical history added successfully!');
+        message.success("Family medical history added successfully!");
         await loadFamilyMedicalHistory();
       } else {
-        message.error(response.data.message || 'Failed to add family medical history');
+        message.error(
+          response.data.message || "Failed to add family medical history"
+        );
       }
     } catch (error) {
-      console.error('Error adding family medical history:', error);
-      message.error('Failed to add family medical history');
+      console.error("Error adding family medical history:", error);
+      message.error("Failed to add family medical history");
     } finally {
       setGeneralLoading(false);
     }
   };
 
-  const handleEditFamilyHistory = async (id: number, historyData: FamilyMedicalHistoryData) => {
+  const handleEditFamilyHistory = async (
+    id: number,
+    historyData: FamilyMedicalHistoryData
+  ) => {
     try {
+      // Validate family member selection if changed
+      if (historyData.familyMemberUserId) {
+        const validationErrors = validateFamilyMedicalHistoryData(
+          historyData,
+          familyMembers
+        );
+        if (validationErrors.length > 0) {
+          message.error(validationErrors.join(", "));
+          return;
+        }
+      }
+
       setGeneralLoading(true);
       const response = await editFamilyMedicalHistory(id, historyData);
 
       if (response.data.status === 1) {
-        message.success('Family medical history updated successfully!');
+        message.success("Family medical history updated successfully!");
         await loadFamilyMedicalHistory();
       } else {
-        message.error(response.data.message || 'Failed to update family medical history');
+        message.error(
+          response.data.message || "Failed to update family medical history"
+        );
       }
     } catch (error) {
-      console.error('Error updating family medical history:', error);
-      message.error('Failed to update family medical history');
+      console.error("Error updating family medical history:", error);
+      message.error("Failed to update family medical history");
     } finally {
       setGeneralLoading(false);
     }
@@ -792,14 +934,16 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
       const response = await removeFamilyMedicalHistory(id);
 
       if (response.data.status === 1) {
-        message.success('Family medical history deleted successfully!');
+        message.success("Family medical history deleted successfully!");
         await loadFamilyMedicalHistory();
       } else {
-        message.error(response.data.message || 'Failed to delete family medical history');
+        message.error(
+          response.data.message || "Failed to delete family medical history"
+        );
       }
     } catch (error) {
-      console.error('Error deleting family medical history:', error);
-      message.error('Failed to delete family medical history');
+      console.error("Error deleting family medical history:", error);
+      message.error("Failed to delete family medical history");
     } finally {
       setGeneralLoading(false);
     }
@@ -810,6 +954,7 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
     loadAllHealthData();
   }, []);
 
+  // Enhanced state with new family members and stats
   const state: HealthDataState = {
     medications,
     wellnessTasks,
@@ -819,6 +964,8 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
     allergies,
     conditions,
     familyHistory,
+    familyMembers, // NEW
+    familyHistoryStats, // NEW
     medicationsLoading,
     wellnessLoading,
     providersLoading,
@@ -827,9 +974,11 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
     allergiesLoading,
     conditionsLoading,
     familyHistoryLoading,
+    familyMembersLoading, // NEW
     generalLoading,
   };
 
+  // Enhanced actions with new family members functionality
   const actions: HealthDataActions = {
     loadAllHealthData,
     loadMedications,
@@ -840,6 +989,7 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
     loadAllergies,
     loadConditions,
     loadFamilyMedicalHistory,
+    loadFamilyMembers, // NEW
     handleAddMedication,
     handleEditMedication,
     handleDeleteMedication,
@@ -860,9 +1010,9 @@ export const useHealthData = (): [HealthDataState, HealthDataActions] => {
     handleAddCondition,
     handleEditCondition,
     handleDeleteCondition,
-    handleAddFamilyHistory,
-    handleEditFamilyHistory,
-    handleDeleteFamilyHistory,
+    handleAddFamilyHistory, // ENHANCED
+    handleEditFamilyHistory, // ENHANCED
+    handleDeleteFamilyHistory, // ENHANCED
   };
 
   return [state, actions];

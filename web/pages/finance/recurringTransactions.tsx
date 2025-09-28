@@ -1,10 +1,10 @@
 
 'use client';
 import React, { useEffect, useState } from 'react';
-import { Button, message, Modal, List, Checkbox } from 'antd';
+import { Button, message, Modal, Table, Checkbox, Radio } from 'antd';
 import { getRecurringTransactions, getAllTransactions, updateRecurringStatus } from '../../services/apiConfig';
 import DocklyLoader from '../../utils/docklyLoader';
-import { Repeat } from 'lucide-react';
+import { Repeat, Settings, Plus, Calendar, DollarSign } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
@@ -20,6 +20,7 @@ const RecurringTransactions = ({ onRecurringUpdate }: RecurringTransactionsProps
     const [allTransactions, setAllTransactions] = useState<any[]>([]);
     const [selected, setSelected] = useState<string[]>([]);
     const [isSaving, setIsSaving] = useState(false);
+    const [filter, setFilter] = useState<'all' | 'credit' | 'debit'>('all');
 
     useEffect(() => {
         fetchRecurring();
@@ -97,7 +98,11 @@ const RecurringTransactions = ({ onRecurringUpdate }: RecurringTransactionsProps
 
     const formatAmount = (amount: string | number) => {
         const num = parseFloat(amount.toString());
-        return `$${num.toFixed(2)}`;
+        return `$${Math.abs(num).toFixed(2)}`;
+    };
+
+    const isNegativeAmount = (amount: string | number) => {
+        return parseFloat(amount.toString()) < 0;
     };
 
     const formatDate = (date: string) => {
@@ -108,35 +113,212 @@ const RecurringTransactions = ({ onRecurringUpdate }: RecurringTransactionsProps
         }
     };
 
+    const filteredTransactions = allTransactions.filter((item) => {
+        if (filter === 'all') return true;
+        if (filter === 'credit') return !isNegativeAmount(item.amount);
+        if (filter === 'debit') return isNegativeAmount(item.amount);
+        return true;
+    });
+
+    const columns = [
+        {
+            title: 'Select',
+            dataIndex: 'transaction_id',
+            key: 'select',
+            width: 70,
+            render: (transaction_id: string) => (
+                <Checkbox
+                    checked={selected.includes(transaction_id)}
+                    onChange={(e) => {
+                        if (e.target.checked) {
+                            setSelected([...selected, transaction_id]);
+                        } else {
+                            setSelected(selected.filter((id) => id !== transaction_id));
+                        }
+                    }}
+                />
+            ),
+        },
+        {
+            title: 'Description',
+            dataIndex: 'description',
+            key: 'description',
+            render: (text: string) => (
+                <span
+                    style={{
+                        fontWeight: 500,
+                        color: '#111827',
+                        fontFamily: FONT_FAMILY,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: 'block',
+                    }}
+                    title={text}
+                >
+                    {text}
+                </span>
+            ),
+        },
+        {
+            title: 'Amount',
+            dataIndex: 'amount',
+            key: 'amount',
+            width: 120,
+            render: (amount: string | number) => (
+                <span
+                    style={{
+                        fontWeight: 600,
+                        color: isNegativeAmount(amount) ? '#ef4444' : '#111827',
+                        fontFamily: FONT_FAMILY,
+                    }}
+                >
+                    {isNegativeAmount(amount) ? '-' : ''}{formatAmount(amount)}
+                </span>
+            ),
+        },
+        {
+            title: 'Date',
+            dataIndex: 'date',
+            key: 'date',
+            width: 120,
+            render: (date: string) => (
+                <span
+                    style={{
+                        fontSize: 12,
+                        color: '#64748b',
+                        fontFamily: FONT_FAMILY,
+                    }}
+                >
+                    {formatDate(date)}
+                </span>
+            ),
+        },
+    ];
+
     const EmptyRecurringTemplate = () => (
         <div
             style={{
-                background: 'linear-gradient(145deg, #fef3c7, #fde68a)',
-                borderRadius: 12,
-                padding: 20,
+                background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+                borderRadius: 16,
+                padding: 24,
                 textAlign: 'center',
-                border: '1px solid #fcd34d',
+                border: '1px solid #e2e8f0',
                 cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                position: 'relative',
+                overflow: 'hidden',
             }}
             onClick={handleSetup}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.1)';
+            }}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+            }}
         >
-            <Repeat size={32} style={{ color: '#d97706', marginBottom: 8 }} />
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 4, fontFamily: FONT_FAMILY }}>
-                No Recurring Bills
+            <div style={{
+                position: 'absolute',
+                top: -10,
+                right: -10,
+                width: 40,
+                height: 40,
+                background: 'rgba(59, 130, 246, 0.1)',
+                borderRadius: '50%',
+            }} />
+            
+            <div style={{
+                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                borderRadius: 12,
+                width: 48,
+                height: 48,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+            }}>
+                <Repeat size={24} style={{ color: '#ffffff' }} />
             </div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12, fontFamily: FONT_FAMILY }}>
-                Never miss a payment again
+            
+            <div style={{ 
+                fontSize: 16, 
+                fontWeight: 700, 
+                color: '#111827', 
+                marginBottom: 8, 
+                fontFamily: FONT_FAMILY 
+            }}>
+                Set Up Recurring Bills
             </div>
-            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-                <span style={{ background: '#fef3c7', padding: '2px 6px', borderRadius: 4, fontSize: 10, color: '#d97706' }}>
+            <div style={{ 
+                fontSize: 13, 
+                color: '#6b7280', 
+                marginBottom: 20, 
+                fontFamily: FONT_FAMILY,
+                lineHeight: 1.5,
+            }}>
+                Never miss a payment again.<br />Track your subscriptions and bills automatically.
+            </div>
+            
+            <div style={{ 
+                display: 'flex', 
+                gap: 8, 
+                justifyContent: 'center', 
+                flexWrap: 'wrap',
+                marginBottom: 16,
+            }}>
+                <span style={{ 
+                    background: 'rgba(251, 191, 36, 0.1)', 
+                    padding: '4px 8px', 
+                    borderRadius: 8, 
+                    fontSize: 11, 
+                    color: '#d97706',
+                    fontWeight: 500,
+                    border: '1px solid rgba(251, 191, 36, 0.2)',
+                }}>
                     💡 Utilities
                 </span>
-                <span style={{ background: '#ddd6fe', padding: '2px 6px', borderRadius: 4, fontSize: 10, color: '#7c3aed' }}>
+                <span style={{ 
+                    background: 'rgba(139, 92, 246, 0.1)', 
+                    padding: '4px 8px', 
+                    borderRadius: 8, 
+                    fontSize: 11, 
+                    color: '#7c3aed',
+                    fontWeight: 500,
+                    border: '1px solid rgba(139, 92, 246, 0.2)',
+                }}>
                     📺 Subscriptions
                 </span>
-                <span style={{ background: '#fecaca', padding: '2px 6px', borderRadius: 4, fontSize: 10, color: '#dc2626' }}>
+                <span style={{ 
+                    background: 'rgba(239, 68, 68, 0.1)', 
+                    padding: '4px 8px', 
+                    borderRadius: 8, 
+                    fontSize: 11, 
+                    color: '#dc2626',
+                    fontWeight: 500,
+                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                }}>
                     🏠 Rent
                 </span>
+            </div>
+            
+            <div style={{
+                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                color: '#ffffff',
+                padding: '8px 16px',
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontFamily: FONT_FAMILY,
+                boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+            }}>
+                <Plus size={14} />
+                Get Started
             </div>
         </div>
     );
@@ -144,309 +326,460 @@ const RecurringTransactions = ({ onRecurringUpdate }: RecurringTransactionsProps
     return (
         <div
             style={{
-                background: 'linear-gradient(145deg, #ffffff, #f8fafc)',
-                borderRadius: '12px',
-                padding: '0',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)',
-                // width: 420,
-                height: 569,
+                background: '#ffffff',
+                borderRadius: 16,
+                padding: 0,
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)',
+                height: 570,
                 fontFamily: FONT_FAMILY,
-                // marginTop: '12px',
-                border: '1px solid #e2e8f0',
+                border: 'none',
                 display: 'flex',
                 flexDirection: 'column',
-                // marginBottom: '10px'
+                overflow: 'hidden',
             }}
         >
+            {/* Header */}
             <div
                 style={{
-                    padding: '12px 16px',
-                    borderBottom: '1px solid #e2e8f0',
-                    background: '#fff',
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 1,
+                    padding: '16px 20px',
+                    borderBottom: '1px solid #f1f5f9',
+                    background: '#ffffff',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
                 }}
             >
-                <div
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{
+                        background: '#f1f5f9',
+                        borderRadius: 8,
+                        padding: 6,
+                    }}>
+                        <Repeat size={16} style={{ color: '#475569' }} />
+                    </div>
+                    <span style={{
                         fontSize: 16,
-                        fontWeight: 600,
+                        fontWeight: 400,
                         color: '#111827',
                         fontFamily: FONT_FAMILY,
+                    }}>
+                        Recurring Transactions
+                    </span>
+                </div>
+                
+                <button
+                    style={{
+                        background: transactions.length === 0 
+                            ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' 
+                            : 'linear-gradient(135deg, #f8fafc, #e2e8f0)',
+                        border: 'none',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: transactions.length === 0 ? '#ffffff' : '#475569',
+                        cursor: 'pointer',
+                        fontFamily: FONT_FAMILY,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        transition: 'all 0.2s ease',
+                        boxShadow: transactions.length === 0 
+                            ? '0 2px 8px rgba(59, 130, 246, 0.3)' 
+                            : '0 1px 3px rgba(0, 0, 0, 0.1)',
+                    }}
+                    onClick={handleSetup}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                        e.currentTarget.style.boxShadow = transactions.length === 0 
+                            ? '0 4px 12px rgba(59, 130, 246, 0.4)' 
+                            : '0 2px 8px rgba(0, 0, 0, 0.15)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = transactions.length === 0 
+                            ? '0 2px 8px rgba(59, 130, 246, 0.3)' 
+                            : '0 1px 3px rgba(0, 0, 0, 0.1)';
                     }}
                 >
-                    <span>Recurring Transactions</span>
-                    <Button
-                        type="link"
-                        style={{
-                            padding: 0,
-                            fontSize: 13,
-                            fontFamily: FONT_FAMILY,
-                            fontWeight: 500,
-                            color: '#3b82f6',
-                        }}
-                        onClick={handleSetup}
-                    >
-                        {transactions.length === 0 ? 'Setup' : 'Manage'}
-                    </Button>
-                </div>
+                    {transactions.length === 0 ? <Plus size={14} /> : <Settings size={14} />}
+                    {transactions.length === 0 ? 'Setup' : 'Manage'}
+                </button>
             </div>
+
+            {/* Content */}
             <div
                 style={{
                     flex: 1,
                     overflowY: 'auto',
-                    padding: '12px',
+                    padding: '16px 20px',
                 }}
             >
                 {loading ? (
-                    <DocklyLoader />
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        alignItems: 'center', 
+                        height: '200px' 
+                    }}>
+                        <DocklyLoader />
+                    </div>
                 ) : transactions.length === 0 ? (
                     <EmptyRecurringTemplate />
                 ) : (
-                    transactions.map((t, i) => (
-                        <div
-                            key={i}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                marginBottom: 12,
-                                padding: '8px',
-                                borderRadius: '8px',
-                                border: '1px solid #f3f4f6',
-                                background: '#fefefe',
-                                transition: 'transform 0.2s ease',
-                                cursor: 'pointer',
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-1px)')}
-                            onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-                        >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {transactions.map((t, i) => (
                             <div
+                                key={i}
                                 style={{
-                                    width: 40,
-                                    height: 40,
-                                    background: 'linear-gradient(145deg, #f3f4f6, #e5e7eb)',
-                                    borderRadius: 8,
-                                    textAlign: 'center',
                                     display: 'flex',
-                                    flexDirection: 'column',
                                     alignItems: 'center',
-                                    justifyContent: 'center',
-                                    marginRight: 10,
-                                    fontWeight: 600,
-                                    fontSize: 12,
-                                    fontFamily: FONT_FAMILY,
-                                    border: '1px solid #e5e7eb',
+                                    justifyContent: 'space-between',
+                                    padding: '12px 16px',
+                                    borderRadius: 12,
+                                    border: '1px solid #f1f5f9',
+                                    background: '#ffffff',
+                                    transition: 'all 0.2s ease',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                                    e.currentTarget.style.borderColor = '#e2e8f0';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.05)';
+                                    e.currentTarget.style.borderColor = '#f1f5f9';
                                 }}
                             >
-                                <div style={{ fontSize: 14, color: '#111827' }}>{new Date(t.last_date).getDate()}</div>
-                                <div style={{ fontSize: 10, color: '#6b7280' }}>
-                                    {format(parseISO(t.last_date), 'MMM').toUpperCase()}
-                                </div>
-                            </div>
-
-                            <div style={{ flex: 1, minWidth: 0 }}>
+                                {/* Date Icon */}
                                 <div
                                     style={{
+                                        width: 44,
+                                        height: 44,
+                                        background: 'linear-gradient(135deg, #f8fafc, #e2e8f0)',
+                                        borderRadius: 10,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginRight: 12,
                                         fontWeight: 600,
-                                        fontSize: 13,
-                                        color: '#111827',
                                         fontFamily: FONT_FAMILY,
-                                        marginBottom: 2,
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                    }}
-                                    title={t.description}
-                                >
-                                    {t.description}
-                                </div>
-                                <div
-                                    style={{
-                                        fontSize: 11,
-                                        color: '#6b7280',
-                                        fontFamily: FONT_FAMILY,
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
+                                        border: '1px solid #e2e8f0',
+                                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
                                     }}
                                 >
-                                    {t.frequency} • {formatDate(t.last_date)}
+                                    <div style={{ fontSize: 16, color: '#111827', lineHeight: 1 }}>
+                                        {new Date(t.last_date).getDate()}
+                                    </div>
+                                    <div style={{ fontSize: 9, color: '#64748b', lineHeight: 1, marginTop: 1 }}>
+                                        {format(parseISO(t.last_date), 'MMM').toUpperCase()}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div style={{ textAlign: 'right', minWidth: 80 }}>
-                                <div
-                                    style={{
-                                        fontWeight: 600,
-                                        fontSize: 13,
-                                        textAlign: 'right',
-                                        color: '#ef4444',
-                                        fontFamily: FONT_FAMILY,
-                                    }}
-                                >
-                                    {formatAmount(t.amount)}
-                                </div>
-                                <div>
-                                    <span
+                                {/* Transaction Details */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div
                                         style={{
-                                            backgroundColor: '#ecfdf5',
-                                            color: '#059669',
-                                            fontSize: 10,
-                                            fontWeight: 500,
-                                            borderRadius: 6,
-                                            padding: '2px 6px',
-                                            marginTop: 4,
-                                            display: 'inline-block',
+                                            fontWeight: 600,
+                                            fontSize: 14,
+                                            color: '#111827',
                                             fontFamily: FONT_FAMILY,
-                                            border: '1px solid #a7f3d0',
+                                            marginBottom: 4,
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                        }}
+                                        title={t.description}
+                                    >
+                                        {t.description}
+                                    </div>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                        fontSize: 11,
+                                        color: '#64748b',
+                                        fontFamily: FONT_FAMILY,
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            <Calendar size={10} />
+                                            {formatDate(t.last_date)}
+                                        </div>
+                                        <div style={{
+                                            background: 'rgba(34, 197, 94, 0.1)',
+                                            color: '#059669',
+                                            fontSize: 9,
+                                            fontWeight: 600,
+                                            borderRadius: 4,
+                                            padding: '2px 6px',
+                                            border: '1px solid rgba(34, 197, 94, 0.2)',
+                                        }}>
+                                            {t.frequency}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Amount */}
+                                <div style={{ textAlign: 'right', minWidth: 80 }}>
+                                    <div
+                                        style={{
+                                            fontWeight: 700,
+                                            fontSize: 15,
+                                            color: isNegativeAmount(t.amount) ? '#ef4444' : '#111827',
+                                            fontFamily: FONT_FAMILY,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'flex-end',
+                                            gap: 4,
                                         }}
                                     >
-                                        {t.frequency}
-                                    </span>
+                                        <DollarSign size={12} style={{ 
+                                            color: isNegativeAmount(t.amount) ? '#ef4444' : '#64748b' 
+                                        }} />
+                                        {isNegativeAmount(t.amount) ? '-' : ''}{formatAmount(t.amount)}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))
+                        ))}
+                    </div>
                 )}
             </div>
+
+            {/* Enhanced Modal with Table */}
             <Modal
                 title={
                     <div style={{
-                        fontSize: 16,
-                        fontWeight: 600,
+                        fontSize: 18,
+                        fontWeight: 700,
                         color: '#111827',
                         fontFamily: FONT_FAMILY,
                         padding: '8px 0',
-                        background: 'linear-gradient(145deg, #ffffff, #f8fafc)',
-                        borderBottom: '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
                     }}>
-                        Select Recurring Transactions
+                        <div style={{
+                            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                            borderRadius: 8,
+                            padding: 8,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}>
+                            <Settings size={16} style={{ color: '#ffffff' }} />
+                        </div>
+                        Manage Recurring Transactions
                     </div>
                 }
                 open={isModalVisible}
                 onOk={handleOk}
                 onCancel={() => setIsModalVisible(false)}
-                okText="Save"
-                cancelText="Cancel"
-                width={500}
+                width={600}
                 bodyStyle={{
-                    maxHeight: '300px',
+                    maxHeight: '700px',
                     overflowY: 'auto',
-                    padding: '12px',
+                    padding: '20px',
                     background: '#f8fafc',
-                    borderRadius: '8px',
+                    borderRadius: '12px',
                 }}
                 style={{
                     top: 40,
-                    borderRadius: '12px',
+                    borderRadius: '16px',
                     overflow: 'hidden',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
                 }}
                 footer={
                     <div style={{
-                        textAlign: 'right',
-                        padding: '8px 12px',
-                        background: '#fff',
-                        borderTop: '1px solid #e2e8f0',
+                        padding: '16px 24px',
+                        background: '#ffffff',
+                        borderTop: '1px solid #f1f5f9',
                         display: 'flex',
                         justifyContent: 'flex-end',
-                        gap: '8px',
+                        gap: 12,
                     }}>
-                        <Button
+                        <button
                             style={{
+                                background: '#f8fafc',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: 8,
+                                padding: '8px 16px',
+                                fontSize: 14,
+                                fontWeight: 500,
+                                color: '#64748b',
+                                cursor: 'pointer',
                                 fontFamily: FONT_FAMILY,
-                                borderRadius: '6px',
-                                color: '#6b7280',
-                                borderColor: '#d1d5db',
+                                transition: 'all 0.2s ease',
                             }}
                             onClick={() => setIsModalVisible(false)}
                             disabled={isSaving}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#e2e8f0';
+                                e.currentTarget.style.borderColor = '#cbd5e1';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = '#f8fafc';
+                                e.currentTarget.style.borderColor = '#e2e8f0';
+                            }}
                         >
                             Cancel
-                        </Button>
-                        <Button
-                            type="primary"
+                        </button>
+                        <button
                             style={{
+                                background: isSaving 
+                                    ? 'linear-gradient(135deg, #94a3b8, #64748b)' 
+                                    : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                                border: 'none',
+                                borderRadius: 8,
+                                padding: '8px 20px',
+                                fontSize: 14,
+                                fontWeight: 600,
+                                color: '#ffffff',
+                                cursor: isSaving ? 'not-allowed' : 'pointer',
                                 fontFamily: FONT_FAMILY,
-                                borderRadius: '6px',
-                                background: '#3b82f6',
-                                borderColor: '#3b82f6',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '8px',
+                                gap: 8,
+                                transition: 'all 0.2s ease',
+                                boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
                             }}
                             onClick={handleOk}
                             disabled={isSaving}
+                            onMouseEnter={(e) => {
+                                if (!isSaving) {
+                                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)';
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!isSaving) {
+                                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.3)';
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                }
+                            }}
                         >
-                            {isSaving ? <DocklyLoader /> : null}
-                            Save
-                        </Button>
+                            {isSaving && (
+                                <div style={{
+                                    width: 14,
+                                    height: 14,
+                                    border: '2px solid rgba(255, 255, 255, 0.3)',
+                                    borderTop: '2px solid #ffffff',
+                                    borderRadius: '50%',
+                                    animation: 'spin 1s linear infinite',
+                                }} />
+                            )}
+                            {isSaving ? 'Saving...' : 'Save Changes'}
+                        </button>
                     </div>
                 }
             >
                 {isSaving ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        alignItems: 'center',
+                        padding: '40px',
+                        flexDirection: 'column',
+                        gap: 16,
+                    }}>
                         <DocklyLoader />
+                        <div style={{
+                            fontSize: 14,
+                            color: '#64748b',
+                            fontFamily: FONT_FAMILY,
+                            fontWeight: 500,
+                        }}>
+                            Updating your recurring transactions...
+                        </div>
                     </div>
                 ) : (
-                    <List
-                        dataSource={allTransactions}
-                        renderItem={(item) => (
-                            <List.Item style={{ padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
-                                <Checkbox
-                                    checked={selected.includes(item.transaction_id)}
-                                    onChange={(e) => {
-                                        if (e.target.checked) {
-                                            setSelected([...selected, item.transaction_id]);
-                                        } else {
-                                            setSelected(selected.filter((id) => id !== item.transaction_id));
-                                        }
-                                    }}
-                                    style={{ width: '100%' }}
-                                >
-                                    <div style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        fontSize: '13px',
-                                        gap: '8px',
-                                    }}>
-                                        <span style={{
-                                            fontWeight: 500,
-                                            color: '#111827',
-                                            fontFamily: FONT_FAMILY,
-                                            flex: 1,
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                        }}
-                                        title={item.description}
-                                        >
-                                            {item.description}
-                                        </span>
-                                        <span style={{
-                                            fontSize: 11,
-                                            color: '#6b7280',
-                                            fontFamily: FONT_FAMILY,
-                                            textAlign: 'right',
-                                            minWidth: 140,
-                                        }}>
-                                            {formatAmount(item.amount)} on {formatDate(item.date)}
-                                        </span>
-                                    </div>
-                                </Checkbox>
-                            </List.Item>
-                        )}
-                    />
+                    <div style={{
+                        background: '#ffffff',
+                        borderRadius: 12,
+                        padding: '16px',
+                        border: '1px solid #e2e8f0',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                    }}>
+                        <div style={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: '#111827',
+                            marginBottom: 16,
+                            fontFamily: FONT_FAMILY,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                        }}>
+                            <Repeat size={16} style={{ color: '#3b82f6' }} />
+                            Select transactions to mark as recurring:
+                        </div>
+                        <div style={{
+                            marginBottom: 16,
+                            display: 'flex',
+                            gap: 8,
+                            justifyContent: 'flex-start',
+                        }}>
+                            <Radio.Group
+                                value={filter}
+                                onChange={(e) => setFilter(e.target.value)}
+                                style={{ fontFamily: FONT_FAMILY }}
+                            >
+                                {/* <Radio.Button value="all">All</Radio.Button> */}
+                                <Radio.Button value="credit">Credit</Radio.Button>
+                                <Radio.Button value="debit">Debit</Radio.Button>
+                            </Radio.Group>
+                        </div>
+                        <Table
+                            columns={columns}
+                            dataSource={filteredTransactions}
+                            rowKey="transaction_id"
+                            pagination={false}
+                            style={{ fontFamily: FONT_FAMILY }}
+                            bordered={false}
+                            scroll={{ y: 300 }}
+                        />
+                    </div>
                 )}
             </Modal>
+
+            <style>{`
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                .ant-table-thead > tr > th {
+                    background: #f8fafc;
+                    font-weight: 600;
+                    color: #111827;
+                    font-family: ${FONT_FAMILY};
+                    border-bottom: 1px solid #e2e8f0;
+                }
+                .ant-table-tbody > tr > td {
+                    border-bottom: 1px solid #f1f5f9;
+                }
+                .ant-radio-button-wrapper {
+                    border-radius: 8px;
+                    font-weight: 500;
+                    color: #64748b;
+                    border: 1px solid #e2e8f0;
+                    transition: all 0.2s ease;
+                }
+                .ant-radio-button-wrapper-checked {
+                    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+                    color: #ffffff;
+                    border-color: transparent;
+                }
+                .ant-radio-button-wrapper:hover {
+                    background: #e2e8f0;
+                    color: #111827;
+                }
+            `}</style>
         </div>
     );
 };
 
 export default RecurringTransactions;
+

@@ -1015,7 +1015,7 @@ const CustomHeader: React.FC<{
               }}>
               {!responsive('mobile') && (
                 <div style={{ textAlign: 'right' }}>
-                  <div
+                  {/* <div
                     style={{
                       fontSize: responsive('mobile') ? '11px' : '13px',
                       fontWeight: '500',
@@ -1024,7 +1024,7 @@ const CustomHeader: React.FC<{
                       transition: 'color 0.3s ease',
                     }}>
                     Welcome Back!
-                  </div>
+                  </div> */}
                   <div
                     style={{
                       color: PRIMARY_COLOR,
@@ -1033,9 +1033,9 @@ const CustomHeader: React.FC<{
                       fontFamily: FONT_FAMILY,
                       transition: 'all 0.3s ease',
                     }}>
-                    {user.userName
+                    {/* {user.userName
                       ? capitalizeEachWord(user.userName)
-                      : 'Dockly User'}
+                      : 'Dockly User'} */}
                   </div>
                 </div>
               )}

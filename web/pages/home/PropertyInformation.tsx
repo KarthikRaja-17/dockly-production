@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import React, {
   useState,
   useCallback,
@@ -6,7 +6,13 @@ import React, {
   forwardRef,
   useImperativeHandle,
 } from "react";
-import { PlusOutlined, CarOutlined, EditOutlined, SearchOutlined, DeleteOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined,
+  CarOutlined,
+  EditOutlined,
+  SearchOutlined,
+  DeleteOutlined,
+} from "@ant-design/icons";
 import {
   MapPin,
   Search,
@@ -36,7 +42,7 @@ import {
   GeopifyFeature,
   AddressDetails,
 } from "../../services/geopify";
-import { Popconfirm } from 'antd';
+import { Popconfirm } from "antd";
 import { PRIMARY_COLOR } from "../../app/comman";
 
 interface PropertyData {
@@ -68,13 +74,17 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [properties, setProperties] = useState<PropertyData[]>([]);
-  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(
+    null
+  );
   const [modalTitle, setModalTitle] = useState("Add New Property");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [addressOptions, setAddressOptions] = useState<any[]>([]);
   const [addressLoading, setAddressLoading] = useState(false);
-  const [selectedAddress, setSelectedAddress] = useState<AddressDetails | null>(null);
+  const [selectedAddress, setSelectedAddress] = useState<AddressDetails | null>(
+    null
+  );
   const [addressSearchValue, setAddressSearchValue] = useState("");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
@@ -340,7 +350,6 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
         display: "flex",
         flexDirection: "column",
         overflowY: "auto",
-        padding: "0 1.25rem",
         fontFamily:
           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       }}
@@ -372,7 +381,7 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
           {/* Dummy Primary Residence Placeholder */}
           <div
             style={{
-              background: "#ffffff",
+              // background: "#545151ff",
               borderRadius: "12px",
               padding: "1.5rem",
               marginBottom: "1rem",
@@ -390,8 +399,7 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
               e.currentTarget.style.transform = "translateY(-2px)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow =
-                "0 2px 8px rgba(0, 0, 0, 0.06)";
+              e.currentTarget.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.06)";
               e.currentTarget.style.transform = "translateY(0)";
             }}
           >
@@ -412,8 +420,6 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
                   justifyContent: "center",
                   fontSize: "32px",
                   flexShrink: 0,
-                  // background:
-                  //   "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                   borderRadius: "16px",
                   boxShadow: "0 4px 12px rgba(102, 126, 234, 0.3)",
                 }}
@@ -465,8 +471,7 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
               e.currentTarget.style.transform = "translateY(-2px)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow =
-                "0 2px 8px rgba(0, 0, 0, 0.06)";
+              e.currentTarget.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.06)";
               e.currentTarget.style.transform = "translateY(0)";
             }}
           >
@@ -478,35 +483,17 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
                 marginBottom: "0.75rem",
               }}
             >
-              {/* <div
-                style={{
-                  width: "56px",
-                  height: "56px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "32px",
-                  flexShrink: 0,
-                  // background:
-                  //   "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                  borderRadius: "16px",
-                  boxShadow: "0 4px 12px rgba(102, 126, 234, 0.3)",
-                }}
-              >
-                {/* <PlusOutlined /> */}
-              {/* </div> */}
-              <div style={{ flex: 1, minWidth: 0, }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
                     fontWeight: 600,
                     fontSize: "1rem",
-                    // TextAlign: "center",
                     marginBottom: "0.25rem",
                     color: "#1a202c",
                     lineHeight: "1.4",
                   }}
                 >
-                 <PlusOutlined /> Add Another Property
+                  <PlusOutlined /> Add Another Property
                 </div>
                 <div
                   style={{
@@ -575,8 +562,6 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
                     justifyContent: "center",
                     fontSize: "32px",
                     flexShrink: 0,
-                    // background:
-                      // "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                     borderRadius: "16px",
                     boxShadow: "0 4px 12px rgba(102, 126, 234, 0.3)",
                   }}
@@ -817,13 +802,16 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
                             boxShadow: "0 2px 4px rgba(24, 144, 255, 0.2)",
                           }}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
-                            e.currentTarget.style.transform = "translateY(-1px)";
+                            e.currentTarget.style.backgroundColor =
+                              PRIMARY_COLOR;
+                            e.currentTarget.style.transform =
+                              "translateY(-1px)";
                             e.currentTarget.style.boxShadow =
                               "0 4px 8px rgba(24, 144, 255, 0.3)";
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+                            e.currentTarget.style.backgroundColor =
+                              PRIMARY_COLOR;
                             e.currentTarget.style.transform = "translateY(0)";
                             e.currentTarget.style.boxShadow =
                               "0 2px 4px rgba(24, 144, 255, 0.2)";
@@ -834,7 +822,9 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
                         <Popconfirm
                           title="Are you sure to delete this property?"
                           onConfirm={() => handleDelete(property.id)}
-                          onCancel={(e) => { if (e) e.stopPropagation(); }}
+                          onCancel={(e) => {
+                            if (e) e.stopPropagation();
+                          }}
                           okText="Yes"
                           cancelText="No"
                         >
@@ -849,7 +839,10 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
                               color: "white",
                               border: "none",
                               borderRadius: "8px",
-                              cursor: isDeleting === property.id ? "not-allowed" : "pointer",
+                              cursor:
+                                isDeleting === property.id
+                                  ? "not-allowed"
+                                  : "pointer",
                               fontSize: "0.875rem",
                               fontWeight: 500,
                               transition: "all 0.2s ease",
@@ -858,16 +851,20 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
                             }}
                             onMouseEnter={(e) => {
                               if (isDeleting !== property.id) {
-                                e.currentTarget.style.backgroundColor = "#d9363e";
-                                e.currentTarget.style.transform = "translateY(-1px)";
+                                e.currentTarget.style.backgroundColor =
+                                  "#d9363e";
+                                e.currentTarget.style.transform =
+                                  "translateY(-1px)";
                                 e.currentTarget.style.boxShadow =
                                   "0 4px 8px rgba(255, 77, 79, 0.3)";
                               }
                             }}
                             onMouseLeave={(e) => {
                               if (isDeleting !== property.id) {
-                                e.currentTarget.style.backgroundColor = "#ff4d4f";
-                                e.currentTarget.style.transform = "translateY(0)";
+                                e.currentTarget.style.backgroundColor =
+                                  "#ff4d4f";
+                                e.currentTarget.style.transform =
+                                  "translateY(0)";
                                 e.currentTarget.style.boxShadow =
                                   "0 2px 4px rgba(255, 77, 79, 0.2)";
                               }
@@ -941,8 +938,60 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
               </div>
             </div>
           ))}
+
+          {/* Add Another Property Template - Only show when properties exist */}
+          <div
+            style={{
+              background: "#f8fafc",
+              borderRadius: "12px",
+              padding: "1.5rem",
+              marginBottom: "1rem",
+              border: "2px dashed #cbd5e1",
+              transition: "all 0.3s ease",
+              cursor: "pointer",
+              position: "relative",
+            }}
+            onClick={() => openModal()}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = PRIMARY_COLOR;
+              e.currentTarget.style.backgroundColor = "#f1f5f9";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "#cbd5e1";
+              e.currentTarget.style.backgroundColor = "#f8fafc";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+          >
+            <div
+              style={{
+                textAlign: "left",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 600,
+                  fontSize: "1.1rem",
+                  marginBottom: "0.5rem",
+                  color: "#475569",
+                  lineHeight: "1.4",
+                }}
+              >
+                Add Another Property
+              </div>
+              <div
+                style={{
+                  fontSize: "0.875rem",
+                  color: "#64748b",
+                }}
+              >
+                Secondary home • Rental • Vacation home • Commercial
+              </div>
+            </div>
+          </div>
         </div>
       )}
+
       {isModalVisible && (
         <div
           style={{
@@ -964,585 +1013,597 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
               background: "#ffffff",
               borderRadius: "16px",
               width: "100%",
-              maxWidth: "600px",
+              maxWidth: "650px",
               maxHeight: "90vh",
               overflowY: "auto",
-              padding: "1.5rem",
               position: "relative",
               boxShadow: "0 8px 24px rgba(0, 0, 0, 0.15)",
             }}
           >
-            <button
-              onClick={closeModal}
-              style={{
-                position: "absolute",
-                top: "1rem",
-                right: "1rem",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "20px",
-                color: "#64748b",
-              }}
-            >
-              <X size={24} />
-            </button>
+            {/* Modal Header */}
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "8px 0",
-                marginBottom: "1rem",
+                background: PRIMARY_COLOR,
+                padding: "1.5rem",
+                borderRadius: "16px 16px 0 0",
+                position: "relative",
               }}
             >
-              <Home
-                size={24}
-                style={{ color: PRIMARY_COLOR, flexShrink: 0 }}
-              />
-              <div
+              <button
+                onClick={closeModal}
                 style={{
-                  fontSize: "18px",
-                  fontWeight: 600,
-                  color: PRIMARY_COLOR,
+                  position: "absolute",
+                  top: "1rem",
+                  right: "1rem",
+                  background: "rgba(255, 255, 255, 0.2)",
+                  border: "none",
+                  cursor: "pointer",
+                  borderRadius: "50%",
+                  width: "32px",
+                  height: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.3)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)";
                 }}
               >
-                {modalTitle}
-              </div>
-            </div>
-            <form onSubmit={handleSubmit}>
+                <X size={18} />
+              </button>
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr",
-                  gap: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  color: "white",
                 }}
               >
-                {/* Address */}
-                <div style={{ position: "relative" }}>
-                  <label
+                <div
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    background: "rgba(255, 255, 255, 0.2)",
+                    borderRadius: "12px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Home size={20} />
+                </div>
+                <div>
+                  <div
                     style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontSize: "14px",
+                      fontSize: "20px",
                       fontWeight: 600,
-                      color: "#374151",
-                      letterSpacing: "0.025em",
+                      marginBottom: "4px",
                     }}
                   >
-                    Address
-                  </label>
+                    {modalTitle}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "14px",
+                      opacity: 0.9,
+                    }}
+                  >
+                    Add a new property to your portfolio
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div style={{ padding: "2rem" }}>
+              <form onSubmit={handleSubmit}>
+                <div
+                  style={{
+                    display: "grid",
+                    gap: "1.5rem",
+                  }}
+                >
+                  {/* Address Field - Full Width */}
                   <div style={{ position: "relative" }}>
-                    <input
-                      type="text"
-                      value={addressSearchValue}
-                      onChange={(e) => handleAddressSearch(e.target.value)}
-                      placeholder="Enter address"
+                    <label
                       style={{
-                        width: "100%",
-                        padding: "14px 16px 14px 40px",
-                        border: "2px solid #e2e8f0",
-                        borderRadius: "12px",
-                        fontSize: "15px",
-                        backgroundColor: "#fafbfc",
-                        outline: "none",
-                        fontWeight: 400,
-                        transition: "all 0.2s ease",
-                        caretColor: "#000000",
+                        display: "block",
+                        marginBottom: "8px",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        color: "#374151",
                       }}
-                      onFocus={(e) => {
-                        e.target.style.borderColor = PRIMARY_COLOR;
-                        e.target.style.backgroundColor = "white";
-                        e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}20`;
-                      }}
-                      onBlur={(e) => {
-                        e.target.style.borderColor = "#e2e8f0";
-                        e.target.style.backgroundColor = "#fafbfc";
-                        e.target.style.boxShadow = "none";
-                      }}
-                    />
-                    <MapPin
-                      size={18}
-                      style={{
-                        position: "absolute",
-                        left: "14px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        color: "#9ca3af",
-                      }}
-                    />
-                    {addressLoading && (
+                    >
+                      Address
+                    </label>
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type="text"
+                        value={addressSearchValue}
+                        onChange={(e) => handleAddressSearch(e.target.value)}
+                        placeholder="Enter property address"
+                        style={{
+                          width: "100%",
+                          padding: "12px 40px 12px 14px",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "8px",
+                          fontSize: "14px",
+                          outline: "none",
+                          transition: "all 0.2s ease",
+                          caretColor: "black", // 👈 makes cursor black
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = PRIMARY_COLOR;
+                          e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}15`;
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = "#d1d5db";
+                          e.target.style.boxShadow = "none";
+                        }}
+                      />
+
                       <div
                         style={{
                           position: "absolute",
                           right: "14px",
                           top: "50%",
                           transform: "translateY(-50%)",
-                          width: "18px",
-                          height: "18px",
-                          border: "2px solid rgba(0, 0, 0, 0.3)",
-                          borderTop: "2px solid #1890ff",
-                          borderRadius: "50%",
-                          animation: "spin 1s linear infinite",
+                          color: "#9ca3af",
                         }}
-                      />
+                      >
+                        {addressLoading ? (
+                          <div
+                            style={{
+                              width: "16px",
+                              height: "16px",
+                              border: "2px solid rgba(0, 0, 0, 0.3)",
+                              borderTop: "2px solid #1890ff",
+                              borderRadius: "50%",
+                              animation: "spin 1s linear infinite",
+                            }}
+                          />
+                        ) : (
+                          <Search size={16} />
+                        )}
+                      </div>
+                    </div>
+                    {addressOptions.length > 0 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          right: 0,
+                          background: "#ffffff",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "8px",
+                          marginTop: "4px",
+                          maxHeight: "200px",
+                          overflowY: "auto",
+                          zIndex: 1000,
+                          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                        }}
+                      >
+                        {addressOptions.map((option) => (
+                          <div
+                            key={option.key}
+                            onClick={() => handleAddressSelect(option)}
+                            style={{
+                              padding: "10px 16px",
+                              cursor: "pointer",
+                              fontSize: "14px",
+                              color: "#1a202c",
+                              transition: "background-color 0.2s ease",
+                            }}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.backgroundColor =
+                                "#f5f5f5")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.backgroundColor =
+                                "#ffffff")
+                            }
+                          >
+                            {option.label}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  {addressOptions.length > 0 && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        right: 0,
-                        background: "#ffffff",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "8px",
-                        marginTop: "4px",
-                        maxHeight: "200px",
-                        overflowY: "auto",
-                        zIndex: 1000,
-                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                      }}
-                    >
-                      {addressOptions.map((option) => (
-                        <div
-                          key={option.key}
-                          onClick={() => handleAddressSelect(option)}
-                          style={{
-                            padding: "10px 16px",
-                            cursor: "pointer",
-                            fontSize: "14px",
-                            color: "#1a202c",
-                            transition: "background-color 0.2s ease",
-                          }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor = "#f5f5f5")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor = "#ffffff")
-                          }
-                        >
-                          {option.label}
-                        </div>
-                      ))}
+
+                  {/* Two Column Layout */}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: "1rem",
+                    }}
+                  >
+                    {/* Property Type */}
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "8px",
+                          fontSize: "14px",
+                          fontWeight: 600,
+                          color: "#374151",
+                        }}
+                      >
+                        Property Type
+                      </label>
+                      <select
+                        value={formData.type}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            type: e.target.value,
+                          }))
+                        }
+                        style={{
+                          width: "100%",
+                          padding: "12px 14px",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "8px",
+                          fontSize: "14px",
+                          outline: "none",
+                          transition: "all 0.2s ease",
+                          backgroundColor: "#fff", // ✅ prevents black flash
+                          appearance: "none", // ✅ keep custom dropdown for desktop
+                          WebkitAppearance: "none",
+                          MozAppearance: "none",
+                          backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
+                          backgroundRepeat: "no-repeat",
+                          backgroundPosition: "right 14px center",
+                          backgroundSize: "12px",
+                          cursor: "pointer",
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = PRIMARY_COLOR;
+                          e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}15`;
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = "#d1d5db";
+                          e.target.style.boxShadow = "none";
+                        }}
+                      >
+                        <option value="" disabled>
+                          Select type
+                        </option>
+                        <option value="Primary Residence">
+                          Primary Residence
+                        </option>
+                        <option value="Secondary Home">Secondary Home</option>
+                        <option value="Investment Property">
+                          Investment Property
+                        </option>
+                        <option value="Rental Property">Rental Property</option>
+                      </select>
                     </div>
-                  )}
-                </div>
 
-                {/* Property Type */}
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      color: "#374151",
-                      letterSpacing: "0.025em",
-                    }}
-                  >
-                    Property Type
-                  </label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, type: e.target.value }))
-                    }
-                    style={{
-                      width: "100%",
-                      padding: "14px 16px",
-                      border: "2px solid #e2e8f0",
-                      borderRadius: "12px",
-                      fontSize: "15px",
-                      backgroundColor: "#fafbfc",
-                      outline: "none",
-                      fontWeight: 400,
-                      transition: "all 0.2s ease",
-                      caretColor: "#000000",
-                      appearance: "none",
-                      backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 16px center",
-                      backgroundSize: "12px",
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = PRIMARY_COLOR;
-                      e.target.style.backgroundColor = "white";
-                      e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}20`;
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = "#e2e8f0";
-                      e.target.style.backgroundColor = "#fafbfc";
-                      e.target.style.boxShadow = "none";
-                    }}
-                  >
-                    <option value="" disabled>
-                      Select property type
-                    </option>
-                    <option value="Primary Residence">Primary Residence</option>
-                    <option value="Secondary Home">Secondary Home</option>
-                    <option value="Investment Property">Investment Property</option>
-                    <option value="Rental Property">Rental Property</option>
-                  </select>
-                </div>
+                    {/* Purchase Date */}
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "8px",
+                          fontSize: "14px",
+                          fontWeight: 600,
+                          color: "#374151",
+                        }}
+                      >
+                        Purchase Date
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.purchaseDate}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            purchaseDate: e.target.value,
+                          }))
+                        }
+                        placeholder="mm/dd/yyyy"
+                        style={{
+                          width: "100%",
+                          padding: "12px 14px",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "8px",
+                          fontSize: "14px",
+                          outline: "none",
+                          transition: "all 0.2s ease",
+                          caretColor: "black",
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = PRIMARY_COLOR;
+                          e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}15`;
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = "#d1d5db";
+                          e.target.style.boxShadow = "none";
+                        }}
+                      />
+                    </div>
 
-                {/* Purchase Date */}
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      color: "#374151",
-                      letterSpacing: "0.025em",
-                    }}
-                  >
-                    Purchase Date
-                  </label>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      type="date"
-                      value={formData.purchaseDate}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          purchaseDate: e.target.value,
-                        }))
-                      }
-                      style={{
-                        width: "100%",
-                        padding: "14px 16px 14px 40px",
-                        border: "2px solid #e2e8f0",
-                        borderRadius: "12px",
-                        fontSize: "15px",
-                        backgroundColor: "#fafbfc",
-                        outline: "none",
-                        fontWeight: 400,
-                        transition: "all 0.2s ease",
-                        caretColor: "#000000",
-                      }}
-                      onFocus={(e) => {
-                        e.target.style.borderColor = PRIMARY_COLOR;
-                        e.target.style.backgroundColor = "white";
-                        e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}20`;
-                      }}
-                      onBlur={(e) => {
-                        e.target.style.borderColor = "#e2e8f0";
-                        e.target.style.backgroundColor = "#fafbfc";
-                        e.target.style.boxShadow = "none";
-                      }}
-                    />
-                    <Calendar
-                      size={18}
-                      style={{
-                        position: "absolute",
-                        left: "14px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        color: "#9ca3af",
-                      }}
-                    />
+                    {/* Purchase Price */}
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "8px",
+                          fontSize: "14px",
+                          fontWeight: 600,
+                          color: "#374151",
+                        }}
+                      >
+                        Purchase Price
+                      </label>
+                      <div style={{ position: "relative" }}>
+                        <input
+                          type="number"
+                          value={formData.purchasePrice}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              purchasePrice: e.target.value,
+                            }))
+                          }
+                          placeholder="Enter purchase price"
+                          min="0"
+                          step="0.01"
+                          style={{
+                            width: "100%",
+                            padding: "12px 14px 12px 30px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            outline: "none",
+                            transition: "all 0.2s ease",
+                            caretColor: "black",
+                          }}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = PRIMARY_COLOR;
+                            e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}15`;
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = "#d1d5db";
+                            e.target.style.boxShadow = "none";
+                          }}
+                        />
+                        <span
+                          style={{
+                            position: "absolute",
+                            left: "14px",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            color: "#9ca3af",
+                            fontSize: "14px",
+                          }}
+                        >
+                          $
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Square Footage */}
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "8px",
+                          fontSize: "14px",
+                          fontWeight: 600,
+                          color: "#374151",
+                        }}
+                      >
+                        Square Footage
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.squareFootage}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            squareFootage: e.target.value,
+                          }))
+                        }
+                        placeholder="Enter square footage"
+                        style={{
+                          width: "100%",
+                          padding: "12px 14px",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "8px",
+                          fontSize: "14px",
+                          outline: "none",
+                          transition: "all 0.2s ease",
+                          caretColor: "black",
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = PRIMARY_COLOR;
+                          e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}15`;
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = "#d1d5db";
+                          e.target.style.boxShadow = "none";
+                        }}
+                      />
+                    </div>
+
+                    {/* Lot Size */}
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "8px",
+                          fontSize: "14px",
+                          fontWeight: 600,
+                          color: "#374151",
+                          caretColor: "black",
+                        }}
+                      >
+                        Lot Size
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.lotSize}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            lotSize: e.target.value,
+                          }))
+                        }
+                        placeholder="Enter lot size"
+                        style={{
+                          width: "100%",
+                          padding: "12px 14px",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "8px",
+                          fontSize: "14px",
+                          outline: "none",
+                          transition: "all 0.2s ease",
+                          caretColor: "black",
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = PRIMARY_COLOR;
+                          e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}15`;
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = "#d1d5db";
+                          e.target.style.boxShadow = "none";
+                        }}
+                      />
+                    </div>
+
+                    {/* Property Tax ID */}
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "8px",
+                          fontSize: "14px",
+                          fontWeight: 600,
+                          color: "#374151",
+                        }}
+                      >
+                        Property Tax ID
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.propertyTaxId}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            propertyTaxId: e.target.value,
+                          }))
+                        }
+                        placeholder="Enter property tax ID"
+                        style={{
+                          width: "100%",
+                          padding: "12px 14px",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "8px",
+                          fontSize: "14px",
+                          outline: "none",
+                          transition: "all 0.2s ease",
+                          caretColor: "black",
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = PRIMARY_COLOR;
+                          e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}15`;
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = "#d1d5db";
+                          e.target.style.boxShadow = "none";
+                        }}
+                      />
+                    </div>
                   </div>
-                </div>
 
-                {/* Purchase Price */}
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      color: "#374151",
-                      letterSpacing: "0.025em",
-                    }}
-                  >
-                    Purchase Price ($)
-                  </label>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      type="number"
-                      value={formData.purchasePrice}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          purchasePrice: e.target.value,
-                        }))
-                      }
-                      placeholder="e.g., 300000"
-                      min="0"
-                      step="0.01"
-                      style={{
-                        width: "100%",
-                        padding: "14px 16px 14px 40px",
-                        border: "2px solid #e2e8f0",
-                        borderRadius: "12px",
-                        fontSize: "15px",
-                        backgroundColor: "#fafbfc",
-                        outline: "none",
-                        fontWeight: 400,
-                        transition: "all 0.2s ease",
-                        caretColor: "#000000",
-                      }}
-                      onFocus={(e) => {
-                        e.target.style.borderColor = PRIMARY_COLOR;
-                        e.target.style.backgroundColor = "white";
-                        e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}20`;
-                      }}
-                      onBlur={(e) => {
-                        e.target.style.borderColor = "#e2e8f0";
-                        e.target.style.backgroundColor = "#fafbfc";
-                        e.target.style.boxShadow = "none";
-                      }}
-                    />
-                    <DollarSign
-                      size={18}
-                      style={{
-                        position: "absolute",
-                        left: "14px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        color: "#9ca3af",
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Square Footage */}
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      color: "#374151",
-                      letterSpacing: "0.025em",
-                    }}
-                  >
-                    Square Footage
-                  </label>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      type="text"
-                      value={formData.squareFootage}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          squareFootage: e.target.value,
-                        }))
-                      }
-                      placeholder="e.g., 2,500 sq ft"
-                      style={{
-                        width: "100%",
-                        padding: "14px 16px 14px 40px",
-                        border: "2px solid #e2e8f0",
-                        borderRadius: "12px",
-                        fontSize: "15px",
-                        backgroundColor: "#fafbfc",
-                        outline: "none",
-                        fontWeight: 400,
-                        transition: "all 0.2s ease",
-                        caretColor: "#000000",
-                      }}
-                      onFocus={(e) => {
-                        e.target.style.borderColor = PRIMARY_COLOR;
-                        e.target.style.backgroundColor = "white";
-                        e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}20`;
-                      }}
-                      onBlur={(e) => {
-                        e.target.style.borderColor = "#e2e8f0";
-                        e.target.style.backgroundColor = "#fafbfc";
-                        e.target.style.boxShadow = "none";
-                      }}
-                    />
-                    <Ruler
-                      size={18}
-                      style={{
-                        position: "absolute",
-                        left: "14px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        color: "#9ca3af",
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Lot Size */}
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      color: "#374151",
-                      letterSpacing: "0.025em",
-                    }}
-                  >
-                    Lot Size
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.lotSize}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        lotSize: e.target.value,
-                      }))
-                    }
-                    placeholder="e.g., 0.25 acres"
-                    style={{
-                      width: "100%",
-                      padding: "14px 16px",
-                      border: "2px solid #e2e8f0",
-                      borderRadius: "12px",
-                      fontSize: "15px",
-                      backgroundColor: "#fafbfc",
-                      outline: "none",
-                      fontWeight: 400,
-                      transition: "all 0.2s ease",
-                      caretColor: "#000000",
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = PRIMARY_COLOR;
-                      e.target.style.backgroundColor = "white";
-                      e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}20`;
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = "#e2e8f0";
-                      e.target.style.backgroundColor = "#fafbfc";
-                      e.target.style.boxShadow = "none";
-                    }}
-                  />
-                </div>
-
-                {/* Property Tax ID */}
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      color: "#374151",
-                      letterSpacing: "0.025em",
-                    }}
-                  >
-                    Property Tax ID
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.propertyTaxId}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        propertyTaxId: e.target.value,
-                      }))
-                    }
-                    placeholder="Enter tax ID"
-                    style={{
-                      width: "100%",
-                      padding: "14px 16px",
-                      border: "2px solid #e2e8f0",
-                      borderRadius: "12px",
-                      fontSize: "15px",
-                      backgroundColor: "#fafbfc",
-                      outline: "none",
-                      fontWeight: 400,
-                      transition: "all 0.2s ease",
-                      caretColor: "#000000",
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = PRIMARY_COLOR;
-                      e.target.style.backgroundColor = "white";
-                      e.target.style.boxShadow = `0 0 0 3px ${PRIMARY_COLOR}20`;
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = "#e2e8f0";
-                      e.target.style.backgroundColor = "#fafbfc";
-                      e.target.style.boxShadow = "none";
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <div style={{ marginTop: "8px" }}>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  style={{
-                    width: "100%",
-                    padding: "16px 24px",
-                    background: loading
-                      ? "linear-gradient(135deg, #94a3b8 0%, #64748b 100%)"
-                      : "linear-gradient(135deg, #1890ff 0%, #096dd9 100%)",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "12px",
-                    fontSize: "16px",
-                    fontWeight: 600,
-                    cursor: loading ? "not-allowed" : "pointer",
-                    transition: "all 0.3s ease",
-                    boxShadow: loading
-                      ? "none"
-                      : "0 8px 25px rgba(24, 144, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
-                    position: "relative",
-                    overflow: "hidden",
-                    textShadow: "0 1px 2px rgba(0, 0, 0, 0.2)",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!loading) {
-                      e.currentTarget.style.transform = "translateY(-2px)";
-                      e.currentTarget.style.boxShadow =
-                        "0 12px 35px rgba(24, 144, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)";
-                      e.currentTarget.style.background =
-                        "linear-gradient(135deg, #096dd9 0%, #0050b3 100%)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!loading) {
-                      e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow =
-                        "0 8px 25px rgba(24, 144, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)";
-                      e.currentTarget.style.background =
-                        "linear-gradient(135deg, #1890ff 0%, #096dd9 100%)";
-                    }
-                  }}
-                >
+                  {/* Action Buttons */}
                   <div
                     style={{
                       display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
+                      gap: "12px",
+                      justifyContent: "flex-end",
+                      marginTop: "1rem",
                     }}
                   >
-                    {loading && (
-                      <div
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          border: "2px solid rgba(255, 255, 255, 0.3)",
-                          borderTop: "2px solid white",
-                          borderRadius: "50%",
-                          animation: "spin 1s linear infinite",
-                        }}
-                      />
-                    )}
-                    {loading
-                      ? "Saving Property..."
-                      : editingPropertyId
-                      ? "Update Property"
-                      : "Add Property"}
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      style={{
+                        padding: "12px 24px",
+                        background: "transparent",
+                        color: "#6b7280",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        fontSize: "14px",
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "#f9fafb";
+                        e.currentTarget.style.borderColor = "#9ca3af";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "transparent";
+                        e.currentTarget.style.borderColor = "#d1d5db";
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      style={{
+                        padding: "12px 24px",
+                        background: loading ? "#9ca3af" : PRIMARY_COLOR,
+                        color: "white",
+                        border: "none",
+                        borderRadius: "8px",
+                        fontSize: "14px",
+                        fontWeight: 500,
+                        cursor: loading ? "not-allowed" : "pointer",
+                        transition: "all 0.2s ease",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!loading) {
+                          e.currentTarget.style.backgroundColor = "#0969da";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!loading) {
+                          e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+                        }
+                      }}
+                    >
+                      {loading && (
+                        <div
+                          style={{
+                            width: "14px",
+                            height: "14px",
+                            border: "2px solid rgba(255, 255, 255, 0.3)",
+                            borderTop: "2px solid white",
+                            borderRadius: "50%",
+                            animation: "spin 1s linear infinite",
+                          }}
+                        />
+                      )}
+                      {editingPropertyId ? "Update Property" : "Add Property"}
+                    </button>
                   </div>
-                </button>
-              </div>
-            </form>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -1569,6 +1630,13 @@ const PropertyInformation = forwardRef<any, any>((props, ref) => {
           .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: ${PRIMARY_COLOR}60;
           }
+            @media (max-width: 768px) {
+  select {
+    appearance: auto !important; /* Let phone use native UI */
+    background-image: none !important;
+  }
+}
+
         `}
       </style>
     </div>

@@ -120,11 +120,18 @@ const DynamicSchoolActivities: React.FC = () => {
   const noDataStyle: React.CSSProperties = {
     border: '1px dashed #d9d9d9',
     borderRadius: '4px',
-    padding: '20px',
+    padding: '16px',
     textAlign: 'center',
     margin: '16px 1.25rem',
     backgroundColor: '#fafafa',
-    marginTop: '100px ',
+    marginTop: '40px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    minHeight: '80px',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
   };
 
   const toggleExpand = (id: string) => {
@@ -360,6 +367,27 @@ const DynamicSchoolActivities: React.FC = () => {
   const removeLink = (index: number) => {
     const updatedLinks: ResourceLink[] = formData.links?.filter((_: ResourceLink, i: number) => i !== index) ?? [];
     setFormData({ ...formData, links: updatedLinks });
+  };
+
+  const handleEmptyTemplateClick = (type: 'school' | 'activity') => {
+    setFormType(type);
+    setFormData(
+      type === 'school'
+        ? {
+            name: '',
+            gradeLevel: '',
+            studentId: '',
+            customFields: [],
+            links: []
+          }
+        : {
+            name: '',
+            schedule: '',
+            customFields: [],
+            links: []
+          }
+    );
+    setAddModalVisible(true);
   };
 
   const ItemCard: React.FC<{ item: School | Activity; type: 'school' | 'activity' }> = ({ item, type }) => {
@@ -742,12 +770,25 @@ const DynamicSchoolActivities: React.FC = () => {
           <Text>Loading...</Text>
         </div>
       ) : items.length === 0 ? (
-        <div style={noDataStyle}>
-          <div style={{ fontSize: '24px', color: '#bfbfbf' }}>+</div>
-          <div style={{ marginTop: '8px', color: '#8c8c8c' }}>
+        <div 
+          style={noDataStyle}
+          onClick={() => handleEmptyTemplateClick(type)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#f0f0f0';
+            e.currentTarget.style.borderColor = '#1890ff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#fafafa';
+            e.currentTarget.style.borderColor = '#d9d9d9';
+          }}
+        >
+          <div style={{ fontSize: '20px', color: '#bfbfbf', marginBottom: '4px' }}>+</div>
+          <div style={{ fontSize: '14px', color: '#8c8c8c', fontWeight: 500 }}>
             Add New {type === 'school' ? 'School' : 'Activity'}
           </div>
-          <div style={{ color: '#bfbfbf' }}>{type === 'school' ? 'School' : 'Activity'} description...</div>
+          <div style={{ fontSize: '12px', color: '#bfbfbf', marginTop: '2px' }}>
+            Click to add {type === 'school' ? 'school' : 'activity'} details
+          </div>
         </div>
       ) : (
         items.map((item) => (

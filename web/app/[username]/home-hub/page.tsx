@@ -148,11 +148,11 @@ function App() {
         <div style={secondaryGridStyle}>
           <KeyContacts/>
 
-          <NotesLists currentHub="Home" />
+          <NotesLists currentHub="home" />
         </div>
         <div style={secondaryGridStyle}>
           <FileHub hubName="Home" title="Files" />
-          <BookmarkHub hub={'Home'} />
+          <BookmarkHub hub={"home"} />
         </div>
       </div>
     </ConfigProvider>

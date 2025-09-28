@@ -480,9 +480,9 @@ const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
                   <Radio value="dockly" style={{ fontFamily: FONT_FAMILY }}>
                     Save with Dockly
                   </Radio>
-                  <Radio value="external" style={{ fontFamily: FONT_FAMILY }}>
+                  {/* <Radio value="external" style={{ fontFamily: FONT_FAMILY }}>
                     Save in External Vault
-                  </Radio>
+                  </Radio> */}
                 </div>
               </Radio.Group>
             </Form.Item>
@@ -713,78 +713,192 @@ const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({
       </Modal>
 
       {/* Password Modal */}
-      <Modal
-        title={
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <LockOutlined style={{ color: "#1677ff" }} />
-            <span
-              style={{
-                fontFamily: FONT_FAMILY,
-                color: "#1f2937",
-                fontSize: isMobile() ? "16px" : "18px",
-              }}
-            >
-              Enter Password
-            </span>
-          </div>
-        }
-        open={passwordModalVisible}
-        onCancel={() => {
-          setPasswordModalVisible(false);
-          passwordForm.resetFields();
-        }}
-        onOk={handlePasswordModalOk}
-        centered
-        width={isMobile() ? "90vw" : 380}
-        okText="Save"
-        cancelText="Cancel"
-        destroyOnClose
-        style={{
-          fontFamily: FONT_FAMILY,
-        }}
-        styles={{
-          body: {
-            background: "#ffffff",
-            padding: isMobile() ? "16px" : "20px",
-          },
-          content: {
-            borderRadius: "12px",
-            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.1)",
-          },
-        }}
-      >
-        <Form form={passwordForm} layout="vertical" style={{ marginTop: 12 }}>
-          <Form.Item
-            name="password"
-            label={
-              <span style={{ fontFamily: FONT_FAMILY, color: "#374151" }}>
-                Password
+        <Modal
+          title={
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <LockOutlined style={{ color: "#1677ff" }} />
+              <span
+                style={{
+                  fontFamily: FONT_FAMILY,
+                  color: "#1f2937",
+                  fontSize: isMobile() ? "16px" : "18px",
+                }}
+              >
+                Enter Credentials
               </span>
-            }
-            rules={[{ required: true, message: "Please enter password" }]}
-          >
-            <Input.Password
-              placeholder="Enter password for this bookmark"
-              size={isMobile() ? "middle" : "large"}
-              style={{
-                fontFamily: FONT_FAMILY,
-                borderRadius: "8px",
-              }}
-            />
-          </Form.Item>
-        </Form>
-
-        <div
+            </div>
+          }
+          open={passwordModalVisible}
+          onCancel={() => {
+            setPasswordModalVisible(false);
+            passwordForm.resetFields();
+          }}
+          onOk={handlePasswordModalOk}
+          centered
+          width={isMobile() ? "90vw" : 380}
+          okText="Save"
+          cancelText="Cancel"
+          destroyOnClose
           style={{
-            fontSize: 11,
-            color: "#6b7280",
-            marginTop: 8,
             fontFamily: FONT_FAMILY,
           }}
+          styles={{
+            body: {
+              background: "#ffffff",
+              padding: isMobile() ? "16px" : "20px",
+            },
+            content: {
+              borderRadius: "12px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.1)",
+            },
+          }}
         >
-          This password will be securely saved with Dockly
-        </div>
-      </Modal>
+          <Form form={passwordForm} layout="vertical" style={{ marginTop: 12 }}>
+            {/* Username field */}
+            <Form.Item
+              name="username"
+              label={
+                <span style={{ fontFamily: FONT_FAMILY, color: "#374151" }}>
+                  Username
+                </span>
+              }
+              rules={[{ required: true, message: "Please enter username" }]}
+            >
+              <Input
+                placeholder="Enter username for this bookmark"
+                size={isMobile() ? "middle" : "large"}
+                style={{
+                  fontFamily: FONT_FAMILY,
+                  borderRadius: "8px",
+                }}
+              />
+            </Form.Item>
+
+            {/* Password field */}
+            <Form.Item
+              name="password"
+              label={
+                <span style={{ fontFamily: FONT_FAMILY, color: "#374151" }}>
+                  Password
+                </span>
+              }
+              rules={[{ required: true, message: "Please enter password" }]}
+            >
+              <Input.Password
+                placeholder="Enter password for this bookmark"
+                size={isMobile() ? "middle" : "large"}
+                style={{
+                  fontFamily: FONT_FAMILY,
+                  borderRadius: "8px",
+                }}
+              />
+            </Form.Item>
+          </Form>
+
+          <div
+            style={{
+              fontSize: 11,
+              color: "#6b7280",
+              marginTop: 8,
+              fontFamily: FONT_FAMILY,
+            }}
+          >
+            Your credentials will be securely saved with Dockly
+          </div>
+        </Modal>
+        <Modal
+          title={
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <LockOutlined style={{ color: "#1677ff" }} />
+              <span
+                style={{
+                  fontFamily: FONT_FAMILY,
+                  color: "#1f2937",
+                  fontSize: isMobile() ? "16px" : "18px",
+                }}
+              >
+                Enter Credentials
+              </span>
+            </div>
+          }
+          open={passwordModalVisible}
+          onCancel={() => {
+            setPasswordModalVisible(false);
+            passwordForm.resetFields();
+          }}
+          onOk={handlePasswordModalOk}
+          centered
+          width={isMobile() ? "90vw" : 380}
+          okText="Save"
+          cancelText="Cancel"
+          destroyOnClose
+          style={{
+            fontFamily: FONT_FAMILY,
+          }}
+          styles={{
+            body: {
+              background: "#ffffff",
+              padding: isMobile() ? "16px" : "20px",
+            },
+            content: {
+              borderRadius: "12px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.1)",
+            },
+          }}
+        >
+          <Form form={passwordForm} layout="vertical" style={{ marginTop: 12 }}>
+            {/* Username field */}
+            <Form.Item
+              name="username"
+              label={
+                <span style={{ fontFamily: FONT_FAMILY, color: "#374151" }}>
+                  Username
+                </span>
+              }
+              rules={[{ required: true, message: "Please enter username" }]}
+            >
+              <Input
+                placeholder="Enter username for this bookmark"
+                size={isMobile() ? "middle" : "large"}
+                style={{
+                  fontFamily: FONT_FAMILY,
+                  borderRadius: "8px",
+                }}
+              />
+            </Form.Item>
+
+            {/* Password field */}
+            <Form.Item
+              name="password"
+              label={
+                <span style={{ fontFamily: FONT_FAMILY, color: "#374151" }}>
+                  Password
+                </span>
+              }
+              rules={[{ required: true, message: "Please enter password" }]}
+            >
+              <Input.Password
+                placeholder="Enter password for this bookmark"
+                size={isMobile() ? "middle" : "large"}
+                style={{
+                  fontFamily: FONT_FAMILY,
+                  borderRadius: "8px",
+                }}
+              />
+            </Form.Item>
+          </Form>
+
+          <div
+            style={{
+              fontSize: 11,
+              color: "#6b7280",
+              marginTop: 8,
+              fontFamily: FONT_FAMILY,
+            }}
+          >
+            Your credentials will be securely saved with Dockly
+          </div>
+        </Modal>
     </>
   );
 };

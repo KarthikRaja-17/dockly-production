@@ -1,10 +1,11 @@
 import axios from 'axios';
 
 // export const API_URL = 'http://localhost:5000/server/api';
-export const API_URL = 'https://dockly-production.onrender.com/server/api'; //DEPLOYMENT
+// export const API_URL = 'https://dockly.onrender.com/server/api'; //DEPLOYMENT
 // export const API_URL = "https://dockly-deployment.onrender.com/server/api"; //DEPLOYMENTs
 //
-// export const API_URL = "http://127.0.0.1:5000/server/api"; //DEPLOYMENT
+
+export const API_URL = 'https://dockly-production.onrender.com/server/api'; //DEPLOYMENT
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -388,19 +389,142 @@ export async function getRefillAlerts(params: any) {
   });
 }
 
+// =================== MEDICATION SHARING API ====================
+export async function shareMedication(params: {
+  email: string | string[];
+  medication: {
+    id?: number;
+    name: string;
+    dosage: string;
+    conditionTreated: string;
+    prescribingDoctor?: string;
+    schedule: string;
+    refillDaysLeft: number;
+    icon?: string;
+    isRefillSoon?: boolean;
+  };
+  tagged_members?: string[];
+}) {
+  return api.post('/health/medications/share', params);
+}
+
+export async function shareInsurance(params: {
+  email: string | string[];
+  insurance_account: {
+    id?: number;
+    provider_name: string;
+    plan_name: string;
+    account_type?: string;
+    details: Array<{
+      label: string;
+      value: string;
+    }>;
+    contact_info?: string;
+    logo_text?: string;
+    gradient_style?: string;
+    notes?: string;
+  };
+  tagged_members?: string[];
+}) {
+  return api.post('/health/insurance/share', params);
+}
+
+export async function shareProvider(params: {
+  email: string | string[];
+  provider: {
+    id?: number;
+    name: string;
+    specialty: string;
+    phone?: string;
+    practiceName?: string;
+    address?: string;
+    icon?: string;
+    notes?: string;
+  };
+  tagged_members?: string[];
+}) {
+  return api.post('/health/providers/share', params);
+}
+
 // Wellness Tasks API Functions
+
+// ==================== UPDATED WELLNESS TASK SHARING API ====================
+
+// UPDATED: Share wellness task with new date structure
+
+// UPDATED: Add wellness task with conditional date validation
+export async function addWellnessTask(params: {
+  icon: string;
+  text: string;
+  // Legacy field for backward compatibility
+  date?: string;
+  // NEW: Conditional date fields
+  start_date?: string;
+  due_date?: string;
+  recurring?: boolean;
+  details?: string;
+  completed?: boolean;
+  tagged_members?: string[];
+  editing?: boolean;
+}) {
+  return api.post('/health/wellness/tasks', params);
+}
+
 export async function getWellnessTasks(params: any) {
   return api.get('/health/wellness/tasks', {
     params: { ...params },
   });
 }
-
-export async function addWellnessTask(params: any) {
-  return api.post('/health/wellness/tasks', params);
+export async function getUpcomingWellnessTasks(params?: any) {
+  return api.get('/health/wellness/tasks/upcoming', {
+    params: { ...params },
+  });
 }
 
-export async function updateWellnessTask(taskId: number, params: any) {
+export async function getFamilyMembersForHealth(params?: any) {
+  return api.get('/health/summary/family-members', {
+    params: { ...params },
+  });
+}
+
+export async function updateWellnessTask(
+  taskId: number,
+  params: {
+    icon?: string;
+    text?: string;
+    // Legacy field for backward compatibility
+    date?: string;
+    // NEW: Conditional date fields
+    start_date?: string;
+    due_date?: string;
+    recurring?: boolean;
+    details?: string;
+    completed?: boolean;
+    tagged_members?: string[];
+    editing?: boolean;
+  }
+) {
   return api.put(`/health/wellness/tasks/${taskId}`, params);
+}
+
+export async function shareWellnessTask(params: {
+  email: string | string[];
+  wellness_task: {
+    id?: number;
+    icon: string;
+    text: string;
+    // Legacy field for backward compatibility
+    date?: string;
+    // NEW: Conditional date fields
+    start_date?: string;
+    due_date?: string;
+    recurring?: boolean;
+    details?: string;
+    completed?: boolean;
+  };
+  tagged_members?: string[];
+}) {
+  return api.post('/health/wellness/share/tasks', params);
 }
 
 export async function deleteWellnessTask(taskId: number) {
@@ -705,4 +829,226 @@ export async function getFitbitConnectionStatus(payload: { uid: string }) {
     console.error('Error in getFitbitConnectionStatus:', error.message);
     throw error;
   }
+}
+
+// ==================== GARMIN MODULE API FUNCTIONS ====================
+// Add these functions to your services/apiConfig.ts file
+
+// Garmin Connection Management
+export async function getGarminConnectionStatus(payload: { uid: string }) {
+  return api.get('/get/garmin/connection-status', { params: payload });
+}
+
+export async function disconnectGarmin(payload: { uid: string }) {
+  return api.post('/disconnect/garmin', payload);
+}
+
+// Garmin Data Synchronization
+export async function syncGarminData(payload: { uid: string }) {
+  return api.post('/sync/garmin', payload);
+}
+
+// Garmin Goals Management
+export async function getGarminGoals(payload: {
+  uid: string;
+  refresh?: boolean;
+}) {
+  return api.get('/get/garmin/goals', { params: payload });
+}
+
+export async function syncGarminGoals(payload: { uid: string }) {
+  return api.post('/sync/garmin/goals', payload);
+}
+
+// Garmin Body Composition Management
+export async function getGarminBodyData(payload: {
+  uid: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+}) {
+  return api.get('/get/garmin/body-data', { params: payload });
+}
+
+export async function syncGarminBodyData(payload: { uid: string }) {
+  return api.post('/sync/garmin/body-data', payload);
+}
+
+// Garmin Women's Health Management
+export async function getGarminWomensHealthData(payload: {
+  uid: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+}) {
+  return api.get('/get/garmin/womens-health', { params: payload });
+}
+
+export async function syncGarminWomensHealthData(payload: { uid: string }) {
+  return api.post('/sync/garmin/womens-health', payload);
+}
+
+// Garmin Dashboard and Data Retrieval
+export async function getGarminDashboard(payload: { uid: string }) {
+  return api.get('/get/garmin/dashboard', { params: payload });
+}
+
+export async function getGarminDailyData(payload: {
+  uid: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+}) {
+  return api.get('/get/garmin/daily-data', { params: payload });
+}
+
+export async function getGarminSleepData(payload: {
+  uid: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+}) {
+  return api.get('/get/garmin/sleep-data', { params: payload });
+}
+
+export async function getGarminActivities(payload: {
+  uid: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+}) {
+  return api.get('/get/garmin/activities', { params: payload });
+}
+
+export async function getGarminSyncLogs(payload: {
+  uid: string;
+  limit?: number;
+}) {
+  return api.get('/get/garmin/sync-logs', { params: payload });
+}
+
+// Garmin OAuth Helper Function
+export function initializeGarminOAuth(userId: string, username: string) {
+  const popupUrl = `${API_URL}/add-garmin?userId=${encodeURIComponent(
+    userId
+  )}&username=${encodeURIComponent(username)}`;
+
+  const popup = window.open(
+    popupUrl,
+    'garmin_oauth',
+    'width=600,height=700,scrollbars=yes,resizable=yes'
+  );
+
+  return new Promise((resolve, reject) => {
+    // Listen for OAuth success messages
+    const handleMessage = (event: MessageEvent) => {
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:5000',
+        window.location.origin,
+      ];
+
+      if (!allowedOrigins.includes(event.origin)) {
+        return;
+      }
+
+      if (event.data && event.data.type === 'GARMIN_OAUTH_SUCCESS') {
+        window.removeEventListener('message', handleMessage);
+
+        // Close popup if still open
+        if (popup && !popup.closed) {
+          popup.close();
+        }
+
+        resolve({
+          success: true,
+          token: event.data.token,
+          user: event.data.user,
+          sync_results: event.data.sync_results,
+        });
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    // Check for localStorage fallback every second
+    const checkLocalStorage = setInterval(() => {
+      try {
+        const result = localStorage.getItem('garmin_oauth_result');
+        if (result) {
+          const parsedResult = JSON.parse(result);
+          if (
+            parsedResult &&
+            parsedResult.type === 'GARMIN_OAUTH_SUCCESS' &&
+            parsedResult.userId === userId
+          ) {
+            localStorage.removeItem('garmin_oauth_result');
+            window.removeEventListener('message', handleMessage);
+            clearInterval(checkLocalStorage);
+
+            if (popup && !popup.closed) {
+              popup.close();
+            }
+
+            resolve({
+              success: true,
+              token: parsedResult.token,
+              user: parsedResult.user,
+              sync_results: parsedResult.sync_results,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error checking localStorage:', error);
+      }
+    }, 1000);
+
+    // Handle popup closed manually
+    const checkClosed = setInterval(() => {
+      if (popup && popup.closed) {
+        clearInterval(checkClosed);
+        clearInterval(checkLocalStorage);
+        window.removeEventListener('message', handleMessage);
+
+        // Check localStorage one final time in case message was missed
+        try {
+          const result = localStorage.getItem('garmin_oauth_result');
+          if (result) {
+            const parsedResult = JSON.parse(result);
+            if (
+              parsedResult &&
+              parsedResult.type === 'GARMIN_OAUTH_SUCCESS' &&
+              parsedResult.userId === userId
+            ) {
+              localStorage.removeItem('garmin_oauth_result');
+              resolve({
+                success: true,
+                token: parsedResult.token,
+                user: parsedResult.user,
+                sync_results: parsedResult.sync_results,
+              });
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error with final localStorage check:', error);
+        }
+
+        reject(new Error('OAuth popup was closed before completion'));
+      }
+    }, 1000);
+
+    // Timeout after 5 minutes
+    setTimeout(() => {
+      clearInterval(checkClosed);
+      clearInterval(checkLocalStorage);
+      window.removeEventListener('message', handleMessage);
+
+      if (popup && !popup.closed) {
+        popup.close();
+      }
+
+      reject(new Error('OAuth timeout - please try again'));
+    }, 5 * 60 * 1000);
+  });
 }

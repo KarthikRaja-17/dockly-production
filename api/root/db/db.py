@@ -149,7 +149,8 @@ def upload_static_data_from_json():
 
         conn.commit()
     except Exception as e:
-        return {"error": str(e), "inserted_rows": inserted, "errors": errors}
+        # return {"error": str(e), "inserted_rows": inserted, "errors": errors}
+        return {"inserted_rows": len(inserted), "errors": errors}
     finally:
         if cur:
             cur.close()
@@ -157,3 +158,8 @@ def upload_static_data_from_json():
             postgres.release_connection(conn)
 
     return {"inserted_rows": 1, "errors": errors}
+
+
+
+
+

@@ -1,0 +1,136 @@
+common.py
+config.py
+email.py
+project-tree.txt
+utilis.py
+__init__.py
+
+admin/
+  models.py
+  __init__.py
+  __routes__.py
+
+auth/
+  auth.py
+  sms.py
+
+bookmarks/
+  models.py
+  __init__.py
+  __routes__.py
+
+dashboard/
+  models.py
+  __init__.py
+  __routes__.py
+
+db/
+  createTables.py
+  db.http
+  db.py
+  dbHelper.py
+  staticData.json
+  tables.json
+  __init__.py
+  __routes__.py
+
+dropbox/
+  models.py
+  __init__.py
+  __routes__.py
+
+family/
+  models.py
+  __init__.py
+  __routes__.py
+
+files/
+  dropbox.py
+  models.py
+  outlook.py
+  __init__.py
+  __routes__.py
+
+fitbit/
+  models.py
+  __init__.py
+  __routes__.py
+
+general/
+  bank.py
+  currentUser.py
+  __init__.py
+  __routes__.py
+
+google/
+  models.py
+  __init__.py
+  __routes__.py
+
+health/
+  __init__.py
+  __routes__.py
+  insurance/
+    models.py
+    __init__.py
+    __routes__.py
+  medications/
+    models.py
+    __init__.py
+    __routes__.py
+  providers/
+    models.py
+    __init__.py
+    __routes__.py
+  summary/
+    models.py
+    __init__.py
+    __routes__.py
+  wellness/
+    models.py
+    __init__.py
+    __routes__.py
+
+helpers/
+  logs.py
+
+home/
+  models.py
+  __init__.py
+  __routes__.py
+
+microsoft/
+  models.py
+  __init__.py
+  __routes__.py
+
+notifications/
+  models.py
+  __init__.py
+  __routes__.py
+
+planner/
+  models.py
+  outlook.py
+  __init__.py
+  __routes__.py
+
+settings/
+  models.py
+  __init__.py
+  __routes__.py
+
+subscriptions/
+  models.py
+  __init__.py
+  __routes__.py
+
+users/
+  models.py
+  __init__.py
+  __routes__.py
+
+vault/
+  models.py
+  __init__.py
+  __routes__.py

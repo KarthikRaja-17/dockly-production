@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -51,7 +50,7 @@ import {
   shareProject,
   updateProject,
 } from "../../services/family";
-import { PRIMARY_COLOR } from "../../app/comman";
+import { CustomButton, PRIMARY_COLOR } from "../../app/comman";
 
 const { Text, Title } = Typography;
 
@@ -250,7 +249,7 @@ const FamilyTasksComponent: React.FC<Props> = ({
         .filter((m: any) => selectedIds.includes(m.id))
         .map((m: any) => m.name)
         .join(", ");
-      
+
       message.success(`Project tagged with ${memberNames}!`);
       setSelectedMemberIds([]);
     } catch (err) {
@@ -288,6 +287,8 @@ const FamilyTasksComponent: React.FC<Props> = ({
 
   const filteredFamilyMembers = familyMember
     .filter((member: any) => member.relationship !== "me")
+    .filter((member: any) => member.status?.toLowerCase() !== "pending") // ✅ Added pending filter
+    .filter((member: any) => member.email && member.email.trim())
     .filter((member: any) =>
       member.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -373,7 +374,11 @@ const FamilyTasksComponent: React.FC<Props> = ({
               items: [
                 {
                   key: "edit",
-                  icon: <EditOutlined style={{ fontSize: "14px", color: "#595959" }} />,
+                  icon: (
+                    <EditOutlined
+                      style={{ fontSize: "14px", color: "#595959" }}
+                    />
+                  ),
                   label: (
                     <span
                       style={{
@@ -398,7 +403,11 @@ const FamilyTasksComponent: React.FC<Props> = ({
                 },
                 {
                   key: "tag",
-                  icon: <TagOutlined style={{ fontSize: "14px", color: "#595959" }} />,
+                  icon: (
+                    <TagOutlined
+                      style={{ fontSize: "14px", color: "#595959" }}
+                    />
+                  ),
                   label: (
                     <span
                       style={{
@@ -429,7 +438,11 @@ const FamilyTasksComponent: React.FC<Props> = ({
                 },
                 {
                   key: "delete",
-                  icon: <DeleteOutlined style={{ fontSize: "14px", color: "#ff4d4f" }} />,
+                  icon: (
+                    <DeleteOutlined
+                      style={{ fontSize: "14px", color: "#ff4d4f" }}
+                    />
+                  ),
                   label: (
                     <span
                       style={{
@@ -545,16 +558,18 @@ const FamilyTasksComponent: React.FC<Props> = ({
         }}
       >
         {showCreator && proj.creator_name && (
-          <div style={{
-            fontSize: '11px',
-            color: '#666',
-            marginBottom: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            padding: "10px",
-          }}>
-            <UserOutlined style={{ fontSize: '10px' }} />
+          <div
+            style={{
+              fontSize: "11px",
+              color: "#666",
+              marginBottom: "8px",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "10px",
+            }}
+          >
+            <UserOutlined style={{ fontSize: "10px" }} />
             Created by {proj.creator_name}
           </div>
         )}
@@ -811,24 +826,9 @@ const FamilyTasksComponent: React.FC<Props> = ({
             </div>
           </div>
 
-          <Button
-            type="primary"
-            shape="default"
-            icon={<PlusOutlined />}
-            size="large"
+          <CustomButton
+            label="Add Project" // tooltip text
             onClick={() => setModalVisible(true)}
-            style={{
-              borderRadius: 6,
-              background: PRIMARY_COLOR,
-              borderColor: PRIMARY_COLOR,
-              fontSize: 11,
-              height: 28,
-              width: 28,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 0,
-            }}
           />
         </div>
 
@@ -985,7 +985,14 @@ const FamilyTasksComponent: React.FC<Props> = ({
 
         <Modal
           title={
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: FONT_FAMILY }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontFamily: FONT_FAMILY,
+              }}
+            >
               <div
                 style={{
                   width: "32px",
@@ -997,13 +1004,29 @@ const FamilyTasksComponent: React.FC<Props> = ({
                   justifyContent: "center",
                 }}
               >
-                <ProjectOutlined style={{ color: PRIMARY_COLOR, fontSize: "16px" }} />
+                <ProjectOutlined
+                  style={{ color: PRIMARY_COLOR, fontSize: "16px" }}
+                />
               </div>
               <div>
-                <span style={{ fontSize: "18px", fontWeight: 600, color: "#202124", fontFamily: FONT_FAMILY }}>
+                <span
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 600,
+                    color: "#202124",
+                    fontFamily: FONT_FAMILY,
+                  }}
+                >
                   Create New Project
                 </span>
-                <div style={{ fontSize: "12px", color: "#5f6368", marginTop: "2px", fontFamily: FONT_FAMILY }}>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "#5f6368",
+                    marginTop: "2px",
+                    fontFamily: FONT_FAMILY,
+                  }}
+                >
                   Add project details and set a due date
                 </div>
               </div>
@@ -1030,11 +1053,18 @@ const FamilyTasksComponent: React.FC<Props> = ({
               };
 
               if (!trimmedValues.title) {
-                form.setFields([{ name: "title", errors: ["Project name cannot be empty"] }]);
+                form.setFields([
+                  { name: "title", errors: ["Project name cannot be empty"] },
+                ]);
                 return;
               }
               if (!trimmedValues.description) {
-                form.setFields([{ name: "description", errors: ["Description cannot be empty"] }]);
+                form.setFields([
+                  {
+                    name: "description",
+                    errors: ["Description cannot be empty"],
+                  },
+                ]);
                 return;
               }
 
@@ -1056,8 +1086,14 @@ const FamilyTasksComponent: React.FC<Props> = ({
           >
             <Form.Item
               name="title"
-              label={<span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>Project Name</span>}
-              rules={[{ required: true, message: "Please enter a project name" }]}
+              label={
+                <span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>
+                  Project Name
+                </span>
+              }
+              rules={[
+                { required: true, message: "Please enter a project name" },
+              ]}
             >
               <Input
                 placeholder="Enter project name"
@@ -1068,8 +1104,14 @@ const FamilyTasksComponent: React.FC<Props> = ({
 
             <Form.Item
               name="description"
-              label={<span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>Description</span>}
-              rules={[{ required: true, message: "Please enter a description" }]}
+              label={
+                <span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>
+                  Description
+                </span>
+              }
+              rules={[
+                { required: true, message: "Please enter a description" },
+              ]}
             >
               <Input.TextArea
                 placeholder="Describe your project"
@@ -1080,23 +1122,39 @@ const FamilyTasksComponent: React.FC<Props> = ({
 
             <Form.Item
               name="due_date"
-              label={<span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>Due Date</span>}
+              label={
+                <span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>
+                  Due Date
+                </span>
+              }
               rules={[{ required: true, message: "Please select a due date" }]}
             >
               <DatePicker
                 placeholder="Select due date"
-                style={{ width: "100%", borderRadius: "8px", fontFamily: FONT_FAMILY }}
+                style={{
+                  width: "100%",
+                  borderRadius: "8px",
+                  fontFamily: FONT_FAMILY,
+                }}
                 size="large"
-                disabledDate={(current) => current && current < dayjs().startOf("day")}
+                disabledDate={(current) =>
+                  current && current < dayjs().startOf("day")
+                }
               />
             </Form.Item>
 
             {showVisibilityToggle && (
               <Form.Item
                 name="visibility"
-                label={<span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>Visibility</span>}
+                label={
+                  <span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>
+                    Visibility
+                  </span>
+                }
                 initialValue="private"
-                rules={[{ required: true, message: "Please select visibility" }]}
+                rules={[
+                  { required: true, message: "Please select visibility" },
+                ]}
               >
                 <Radio.Group style={{ display: "flex", gap: "16px" }}>
                   <Radio.Button value="private" style={{ borderRadius: "8px" }}>
@@ -1109,7 +1167,9 @@ const FamilyTasksComponent: React.FC<Props> = ({
               </Form.Item>
             )}
 
-            <Form.Item style={{ marginBottom: 0, textAlign: "right", marginTop: "24px" }}>
+            <Form.Item
+              style={{ marginBottom: 0, textAlign: "right", marginTop: "24px" }}
+            >
               <Space size="middle">
                 <Button
                   size="large"
@@ -1310,7 +1370,9 @@ const FamilyTasksComponent: React.FC<Props> = ({
               };
 
               if (!trimmedValues.title) {
-                form.setFields([{ name: "title", errors: ["Task title cannot be empty"] }]);
+                form.setFields([
+                  { name: "title", errors: ["Task title cannot be empty"] },
+                ]);
                 return;
               }
 
@@ -1338,7 +1400,11 @@ const FamilyTasksComponent: React.FC<Props> = ({
           >
             <Form.Item
               name="title"
-              label={<span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>Task Title</span>}
+              label={
+                <span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>
+                  Task Title
+                </span>
+              }
               rules={[{ required: true, message: "Please enter a task title" }]}
             >
               <Input
@@ -1350,21 +1416,37 @@ const FamilyTasksComponent: React.FC<Props> = ({
 
             <Form.Item
               name="due_date"
-              label={<span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>Due Date</span>}
+              label={
+                <span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>
+                  Due Date
+                </span>
+              }
               rules={[{ required: true, message: "Please select a due date" }]}
             >
               <DatePicker
-                style={{ width: "100%", borderRadius: "8px", fontFamily: FONT_FAMILY }}
+                style={{
+                  width: "100%",
+                  borderRadius: "8px",
+                  fontFamily: FONT_FAMILY,
+                }}
                 size="large"
-                disabledDate={(current) => current && current < dayjs().startOf("day")}
+                disabledDate={(current) =>
+                  current && current < dayjs().startOf("day")
+                }
               />
             </Form.Item>
 
             {showAssigneeField && (
               <Form.Item
                 name="assignee"
-                label={<span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>Assignee</span>}
-                rules={[{ required: true, message: "Please select an assignee" }]}
+                label={
+                  <span style={{ fontFamily: FONT_FAMILY, fontWeight: 500 }}>
+                    Assignee
+                  </span>
+                }
+                rules={[
+                  { required: true, message: "Please select an assignee" },
+                ]}
                 initialValue="All"
               >
                 <Select
@@ -1376,7 +1458,9 @@ const FamilyTasksComponent: React.FC<Props> = ({
               </Form.Item>
             )}
 
-            <Form.Item style={{ marginBottom: 0, textAlign: "right", marginTop: "24px" }}>
+            <Form.Item
+              style={{ marginBottom: 0, textAlign: "right", marginTop: "24px" }}
+            >
               <Space size="middle">
                 <Button
                   size="large"
@@ -1573,7 +1657,9 @@ const FamilyTasksComponent: React.FC<Props> = ({
                             <Avatar
                               size={60}
                               style={{
-                                background: selectedMemberIds.includes(member.id)
+                                background: selectedMemberIds.includes(
+                                  member.id
+                                )
                                   ? "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
                                   : "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)",
                                 fontSize: "24px",
@@ -1605,7 +1691,8 @@ const FamilyTasksComponent: React.FC<Props> = ({
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
-                                  boxShadow: "0 2px 8px rgba(16, 185, 129, 0.4)",
+                                  boxShadow:
+                                    "0 2px 8px rgba(16, 185, 129, 0.4)",
                                 }}
                               >
                                 <CheckCircleOutlined
@@ -1648,13 +1735,23 @@ const FamilyTasksComponent: React.FC<Props> = ({
                       fontFamily: FONT_FAMILY,
                     }}
                   >
-                    <TeamOutlined style={{ fontSize: "40px", marginBottom: "12px" }} />
+                    <TeamOutlined
+                      style={{ fontSize: "40px", marginBottom: "12px" }}
+                    />
                     <div style={{ fontSize: "15px", fontWeight: 500 }}>
-                      {searchTerm ? "No members found" : "No family members added yet"}
+                      {searchTerm
+                        ? "No members found"
+                        : "No family members added yet"}
                     </div>
-                    <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "4px" }}>
-                      {searchTerm 
-                        ? "Try adjusting your search terms" 
+                    <div
+                      style={{
+                        fontSize: "13px",
+                        color: "#9ca3af",
+                        marginTop: "4px",
+                      }}
+                    >
+                      {searchTerm
+                        ? "Try adjusting your search terms"
                         : "Add family members to start tagging projects."}
                     </div>
                   </div>

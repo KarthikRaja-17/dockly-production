@@ -6,7 +6,7 @@ import {
   InsuranceAccountData,
 } from "../../../services/health/types";
 import { Button, Popconfirm } from "antd";
-import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import { EditOutlined, DeleteOutlined, ShareAltOutlined } from "@ant-design/icons";
 
 // Dashboard Design System Constants
 const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
@@ -116,10 +116,12 @@ interface HealthcareSectionProps {
   onViewProvider: (provider: HealthcareProviderData) => void;
   onEditProvider: (provider: HealthcareProviderData) => void;
   onDeleteProvider: (id: number) => void;
+  onShareProvider?: (provider: HealthcareProviderData) => void; // Added sharing prop
   onAddInsurance: () => void;
   onViewInsurance: (insurance: InsuranceAccountData) => void;
   onEditInsurance: (insurance: InsuranceAccountData) => void;
   onDeleteInsurance: (id: number) => void;
+  onShareInsurance?: (insurance: InsuranceAccountData) => void; // Added sharing prop
 }
 
 const ProviderItem: React.FC<{
@@ -129,6 +131,7 @@ const ProviderItem: React.FC<{
   onToggleExpanded: () => void;
   onEditProvider: (provider: HealthcareProviderData) => void;
   onDeleteProvider: (id: number) => void;
+  onShareProvider?: (provider: HealthcareProviderData) => void; // Added sharing prop
   isMockup?: boolean;
   onAddProvider?: () => void;
 }> = ({
@@ -138,6 +141,7 @@ const ProviderItem: React.FC<{
   onToggleExpanded,
   onEditProvider,
   onDeleteProvider,
+  onShareProvider, // Added sharing prop
   isMockup = false,
   onAddProvider
 }) => {
@@ -434,66 +438,114 @@ const ProviderItem: React.FC<{
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: SPACING.sm, justifyContent: "flex-end" }}>
-              <Button
-                icon={<EditOutlined />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEditProvider(provider);
-                }}
+            {/* Action Buttons - Following bookmarks pattern */}
+            <div
+              style={{
+                borderTop: "1px solid #f0f0f0",
+                padding: "8px 16px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                backgroundColor: "#fafafa",
+                width: "100%",
+                maxWidth: "100%",
+              }}
+            >
+              <div
                 style={{
-                  padding: `${SPACING.sm}px ${SPACING.md}px`,
-                  background: colors.healthPrimary,
-                  color: "white",
-                  border: "none",
-                  borderRadius: '6px',
-                  cursor: "pointer",
-                  fontSize: "0.75rem",
-                  fontWeight: 500,
-                  transition: "all 0.2s",
-                  fontFamily: FONT_FAMILY,
                   display: "flex",
-                  alignItems: "center",
-                  gap: SPACING.xs,
+                  justifyContent: "space-between",
+                  flex: 1,
+                  maxWidth: "100%",
                 }}
               >
-              </Button>
-
-              {provider.id != null && (
-                <Popconfirm
-                  title="Are you sure to delete this provider?"
-                  onConfirm={(e) => {
-                    if (e) e.stopPropagation();
-                    onDeleteProvider(provider.id!);
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EditOutlined style={{ fontSize: "14px" }} />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditProvider(provider);
                   }}
-                  onCancel={(e) => { if (e) e.stopPropagation(); }}
-                  okText="Yes"
-                  cancelText="No"
-                >
-                  <Button
-                    icon={<DeleteOutlined />}
-                    onClick={(e) => {
-                      e.stopPropagation();
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                />
+
+                <div
+                  style={{
+                    borderLeft: "1px solid #e0e0e0",
+                    height: "16px",
+                    alignSelf: "center",
+                  }}
+                />
+
+                {/* Share Button - Following bookmarks pattern */}
+                {onShareProvider && (
+                  <>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<ShareAltOutlined style={{ fontSize: "14px" }} />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShareProvider(provider);
+                      }}
+                      style={{
+                        width: "28px",
+                        height: "28px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    />
+
+                    <div
+                      style={{
+                        borderLeft: "1px solid #e0e0e0",
+                        height: "16px",
+                        alignSelf: "center",
+                      }}
+                    />
+                  </>
+                )}
+
+                {provider.id != null && (
+                  <Popconfirm
+                    title="Are you sure to delete this provider?"
+                    onConfirm={(e) => {
+                      if (e) e.stopPropagation();
+                      onDeleteProvider(provider.id!);
                     }}
-                    style={{
-                      padding: `${SPACING.sm}px ${SPACING.md}px`,
-                      background: colors.surface,
-                      color: colors.danger,
-                      border: `1px solid ${colors.danger}`,
-                      borderRadius: '6px',
-                      cursor: "pointer",
-                      fontSize: "0.75rem",
-                      fontWeight: 500,
-                      transition: "all 0.2s",
-                      fontFamily: FONT_FAMILY,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: SPACING.xs,
-                    }}
+                    onCancel={(e) => { if (e) e.stopPropagation(); }}
+                    okText="Yes"
+                    cancelText="No"
                   >
-                  </Button>
-                </Popconfirm>
-              )}
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DeleteOutlined style={{ fontSize: "14px", color: "#ff0207ff" }} />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                      style={{
+                        width: "28px",
+                        height: "28px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    />
+                  </Popconfirm>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -524,6 +576,7 @@ const InsuranceItem: React.FC<{
   onToggleExpanded: () => void;
   onEditInsurance: (account: InsuranceAccountData) => void;
   onDeleteInsurance: (id: number) => void;
+  onShareInsurance?: (account: InsuranceAccountData) => void; // Added sharing prop
   isMockup?: boolean;
   onAddInsurance?: () => void;
 }> = ({
@@ -533,6 +586,7 @@ const InsuranceItem: React.FC<{
   onToggleExpanded,
   onEditInsurance,
   onDeleteInsurance,
+  onShareInsurance, // Added sharing prop
   isMockup = false,
   onAddInsurance
 }) => {
@@ -730,66 +784,114 @@ const InsuranceItem: React.FC<{
               </div>
             )}
 
-            <div style={{ display: "flex", gap: SPACING.sm, justifyContent: "flex-end" }}>
-              <Button
-                icon={<EditOutlined />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEditInsurance(account);
-                }}
+            {/* Action Buttons - Following bookmarks pattern */}
+            <div
+              style={{
+                borderTop: "1px solid #f0f0f0",
+                padding: "8px 16px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                backgroundColor: "#fafafa",
+                width: "100%",
+                maxWidth: "100%",
+              }}
+            >
+              <div
                 style={{
-                  padding: `${SPACING.sm}px ${SPACING.md}px`,
-                  background: colors.healthPrimary,
-                  color: "white",
-                  border: "none",
-                  borderRadius: '6px',
-                  cursor: "pointer",
-                  fontSize: "0.75rem",
-                  fontWeight: 500,
-                  transition: "all 0.2s",
-                  fontFamily: FONT_FAMILY,
                   display: "flex",
-                  alignItems: "center",
-                  gap: SPACING.xs,
+                  justifyContent: "space-between",
+                  flex: 1,
+                  maxWidth: "100%",
                 }}
               >
-              </Button>
-
-              {account.id != null && (
-                <Popconfirm
-                  title="Are you sure to delete this insurance account?"
-                  onConfirm={(e) => {
-                    if (e) e.stopPropagation();
-                    onDeleteInsurance(account.id!);
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EditOutlined style={{ fontSize: "14px" }} />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditInsurance(account);
                   }}
-                  onCancel={(e) => { if (e) e.stopPropagation(); }}
-                  okText="Yes"
-                  cancelText="No"
-                >
-                  <Button
-                    icon={<DeleteOutlined />}
-                    onClick={(e) => {
-                      e.stopPropagation();
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                />
+
+                <div
+                  style={{
+                    borderLeft: "1px solid #e0e0e0",
+                    height: "16px",
+                    alignSelf: "center",
+                  }}
+                />
+
+                {/* Share Button - Following bookmarks pattern */}
+                {onShareInsurance && (
+                  <>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<ShareAltOutlined style={{ fontSize: "14px" }} />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShareInsurance(account);
+                      }}
+                      style={{
+                        width: "28px",
+                        height: "28px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    />
+
+                    <div
+                      style={{
+                        borderLeft: "1px solid #e0e0e0",
+                        height: "16px",
+                        alignSelf: "center",
+                      }}
+                    />
+                  </>
+                )}
+
+                {account.id != null && (
+                  <Popconfirm
+                    title="Are you sure to delete this insurance account?"
+                    onConfirm={(e) => {
+                      if (e) e.stopPropagation();
+                      onDeleteInsurance(account.id!);
                     }}
-                    style={{
-                      padding: `${SPACING.sm}px ${SPACING.md}px`,
-                      background: colors.surface,
-                      color: colors.danger,
-                      border: `1px solid ${colors.danger}`,
-                      borderRadius: '6px',
-                      cursor: "pointer",
-                      fontSize: "0.75rem",
-                      fontWeight: 500,
-                      transition: "all 0.2s",
-                      fontFamily: FONT_FAMILY,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: SPACING.xs,
-                    }}
+                    onCancel={(e) => { if (e) e.stopPropagation(); }}
+                    okText="Yes"
+                    cancelText="No"
                   >
-                  </Button>
-                </Popconfirm>
-              )}
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DeleteOutlined style={{ fontSize: "14px", color: "#ff0207ff" }} />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                      style={{
+                        width: "28px",
+                        height: "28px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    />
+                  </Popconfirm>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -823,10 +925,12 @@ const HealthcareSection: React.FC<HealthcareSectionProps> = ({
   onViewProvider,
   onEditProvider,
   onDeleteProvider,
+  onShareProvider, // Added sharing prop
   onAddInsurance,
   onViewInsurance,
   onEditInsurance,
   onDeleteInsurance,
+  onShareInsurance, // Added sharing prop
 }) => {
   const [expandedProviders, setExpandedProviders] = useState<Set<number | string>>(new Set());
   const [expandedInsurance, setExpandedInsurance] = useState<Set<number | string>>(new Set());
@@ -861,310 +965,317 @@ const HealthcareSection: React.FC<HealthcareSectionProps> = ({
   return (
     <div
       style={{
-        display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        width: "100%",
+        // border: "2px solid black",
         gap: SPACING.lg,
         fontFamily: FONT_FAMILY
       }}
     >
       {/* Healthcare Providers */}
-      <div
-        style={{
-          background: colors.surface,
-          borderRadius: "12px",
-          boxShadow: shadows.base,
-          overflow: "hidden",
-          height: isMobile ? "auto" : "500px",
-          display: "flex",
-          flexDirection: "column",
-          transition: "box-shadow 0.3s",
-          fontFamily: FONT_FAMILY
-        }}
-      >
+      <div style={{ flex: isMobile ? "1" : "1", flexGrow: "1" }}>
         <div
           style={{
-            padding: SPACING.lg,
-            borderBottom: `1px solid ${colors.border}`,
+            background: colors.surface,
+            borderRadius: "12px",
+            boxShadow: shadows.base,
+            overflow: "hidden",
+            height: isMobile ? "auto" : "500px",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: "linear-gradient(to bottom, #ffffff, #fafbfc)",
+            flexDirection: "column",
+            transition: "box-shadow 0.3s",
+            fontFamily: FONT_FAMILY
           }}
         >
           <div
             style={{
-              fontSize: isMobile ? "1rem" : "1.125rem",
-              fontWeight: 600,
+              padding: SPACING.lg,
+              borderBottom: `1px solid ${colors.border}`,
               display: "flex",
               alignItems: "center",
-              gap: SPACING.sm,
-              fontFamily: FONT_FAMILY
+              justifyContent: "space-between",
+              background: "linear-gradient(to bottom, #ffffff, #fafbfc)",
             }}
           >
             <div
               style={{
-                width: isMobile ? "28px" : "32px",
-                height: isMobile ? "28px" : "32px",
+                fontSize: isMobile ? "1rem" : "1.125rem",
+                fontWeight: 600,
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                fontSize: isMobile ? "18px" : "20px",
-              }}
-            >
-              👨‍⚕️
-            </div>
-            <span>Healthcare Providers ({hasUserProviders ? providers.length : 0})</span>
-            {providersLoading && (
-              <span style={{ fontSize: "12px", color: colors.textMuted, fontFamily: FONT_FAMILY }}>
-                Loading...
-              </span>
-            )}
-          </div>
-          <button
-            onClick={onAddProvider}
-            onMouseEnter={() => setProviderButtonHovered(true)}
-            onMouseLeave={() => setProviderButtonHovered(false)}
-            style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "8px",
-              border: "1px solid transparent",
-              background: colors.success,
-              display: "flex",
-              justifyContent: "center",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-              color: colors.textMuted,
-              fontSize: "14px",
-              fontFamily: FONT_FAMILY,
-              boxShadow: "rgba(140, 197, 146, 0.81) 0px 4px 15px",
-              transform: providerButtonHovered ? "translateY(-3px)" : "translateY(0)",
-            }}
-          >
-            <span style={{ fontSize: "20px", fontWeight: "semibold", color: "white", }}>+</span>
-          </button>
-        </div>
-
-        <div
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: SPACING.lg,
-          }}
-        >
-          {providersLoading ? (
-            <div
-              style={{
-                textAlign: "center",
-                color: colors.textMuted,
+                gap: SPACING.sm,
                 fontFamily: FONT_FAMILY
               }}
             >
-              Loading healthcare providers...
-            </div>
-          ) : (
-            <>
-              {!hasUserProviders && (
-                <div
-                  style={{
-                    marginBottom: SPACING.lg,
-                    padding: SPACING.md,
-                    background: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    textAlign: 'center'
-                  }}
-                >
-                  <div style={{
-                    fontSize: '0.8125rem',
-                    color: colors.textMuted,
-                    fontFamily: FONT_FAMILY,
-                    marginBottom: SPACING.xs
-                  }}>
-                    <strong>👆 Click "+" to add your first healthcare provider</strong>
-                  </div>
-                  <div style={{
-                    fontSize: '0.75rem',
-                    color: '#94a3b8',
-                    fontFamily: FONT_FAMILY
-                  }}>
-                    Here are some examples of providers you might want to track:
-                  </div>
-                </div>
+              <div
+                style={{
+                  width: isMobile ? "28px" : "32px",
+                  height: isMobile ? "28px" : "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: isMobile ? "18px" : "20px",
+                }}
+              >
+                👨‍⚕️
+              </div>
+              <span>Healthcare Providers ({hasUserProviders ? providers.length : 0})</span>
+              {providersLoading && (
+                <span style={{ fontSize: "12px", color: colors.textMuted, fontFamily: FONT_FAMILY }}>
+                  Loading...
+                </span>
               )}
+            </div>
+            <button
+              onClick={onAddProvider}
+              onMouseEnter={() => setProviderButtonHovered(true)}
+              onMouseLeave={() => setProviderButtonHovered(false)}
+              style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "8px",
+                border: "1px solid transparent",
+                background: colors.success,
+                display: "flex",
+                justifyContent: "center",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                color: colors.textMuted,
+                fontSize: "14px",
+                fontFamily: FONT_FAMILY,
+                boxShadow: "rgba(140, 197, 146, 0.81) 0px 4px 15px",
+                transform: providerButtonHovered ? "translateY(-3px)" : "translateY(0)",
+              }}
+            >
+              <span style={{ fontSize: "20px", fontWeight: "semibold", color: "white", }}>+</span>
+            </button>
+          </div>
 
-              {displayProviders.map((provider, index) => {
-                const providerKey = provider.id ?? index;
-                const isExpanded = expandedProviders.has(providerKey);
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: SPACING.lg,
+            }}
+          >
+            {providersLoading ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  color: colors.textMuted,
+                  fontFamily: FONT_FAMILY
+                }}
+              >
+                Loading healthcare providers...
+              </div>
+            ) : (
+              <>
+                {!hasUserProviders && (
+                  <div
+                    style={{
+                      marginBottom: SPACING.lg,
+                      padding: SPACING.md,
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      textAlign: 'center'
+                    }}
+                  >
+                    <div style={{
+                      fontSize: '0.8125rem',
+                      color: colors.textMuted,
+                      fontFamily: FONT_FAMILY,
+                      marginBottom: SPACING.xs
+                    }}>
+                      <strong>👆 Click "+" to add your first healthcare provider</strong>
+                    </div>
+                    <div style={{
+                      fontSize: '0.75rem',
+                      color: '#94a3b8',
+                      fontFamily: FONT_FAMILY
+                    }}>
+                      Here are some examples of providers you might want to track:
+                    </div>
+                  </div>
+                )}
 
-                return (
-                  <ProviderItem
-                    key={providerKey}
-                    provider={provider}
-                    isMobile={isMobile}
-                    isExpanded={isExpanded}
-                    onToggleExpanded={() => toggleProviderExpanded(providerKey)}
-                    onEditProvider={onEditProvider}
-                    onDeleteProvider={onDeleteProvider}
-                    isMockup={!hasUserProviders}
-                    onAddProvider={onAddProvider}
-                  />
-                );
-              })}
-            </>
-          )}
+                {displayProviders.map((provider, index) => {
+                  const providerKey = provider.id ?? index;
+                  const isExpanded = expandedProviders.has(providerKey);
+
+                  return (
+                    <ProviderItem
+                      key={providerKey}
+                      provider={provider}
+                      isMobile={isMobile}
+                      isExpanded={isExpanded}
+                      onToggleExpanded={() => toggleProviderExpanded(providerKey)}
+                      onEditProvider={onEditProvider}
+                      onDeleteProvider={onDeleteProvider}
+                      onShareProvider={onShareProvider} // Pass sharing handler
+                      isMockup={!hasUserProviders}
+                      onAddProvider={onAddProvider}
+                    />
+                  );
+                })}
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Insurance & Healthcare Accounts */}
-      <div
-        style={{
-          background: colors.surface,
-          borderRadius: "12px",
-          boxShadow: shadows.base,
-          overflow: "hidden",
-          height: isMobile ? "auto" : "500px",
-          display: "flex",
-          flexDirection: "column",
-          transition: "box-shadow 0.3s",
-          fontFamily: FONT_FAMILY
-        }}
-      >
+      <div style={{ flex: isMobile ? "1" : "1", flexGrow: "1" }}>
         <div
           style={{
-            padding: SPACING.lg,
-            borderBottom: `1px solid ${colors.border}`,
+            background: colors.surface,
+            borderRadius: "12px",
+            boxShadow: shadows.base,
+            overflow: "hidden",
+            height: isMobile ? "auto" : "500px",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: "linear-gradient(to bottom, #ffffff, #fafbfc)",
+            flexDirection: "column",
+            transition: "box-shadow 0.3s",
+            fontFamily: FONT_FAMILY
           }}
         >
           <div
             style={{
-              fontSize: isMobile ? "1rem" : "1.125rem",
-              fontWeight: 600,
+              padding: SPACING.lg,
+              borderBottom: `1px solid ${colors.border}`,
               display: "flex",
               alignItems: "center",
-              gap: SPACING.sm,
-              fontFamily: FONT_FAMILY
+              justifyContent: "space-between",
+              background: "linear-gradient(to bottom, #ffffff, #fafbfc)",
             }}
           >
             <div
               style={{
-                width: isMobile ? "28px" : "32px",
-                height: isMobile ? "28px" : "32px",
+                fontSize: isMobile ? "1rem" : "1.125rem",
+                fontWeight: 600,
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                fontSize: isMobile ? "18px" : "20px",
-              }}
-            >
-              🛡️
-            </div>
-            <span>Insurance & Healthcare Accounts ({hasUserInsurance ? insuranceAccounts.length : 0})</span>
-            {insuranceLoading && (
-              <span style={{ fontSize: "12px", color: colors.textMuted, fontFamily: FONT_FAMILY }}>
-                Loading...
-              </span>
-            )}
-          </div>
-          <button
-            onClick={onAddInsurance}
-            onMouseEnter={() => setInsuranceButtonHovered(true)}
-            onMouseLeave={() => setInsuranceButtonHovered(false)}
-            style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "8px",
-              border: "1px solid transparent",
-              background: colors.success,
-              display: "flex",
-              justifyContent: "center",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-              color: colors.textMuted,
-              fontSize: "14px",
-              fontFamily: FONT_FAMILY,
-              boxShadow: "rgba(140, 197, 146, 0.81) 0px 4px 15px",
-              transform: insuranceButtonHovered ? "translateY(-3px)" : "translateY(0)",
-            }}
-          >
-            <span style={{ fontSize: "20px", fontWeight: "semibold", color: "white", }}>+</span>
-          </button>
-        </div>
-
-        <div
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: SPACING.lg,
-          }}
-        >
-          {insuranceLoading ? (
-            <div
-              style={{
-                textAlign: "center",
-                color: colors.textMuted,
+                gap: SPACING.sm,
                 fontFamily: FONT_FAMILY
               }}
             >
-              Loading insurance accounts...
-            </div>
-          ) : (
-            <>
-              {!hasUserInsurance && (
-                <div
-                  style={{
-                    marginBottom: SPACING.lg,
-                    padding: SPACING.md,
-                    background: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    textAlign: 'center'
-                  }}
-                >
-                  <div style={{
-                    fontSize: '0.8125rem',
-                    color: colors.textMuted,
-                    fontFamily: FONT_FAMILY,
-                    marginBottom: SPACING.xs
-                  }}>
-                    <strong>👆 Click "+" to add your first insurance account</strong>
-                  </div>
-                  <div style={{
-                    fontSize: '0.75rem',
-                    color: '#94a3b8',
-                    fontFamily: FONT_FAMILY
-                  }}>
-                    Here are examples of insurance accounts you might want to track:
-                  </div>
-                </div>
+              <div
+                style={{
+                  width: isMobile ? "28px" : "32px",
+                  height: isMobile ? "28px" : "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: isMobile ? "18px" : "20px",
+                }}
+              >
+                🛡️
+              </div>
+              <span>Insurance & Healthcare Accounts ({hasUserInsurance ? insuranceAccounts.length : 0})</span>
+              {insuranceLoading && (
+                <span style={{ fontSize: "12px", color: colors.textMuted, fontFamily: FONT_FAMILY }}>
+                  Loading...
+                </span>
               )}
+            </div>
+            <button
+              onClick={onAddInsurance}
+              onMouseEnter={() => setInsuranceButtonHovered(true)}
+              onMouseLeave={() => setInsuranceButtonHovered(false)}
+              style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "8px",
+                border: "1px solid transparent",
+                background: colors.success,
+                display: "flex",
+                justifyContent: "center",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                color: colors.textMuted,
+                fontSize: "14px",
+                fontFamily: FONT_FAMILY,
+                boxShadow: "rgba(140, 197, 146, 0.81) 0px 4px 15px",
+                transform: insuranceButtonHovered ? "translateY(-3px)" : "translateY(0)",
+              }}
+            >
+              <span style={{ fontSize: "20px", fontWeight: "semibold", color: "white", }}>+</span>
+            </button>
+          </div>
 
-              {displayInsurance.map((account, index) => {
-                const accountKey = account.id ?? index;
-                const isExpanded = expandedInsurance.has(accountKey);
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: SPACING.lg,
+            }}
+          >
+            {insuranceLoading ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  color: colors.textMuted,
+                  fontFamily: FONT_FAMILY
+                }}
+              >
+                Loading insurance accounts...
+              </div>
+            ) : (
+              <>
+                {!hasUserInsurance && (
+                  <div
+                    style={{
+                      marginBottom: SPACING.lg,
+                      padding: SPACING.md,
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      textAlign: 'center'
+                    }}
+                  >
+                    <div style={{
+                      fontSize: '0.8125rem',
+                      color: colors.textMuted,
+                      fontFamily: FONT_FAMILY,
+                      marginBottom: SPACING.xs
+                    }}>
+                      <strong>👆 Click "+" to add your first insurance account</strong>
+                    </div>
+                    <div style={{
+                      fontSize: '0.75rem',
+                      color: '#94a3b8',
+                      fontFamily: FONT_FAMILY
+                    }}>
+                      Here are examples of insurance accounts you might want to track:
+                    </div>
+                  </div>
+                )}
 
-                return (
-                  <InsuranceItem
-                    key={accountKey}
-                    account={account}
-                    isMobile={isMobile}
-                    isExpanded={isExpanded}
-                    onToggleExpanded={() => toggleInsuranceExpanded(accountKey)}
-                    onEditInsurance={onEditInsurance}
-                    onDeleteInsurance={onDeleteInsurance}
-                    isMockup={!hasUserInsurance}
-                    onAddInsurance={onAddInsurance}
-                  />
-                );
-              })}
-            </>
-          )}
+                {displayInsurance.map((account, index) => {
+                  const accountKey = account.id ?? index;
+                  const isExpanded = expandedInsurance.has(accountKey);
+
+                  return (
+                    <InsuranceItem
+                      key={accountKey}
+                      account={account}
+                      isMobile={isMobile}
+                      isExpanded={isExpanded}
+                      onToggleExpanded={() => toggleInsuranceExpanded(accountKey)}
+                      onEditInsurance={onEditInsurance}
+                      onDeleteInsurance={onDeleteInsurance}
+                      onShareInsurance={hasUserInsurance ? onShareInsurance : undefined} // Only pass for real data
+                      isMockup={!hasUserInsurance}
+                      onAddInsurance={onAddInsurance}
+                    />
+                  );
+                })}
+              </>
+            )}
+          </div>
         </div>
       </div>
-
       <style>
         {`
           @keyframes fadeIn {

@@ -314,6 +314,8 @@
         "max_family_members INTEGER DEFAULT 0",
         "storage_limit_gb INTEGER DEFAULT 0",
         "is_active INT DEFAULT 0",
+        "stripe_price_id VARCHAR(255)",
+        "trial_period_days INT DEFAULT 0",
         "created_at TIMESTAMP DEFAULT NOW()",
         "updated_at TIMESTAMP DEFAULT NOW()"
       ]
@@ -331,6 +333,8 @@
         "payment_method_id TEXT",
         "last_payment_date TIMESTAMP",
         "next_billing_date TIMESTAMP",
+        "stripe_subscription_id VARCHAR(255)",
+        "trial_ends_at TIMESTAMP",
         "created_at TIMESTAMP DEFAULT NOW()",
         "updated_at TIMESTAMP DEFAULT NOW()"
       ]
@@ -576,6 +580,34 @@
       ]
     },
     {
+      "table_name": "bookmark_credentials",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "bookmark_id VARCHAR(255) NOT NULL REFERENCES bookmarks(id) ON DELETE CASCADE",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "username TEXT NOT NULL",
+        "password TEXT NOT NULL",
+        "is_active INT DEFAULT 1",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "UNIQUE(bookmark_id, user_id)"
+      ]
+    },
+    {
+      "table_name": "credential_otp_verification",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR(255) NOT NULL REFERENCES users(uid) ON DELETE CASCADE",
+        "bookmark_id VARCHAR(255) NOT NULL REFERENCES bookmarks(id) ON DELETE CASCADE",
+        "otp_code VARCHAR(6) NOT NULL",
+        "email VARCHAR(255) NOT NULL",
+        "expires_at TIMESTAMP NOT NULL",
+        "is_used BOOLEAN DEFAULT FALSE",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+
+    {
       "table_name": "personal_information",
       "columns": [
         "id SERIAL PRIMARY KEY",
@@ -769,6 +801,22 @@
       ]
     },
     {
+      "table_name": "key_contacts",
+      "columns": [
+        "id SERIAL PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "name VARCHAR(255) NOT NULL",
+        "service VARCHAR(255) NOT NULL",
+        "phone VARCHAR(20) NOT NULL",
+        "email VARCHAR(255)",
+        "notes TEXT",
+        "category VARCHAR(100) NOT NULL",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1"
+      ]
+    },
+    {
       "table_name": "healthcare_providers_new",
       "columns": [
         "id SERIAL PRIMARY KEY",
@@ -811,7 +859,8 @@
         "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
         "icon VARCHAR(10)",
         "text TEXT NOT NULL",
-        "date VARCHAR(50) NOT NULL",
+        "start_date DATE",
+        "due_date DATE",
         "recurring BOOLEAN DEFAULT FALSE",
         "details TEXT",
         "completed BOOLEAN DEFAULT FALSE",
@@ -953,7 +1002,7 @@
     {
       "table_name": "fitbit_sleep_data",
       "columns": [
-       "id VARCHAR(255) PRIMARY KEY",
+        "id VARCHAR(255) PRIMARY KEY",
         "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
         "date DATE NOT NULL",
         "duration_minutes INT DEFAULT 0",
@@ -998,6 +1047,92 @@
         "status VARCHAR(50) NOT NULL",
         "error_message TEXT",
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "fitbit_user_goals",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid) ON DELETE CASCADE",
+        "daily_steps_goal INT DEFAULT 0",
+        "daily_calories_goal INT DEFAULT 0",
+        "daily_distance_goal DECIMAL(10,2) DEFAULT 0",
+        "daily_active_minutes_goal INT DEFAULT 0",
+        "daily_floors_goal INT DEFAULT 0",
+        "weekly_distance_goal DECIMAL(10,2) DEFAULT 0",
+        "weekly_floors_goal INT DEFAULT 0",
+        "weight_goal DECIMAL(5,2) DEFAULT 0",
+        "weight_goal_date VARCHAR(50)",
+        "starting_weight DECIMAL(5,2) DEFAULT 0",
+        "body_fat_goal DECIMAL(4,2) DEFAULT 0",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "is_active INT DEFAULT 1",
+        "UNIQUE(user_id)"
+      ]
+    },
+    {
+      "table_name": "files_index",
+      "columns": [
+        "id UUID PRIMARY KEY",
+        "user_id VARCHAR REFERENCES users(uid)",
+        "storage_account_id INT REFERENCES connected_accounts(id)",
+        "file_path TEXT",
+        "file_name VARCHAR(500)",
+        "file_size BIGINT",
+        "file_type VARCHAR(100)",
+        "mime_type VARCHAR(100)",
+        "is_folder BOOLEAN",
+        "parent_folder_id UUID REFERENCES files_index(id)",
+        "external_file_id VARCHAR(255)",
+        "last_modified TIMESTAMP",
+        "created_at TIMESTAMP DEFAULT NOW()",
+        "indexed_at TIMESTAMP DEFAULT NOW()"
+      ]
+    },
+    {
+      "table_name": "meals",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "title TEXT NOT NULL",
+        "day VARCHAR(20) NOT NULL",
+        "details TEXT",
+        "assigned_to VARCHAR(255)",
+        "tagged_ids TEXT[]",
+        "is_active INT DEFAULT 1",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "chores",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "title TEXT NOT NULL",
+        "schedule TEXT",
+        "assigned_to VARCHAR(255)",
+        "completed BOOLEAN DEFAULT FALSE",
+        "tagged_ids TEXT[]",
+        "is_active INT DEFAULT 1",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+    {
+      "table_name": "weekly_tasks",
+      "columns": [
+        "id VARCHAR(255) PRIMARY KEY",
+        "user_id VARCHAR(255) REFERENCES users(uid) ON DELETE CASCADE",
+        "title TEXT NOT NULL",
+        "schedule TEXT",
+        "assigned_to VARCHAR(255)",
+        "completed BOOLEAN DEFAULT FALSE",
+        "tagged_ids TEXT[]",
+        "is_active INT DEFAULT 1",
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
       ]
     }
   ]

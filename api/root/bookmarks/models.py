@@ -5,10 +5,17 @@ import uuid
 from flask import request
 from flask_restful import Resource
 import time
-
+from root.planner.models import add_calendar_guests
 from root.db.dbHelper import DBHelper
 from root.config import EMAIL_PASSWORD, EMAIL_SENDER, SMTP_PORT, SMTP_SERVER, WEB_URL
 from root.helpers.logs import AuditLogger
+from root.auth.auth import auth_required
+from datetime import datetime
+from typing import Dict, List, Optional, Union
+import smtplib
+from email.message import EmailMessage
+from flask_restful import Resource
+from flask import request
 
 
 class SaveBookmarks(Resource):
@@ -155,15 +162,6 @@ class GetBookmarks(Resource):
                 return {"status": 0, "message": "UID is required"}, 400
 
             bookmarks = DBHelper.find("bookmarks", {"uid": uid})
-
-            AuditLogger.log(
-                user_id=uid,
-                action="GET_BOOKMARKS",
-                resource_type="bookmarks",
-                resource_id=None,
-                success=True,
-                metadata={"count": len(bookmarks)},
-            )
 
             return {
                 "status": 1,
@@ -386,24 +384,13 @@ class GetBookmark(Resource):
                 bookmarks.sort(key=lambda x: x.get("created_at", ""))
             else:
                 bookmarks.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-
-            # ✅ Log success
-            AuditLogger.log(
-                user_id=uid,
-                action="GET_BOOKMARKS",
-                resource_type="bookmarks",
-                resource_id=None,
-                success=True,
-                metadata={"count": len(bookmarks), "filters": filters, "search": search, "hub": hub, "sort_by": sort_by},
-            )
-
             return {"status": 1, "message": "Success", "payload": {"bookmarks": bookmarks}}
 
         except Exception as e:
             # ✅ Log failure
             AuditLogger.log(
                 user_id=uid,
-                action="GET_BOOKMARKS_FAILED",
+                action="GET_BOOKMARK_FAILED",
                 resource_type="bookmarks",
                 resource_id=None,
                 success=False,
@@ -860,3 +847,534 @@ class ShareBookmark(Resource):
             )
             return {"status": 0, "message": f"Failed to share bookmark: {str(e)}", "payload": {}}, 500
 
+class ShareItem(Resource):
+    @auth_required(isOptional=True)
+    def post(self, uid, user):
+        data = None
+        
+        try:
+            try:
+                data = request.get_json(force=True)
+            except Exception as e:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="SHARE_ITEM",
+                    resource_type="item",
+                    resource_id="unknown",
+                    success=False,
+                    error_message=f"Invalid JSON: {str(e)}",
+                    metadata={},
+                )
+                return {"status": 0, "message": f"Invalid JSON: {str(e)}"}, 400
+
+            emails = data.get("email")
+            item_type = data.get("item_type")  # 'bookmark', 'note', 'project', 'goal', 'todo', 'maintenance_task'
+            item_data = data.get("item_data")
+            tagged_members = data.get("tagged_members", [])
+
+            if not emails or not item_type or not item_data:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="SHARE_ITEM",
+                    resource_type=item_type or "unknown",
+                    resource_id="unknown",
+                    success=False,
+                    error_message="Missing required fields: email, item_type, and item_data are required",
+                    metadata={"input": data if data else {}},
+                )
+                return {
+                    "status": 0,
+                    "message": "Missing required fields: email, item_type, and item_data are required.",
+                }, 422
+
+            # Normalize email array
+            if isinstance(emails, str):
+                emails = [emails]
+
+            # Validate family member permissions before proceeding
+            permission_validation_result = self._validate_family_member_permissions(uid, item_type,tagged_members)
+            
+            if not permission_validation_result["valid"]:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="SHARE_ITEM",
+                    resource_type=item_type,
+                    resource_id=str(item_data.get("id", "unknown")),
+                    success=False,
+                    error_message=permission_validation_result["message"],
+                    metadata={"input": data if data else {}},
+                )
+                return {
+                    "status": 0,
+                    "message": permission_validation_result["message"]
+                }, 403
+
+            email_sender = UnifiedEmailSender()
+            failures = []
+            notifications_created = []
+            resolved_tagged_ids = []
+
+            # Resolve tagged user UIDs from emails
+            for member_email in tagged_members:
+                family_member = DBHelper.find_one(
+                    "family_members",
+                    filters={"email": member_email},
+                    select_fields=["fm_user_id"],
+                )
+                if family_member and family_member["fm_user_id"]:
+                    resolved_tagged_ids.append(family_member["fm_user_id"])
+
+            # Send emails
+            for email in emails:
+                success, msg = email_sender.send_item_email(email, item_type, item_data, user["user_name"])
+                if not success:
+                    failures.append((email, msg))
+
+            # Create notifications
+            for member_email in tagged_members:
+                family_member = DBHelper.find_one(
+                    "family_members",
+                    filters={"email": member_email},
+                    select_fields=["name", "email", "fm_user_id"],
+                )
+
+                if not family_member:
+                    continue
+
+                receiver_uid = family_member.get("fm_user_id")
+                if not receiver_uid:
+                    user_record = DBHelper.find_one(
+                        "users",
+                        filters={"email": family_member["email"]},
+                        select_fields=["uid"],
+                    )
+                    receiver_uid = user_record.get("uid") if user_record else None
+
+                if not receiver_uid:
+                    continue
+
+                notification_data = {
+                    "sender_id": uid,
+                    "receiver_id": receiver_uid,
+                    "message": self._get_notification_message(user["user_name"], item_type, item_data),
+                    "task_type": "tagged",
+                    "action_required": False,
+                    "status": "unread",
+                    "hub": None,
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow(),
+                    "metadata": {
+                        "item_type": item_type,
+                        "item_data": item_data,
+                        "sender_name": user["user_name"],
+                        "tagged_member": {
+                            "name": family_member["name"],
+                            "email": family_member["email"],
+                        },
+                    },
+                }
+
+                notif_id = DBHelper.insert(
+                    "notifications", return_column="id", **notification_data
+                )
+                notifications_created.append(notif_id)
+
+            # Update tagged_ids in appropriate table
+            if resolved_tagged_ids and item_data.get("id"):
+                self._update_tagged_ids(item_type, item_data, resolved_tagged_ids, uid, tagged_members)
+
+            if failures:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="SHARE_ITEM",
+                    resource_type=item_type,
+                    resource_id=str(item_data.get("id", "unknown")),
+                    success=False,
+                    error_message=f"Failed to send to {len(failures)} recipients",
+                    metadata={"input": data if data else {}, "failures": failures},
+                )
+                return {
+                    "status": 0,
+                    "message": f"Failed to send to {len(failures)} recipients",
+                    "errors": failures,
+                }, 500
+
+            AuditLogger.log(
+                user_id=uid,
+                action="SHARE_ITEM",
+                resource_type=item_type,
+                resource_id=str(item_data.get("id", "unknown")),
+                success=True,
+                metadata={
+                    "input": data if data else {},
+                    "notifications_created": notifications_created,
+                    "item_type": item_type,
+                },
+            )
+
+            return {
+                "status": 1,
+                "message": f"{item_type.title()} shared via email. {len(notifications_created)} notification(s) created.",
+                "payload": {"notifications_created": notifications_created},
+            }
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="SHARE_ITEM",
+                resource_type=item_type if "item_type" in locals() else "unknown",
+                resource_id="unknown",
+                success=False,
+                error_message="Failed to share item",
+                metadata={"input": data if data else {}, "error": str(e)},
+            )
+            return {"status": 0, "message": "Failed to share item"}
+
+    def _validate_family_member_permissions(self, uid: str, item_type: str, tagged_members: List[str]) -> Dict:
+        """Validate that only the tagged family members have appropriate permissions for the item type"""
+        # Hub and Board ID mappings
+        HUB_IDS = {
+            'bookmarks': '2a2b3c4d-1111-2222-3333-abcdef784512',  # Accounts
+            'notes': '1a2b3c4d-1111-2222-3333-abcdef123744',      # Notes & Lists
+            'planner': '3a2b3c4d-1111-2222-3333-abcdef985623',    # Planner
+        }
+
+        BOARD_IDS = {
+            'family': '1a2b3c4d-1111-2222-3333-abcdef123456',     # Family
+            'home': '3c4d5e6f-3333-4444-5555-cdef12345678',       # Home
+        }
+
+        # Define required permissions based on item type
+        required_permissions = []
+        if item_type == 'bookmark':
+            required_permissions = [{'target_type': 'hubs', 'target_id': HUB_IDS['bookmarks']}]
+        elif item_type == 'note':
+            required_permissions = [{'target_type': 'hubs', 'target_id': HUB_IDS['notes']}]
+        elif item_type == 'project':
+            required_permissions = [
+                {'target_type': 'hubs', 'target_id': HUB_IDS['planner']},
+                {'target_type': 'board', 'target_id': BOARD_IDS['family']}
+            ]
+        elif item_type in ['goal', 'todo']:
+            required_permissions = [{'target_type': 'hubs', 'target_id': HUB_IDS['planner']}]
+        elif item_type == 'maintenance_task':
+            required_permissions = [{'target_type': 'board', 'target_id': BOARD_IDS['home']}]
+        else:
+            return {"valid": False, "message": f"Unknown item type: {item_type}"}
+
+        invalid_members = []
+
+        # ✅ Only validate the provided tagged members
+        for member_email in tagged_members:
+            family_member = DBHelper.find_one(
+                "family_members",
+                filters={"email": member_email},
+                select_fields=["name", "email", "fm_user_id"]
+            )
+
+            if not family_member:
+                continue
+
+            user_id = family_member.get("fm_user_id")
+            if not user_id:
+                # fallback lookup in users table
+                user_record = DBHelper.find_one(
+                    "users",
+                    filters={"email": member_email},
+                    select_fields=["uid"]
+                )
+                user_id = user_record.get("uid") if user_record else None
+
+            if not user_id:
+                continue
+
+            # Check if user has any of the required permissions
+            has_permission = False
+            for required_perm in required_permissions:
+                permission_check = DBHelper.find_one(
+                    "user_permissions",
+                    filters={
+                        "user_id": user_id,
+                        "target_type": required_perm["target_type"],
+                        "target_id": required_perm["target_id"],
+                        "can_read": True
+                    }
+                )
+                if permission_check:
+                    has_permission = True
+                    break
+
+            if not has_permission:
+                invalid_members.append(family_member["name"])
+
+        if invalid_members:
+            return {
+                "valid": False,
+                "message": f"The following family members don't have access to this section: {', '.join(invalid_members)}"
+            }
+
+        return {"valid": True, "message": "All permissions validated"}
+
+    def _get_notification_message(self, sender_name: str, item_type: str, item_data: Dict) -> str:
+        """Generate appropriate notification message based on item type"""
+        item_title = item_data.get("title") or item_data.get("text") or item_data.get("name") or "Untitled"
+        
+        type_mapping = {
+            "bookmark": "bookmark",
+            "note": "note", 
+            "project": "project",
+            "goal": "goal",
+            "todo": "task",
+            "maintenance_task": "maintenance task"
+        }
+        
+        item_name = type_mapping.get(item_type, "item")
+        return f"{sender_name} tagged a {item_name} '{item_title}' with you"
+
+    def _update_tagged_ids(self, item_type: str, item_data: Dict, resolved_tagged_ids: List[str], uid: str, tagged_members: List[str] = None):
+        """Update tagged_ids in the appropriate table based on item type"""
+        table_mapping = {
+            "bookmark": "bookmarks",
+            "note": "notes_lists", 
+            "project": "projects",
+            "goal": "goals",
+            "todo": "todos",
+            "maintenance_task": "maintenance_tasks"
+        }
+        
+        table_name = table_mapping.get(item_type)
+        if not table_name:
+            return
+
+        try:
+            item_record = DBHelper.find_one(table_name, filters={"id": item_data.get("id")})
+            if not item_record:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="UPDATE_TAGGED_IDS",
+                    resource_type=item_type,
+                    resource_id=str(item_data.get("id")),
+                    success=False,
+                    error_message=f"{item_type.title()} not found. Cannot tag members.",
+                    metadata={"input": item_data},
+                )
+                return
+
+            existing_ids = item_record.get("tagged_ids") or []
+            combined_ids = list(set(existing_ids + resolved_tagged_ids))
+            pg_array_str = "{" + ",".join(f'"{str(i)}"' for i in combined_ids) + "}"
+
+            DBHelper.update_one(
+                table_name=table_name,
+                filters={"id": item_data.get("id")},
+                updates={"tagged_ids": pg_array_str},
+            )
+
+            # Add calendar guests if applicable (for goals and todos)
+            if item_type in ["goal", "todo"] and item_record.get("google_calendar_id") and tagged_members:
+                try:
+                    add_calendar_guests(
+                        user_id=uid,
+                        calendar_event_id=item_record["google_calendar_id"],
+                        guest_emails=[member for member in tagged_members if "@" in member],
+                    )
+                except Exception as e:
+                    print(f"⚠ Failed to add calendar guests: {str(e)}")
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="UPDATE_TAGGED_IDS",
+                resource_type=item_type,
+                resource_id=str(item_data.get("id")),
+                success=False,
+                error_message=f"Failed to update tagged_ids: {str(e)}",
+                metadata={"item_data": item_data, "tagged_ids": resolved_tagged_ids},
+            )
+
+
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+from typing import Dict
+from datetime import datetime
+import os
+
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")  # Make sure it's set in env
+
+class UnifiedEmailSender:
+    def __init__(self, sender_email: str = "tulasidivya.cc@gmail.com"):
+        self.sender_email = sender_email
+
+    def send_item_email(
+        self,
+        recipient_email: str,
+        item_type: str,
+        item_data: Dict,
+        sender_name: str = "Someone"
+    ) -> tuple[bool, str]:
+        """Send email for any item type via SendGrid"""
+        try:
+            # Get item title
+            item_title = item_data.get("title") or item_data.get("text") or item_data.get("name") or "Untitled"
+
+            # Subject mapping
+            subject_mapping = {
+                "bookmark": f"Shared Bookmark: {item_title}",
+                "note": f"Shared Note: {item_title}",
+                "project": f"Shared Project: {item_title}",
+                "goal": f"Shared Goal: {item_title}",
+                "todo": f"Shared Task: {item_title}",
+                "maintenance_task": f"Shared Maintenance Task: {item_title}"
+            }
+            subject = subject_mapping.get(item_type, f"Shared Item: {item_title}")
+
+            # Generate content
+            content = self._generate_email_content(item_type, item_data, sender_name)
+
+            # Create SendGrid message
+            message = Mail(
+                from_email=self.sender_email,
+                to_emails=recipient_email,
+                subject=subject,
+                html_content=f"<pre style='font-family:inherit'>{content}</pre>"
+            )
+
+            # Send via SendGrid
+            sg = SendGridAPIClient(SENDGRID_API_KEY)
+            response = sg.send(message)
+
+            if 200 <= response.status_code < 300:
+                return True, f"Email sent successfully (Status Code: {response.status_code})"
+            else:
+                return False, f"Failed to send email (Status Code: {response.status_code})"
+
+        except Exception as e:
+            return False, str(e)
+
+    def _generate_email_content(self, item_type: str, item_data: Dict, sender_name: str) -> str:
+        """Generate email content based on item type (same as before)"""
+        if item_type == "bookmark":
+            return f"""
+Hi there!
+
+{sender_name} wanted to share this Bookmark with you:
+
+Title: {item_data.get('title', 'Untitled')}
+URL: {item_data.get('url', 'No URL')}
+Sub Category: {item_data.get('category', 'No Category')}
+Hub: {item_data.get('hub', 'No Hub')}
+
+Best regards!
+Dockly Team.
+""".strip()
+
+        elif item_type == "note":
+            return f"""
+Hi there!
+
+{sender_name} wanted to share this note with you:
+
+Title: {item_data.get('title', 'Untitled')}
+Description: {item_data.get('description', 'No description')}
+Hub: {item_data.get('hub', 'No Hub')}
+Created: {item_data.get('created_at', '').split('T')[0] if item_data.get('created_at') else 'Unknown'}
+
+Best regards!
+Dockly Team.
+""".strip()
+
+        elif item_type == "project":
+            return f"""
+Hi there!
+
+{sender_name} wanted to share this Project with you:
+
+Title: {item_data.get('title', 'Untitled')}
+Description: {item_data.get('description', 'No description')}
+Deadline: {item_data.get('deadline') or item_data.get('due_date', 'No deadline')}
+Status: {item_data.get('status', 'Unknown')}
+
+Best regards!
+Dockly Team.
+""".strip()
+
+        elif item_type == "goal":
+            return f"""
+Hi there!
+
+{sender_name} wanted to share this Goal with you:
+
+Title: {item_data.get('title', 'Untitled')}
+Date: {item_data.get('date', 'No date')}
+Time: {item_data.get('time', 'No time')}
+Status: {'Completed' if item_data.get('completed') else 'In Progress'}
+
+Best regards!
+Dockly Team.
+""".strip()
+
+        elif item_type == "todo":
+            return f"""
+Hi there!
+
+{sender_name} wanted to share this Task with you:
+
+Title: {item_data.get('title', 'Untitled')}
+Date: {item_data.get('date', 'No date')}
+Time: {item_data.get('time', 'No time')}
+Priority: {item_data.get('priority', 'Medium')}
+Status: {'Completed' if item_data.get('completed') else 'Pending'}
+
+Best regards!
+Dockly Team.
+""".strip()
+
+        elif item_type == "maintenance_task":
+            due_date = item_data.get("date") or ""
+            if due_date and "T" in due_date:
+                due_date = due_date.split("T")[0]
+            try:
+                formatted_date = datetime.strptime(due_date, "%Y-%m-%d").strftime("%B %d, %Y")
+            except:
+                formatted_date = due_date or "Not Set"
+
+            priority = item_data.get("priority", "Not Set")
+            priority_indicator = {
+                "HIGH": "🔴 High",
+                "MEDIUM": "🟡 Medium",
+                "LOW": "🟢 Low"
+            }.get(priority, priority)
+
+            recurring_status = "Yes" if item_data.get("isRecurring") or item_data.get("is_recurring") else "No"
+            completion_status = "Completed ✅" if item_data.get("completed") else "Pending ⏳"
+            property_icon = item_data.get("propertyIcon") or item_data.get("property_icon") or "🏠"
+
+            return f"""
+Hi there!
+
+{sender_name} wanted to share this maintenance task with you:
+
+{property_icon} Task: {item_data.get('name') or item_data.get('title', 'Untitled')}
+📅 Due Date: {formatted_date}
+⚡ Priority: {priority_indicator}
+🔄 Recurring: {recurring_status}
+📋 Status: {completion_status}
+
+📝 Details: 
+{item_data.get('details', 'No additional details provided.')}
+
+Best regards!
+Dockly Team.
+""".strip()
+
+        else:
+            return f"""
+Hi there!
+
+{sender_name} wanted to share this {item_type} with you:
+
+Title: {item_data.get('title') or item_data.get('text') or item_data.get('name', 'Untitled')}
+
+Best regards!
+Dockly Team.
+""".strip()

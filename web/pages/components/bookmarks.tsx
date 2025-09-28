@@ -22,21 +22,14 @@ import {
   PlusOutlined,
   StarFilled,
   StarOutlined,
-  MoreOutlined,
   EditOutlined,
   DeleteOutlined,
   CopyOutlined,
   ShareAltOutlined,
-  TagOutlined,
   IdcardOutlined,
   LinkOutlined,
-  MailOutlined,
-  BookOutlined,
-  RightOutlined,
   DownOutlined,
   UpOutlined,
-  SearchOutlined,
-  CheckCircleOutlined,
   CodeOutlined,
   BgColorsOutlined,
   GlobalOutlined,
@@ -45,9 +38,6 @@ import {
   ReadOutlined,
   PlayCircleOutlined,
   EllipsisOutlined,
-  UserOutlined,
-  TeamOutlined,
-  SettingOutlined,
 } from "@ant-design/icons";
 import {
   addBookmark,
@@ -60,7 +50,8 @@ import { Bookmark, BookmarkFormData } from "../../types/bookmarks";
 import { useGlobalLoading } from "../../app/loadingContext";
 import { useCurrentUser } from "../../app/userContext";
 import { getUsersFamilyMembers } from "../../services/family";
-import { PRIMARY_COLOR } from "../../app/comman";
+import { CustomButton, PRIMARY_COLOR } from "../../app/comman";
+import ShareModal from "./ShareModal";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -78,20 +69,6 @@ const categoryColors: Record<string, string> = {
   Entertainment: "#a01010ff",
   Others: "#3a1e1eff",
 };
-
-// Add category icons mapping
-const categoryIcons: Record<string, React.ReactElement> = {
-  Tech: <CodeOutlined style={{ fontSize: "12px" }} />,
-  Design: <BgColorsOutlined style={{ fontSize: "12px" }} />,
-  News: <GlobalOutlined style={{ fontSize: "12px" }} />,
-  Social: <UsergroupAddOutlined style={{ fontSize: "12px" }} />,
-  Tools: <ToolOutlined style={{ fontSize: "12px" }} />,
-  Education: <ReadOutlined style={{ fontSize: "12px" }} />,
-  Entertainment: <PlayCircleOutlined style={{ fontSize: "12px" }} />,
-  Others: <SettingOutlined style={{ fontSize: "12px" }} />,
-
-};
-
 interface BookmarkHubProps {
   title?: string;
   icon?: React.ReactNode;
@@ -147,22 +124,13 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
       // First, sort by favorite status (favorites first)
       if (a.isFavorite && !b.isFavorite) return -1;
       if (!a.isFavorite && b.isFavorite) return 1;
-      
+
       // If both have same favorite status, maintain original order (by creation date)
       const aDate = new Date(a.createdAt || a.created_at || 0);
       const bDate = new Date(b.createdAt || b.created_at || 0);
       return bDate.getTime() - aDate.getTime(); // Newest first within each group
     });
   };
-
-  // Filter family members based on search term AND excluding pending/me - SAME LOGIC AS FAMILY TASKS
-  const filteredFamilyMembers = familyMembers
-    .filter((member: any) => member.relationship !== "me")
-    .filter((member: any) => member.status?.toLowerCase() !== "pending") // ✅ Added pending filter
-     .filter((member: any) => member.email && member.email.trim()) 
-    .filter((member: any) =>
-      member.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
 
   useEffect(() => {
     loadBookmarks();
@@ -201,7 +169,7 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
             hubs: bookmark.hubs || [hub],
           }))
           .slice(0, maxItems);
-        
+
         // Sort bookmarks with favorites at top
         const sortedBookmarks = sortBookmarksByFavorite(normalizedBookmarks);
         setBookmarks(sortedBookmarks);
@@ -220,7 +188,8 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
     try {
       const res = await getUsersFamilyMembers({});
       if (res.status) {
-        const filtered = (res.payload.members || []).filter(
+        const members = res.payload?.members || [];
+        const filtered = members.filter(
           (m: any) =>
             m.relationship !== "me" && m.status?.toLowerCase() !== "pending"
         );
@@ -273,7 +242,7 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
             payload.bookmark.is_favorite ??
             false,
         };
-        
+
         setBookmarks((prev) => {
           const updated = prev.map((bookmark) =>
             bookmark.id === id
@@ -288,7 +257,7 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
           // Sort again to ensure correct order
           return sortBookmarksByFavorite(updated);
         });
-        
+
         message.success(
           updatedBookmark.isFavorite
             ? `"${updatedBookmark.title}" added to favorites`
@@ -404,85 +373,6 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
     setShareModalVisible(true);
     shareForm.resetFields();
   };
-
-  // Handle sharing to family members
-  const handleShareToMembers = async () => {
-    if (!currentShareBookmark || selectedMemberIds.length === 0) {
-      message.warning("Please select family members to tag");
-      return;
-    }
-
-    // ✅ Apply same filtering logic when selecting members for sharing
-    const selectedMembers = familyMembers.filter((member: any) =>
-      selectedMemberIds.includes(member.id) && member.status?.toLowerCase() !== "pending"
-    );
-
-    const emails = selectedMembers
-      .map((member: any) => member.email)
-      .filter((email: string) => !!email);
-
-    try {
-      setLoading(true);
-      await shareBookmarks({
-        email: emails,
-        bookmark: {
-          id: currentShareBookmark.id,
-          title: currentShareBookmark.title,
-          url: currentShareBookmark.url,
-          category: currentShareBookmark.category,
-          hub,
-        },
-        tagged_members: emails,
-      });
-
-      const memberNames = selectedMembers.map((m: any) => m.name).join(", ");
-      message.success(`Bookmark tagged with ${memberNames}!`);
-      setShareModalVisible(false);
-      setCurrentShareBookmark(null);
-      setSelectedMemberIds([]);
-    } catch (err) {
-      console.error("Error tagging bookmark:", err);
-      message.error("Failed to tag bookmark");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle email sharing
-  const handleEmailShare = async () => {
-    try {
-      const values = await shareForm.validateFields();
-
-      if (!currentShareBookmark) {
-        message.error("No bookmark selected for sharing");
-        return;
-      }
-
-      setLoading(true);
-
-      const res = await shareBookmarks({
-        email: values.email,
-        bookmark: {
-          title: currentShareBookmark.title,
-          url: currentShareBookmark.url,
-          category: currentShareBookmark.category,
-          hub,
-        },
-      });
-
-      message.success("Bookmark shared via email!");
-      setShareModalVisible(false);
-      shareForm.resetFields();
-      setCurrentShareBookmark(null);
-      setSelectedMemberIds([]);
-    } catch (err) {
-      console.error("Error sharing bookmark:", err);
-      message.error("Failed to share bookmark");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const openCreateModal = () => {
     setModalMode("create");
     setShowCustomCategory(false);
@@ -591,34 +481,6 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
     }
   };
 
-  const getDropdownMenu = (bookmark: Bookmark) => ({
-    items: [
-      {
-        key: "edit",
-        icon: <EditOutlined />,
-        label: "Edit",
-        onClick: () => handleEdit(bookmark.id),
-      },
-      {
-        key: "share",
-        icon: <ShareAltOutlined />,
-        label: "Share & Tag",
-        onClick: (e: { domEvent: React.MouseEvent }) =>
-          handleShareBookmark(bookmark, e.domEvent),
-      },
-      {
-        type: "divider" as const,
-      },
-      {
-        key: "delete",
-        icon: <DeleteOutlined />,
-        label: "Delete",
-        danger: true,
-        onClick: () => handleDelete(bookmark.id),
-      },
-    ],
-  });
-
   return (
     <div style={{ fontFamily: FONT_FAMILY }}>
       <Card
@@ -651,7 +513,15 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
             marginBottom: "12px",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0, flex: 1 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              minWidth: 0,
+              flex: 1,
+            }}
+          >
             <Avatar
               style={{
                 backgroundColor: "#dc2626",
@@ -703,25 +573,9 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
           </div>
 
           {showAddButton && (
-            <Button
-              type="text"
-              shape="default"
-              icon={<PlusOutlined style={{ color: "white" }} />}
-              size="large"
-              onClick={openCreateModal}
-              style={{
-                borderRadius: 6,
-                background: PRIMARY_COLOR,
-                borderColor: PRIMARY_COLOR,
-                fontSize: 11,
-                height: 28,
-                width: 28,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 0,
-                flexShrink: 0,
-              }}
+            <CustomButton
+              label="Add Bookmark" // tooltip text
+              onClick={() => setAddModalVisible(true)}
             />
           )}
         </div>
@@ -1205,7 +1059,25 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
           )}
         </div>
       </Card>
-
+      {currentShareBookmark && (
+        <ShareModal
+          isVisible={shareModalVisible}
+          onClose={() => {
+            setShareModalVisible(false);
+            setCurrentShareBookmark(null);
+          }}
+          title="Share Bookmark"
+          item={currentShareBookmark}
+          itemType="bookmark"
+          familyMembers={familyMembers}
+          loading={loading}
+          currentHubId="2a2b3c4d-1111-2222-3333-abcdef784512" // Accounts hub ID
+          onShareSuccess={(message) => {
+            // Optional: handle success callback
+            console.log("Share success:", message);
+          }}
+        />
+      )}
       <Modal
         title={
           <span style={{ fontFamily: FONT_FAMILY }}>
@@ -1232,7 +1104,7 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
           >
             <Input
               placeholder="Enter bookmark title"
-              style={{ 
+              style={{
                 fontFamily: FONT_FAMILY,
                 wordBreak: "break-word",
                 overflowWrap: "break-word",
@@ -1260,7 +1132,7 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
           >
             <Input
               placeholder="www.example.com"
-              style={{ 
+              style={{
                 fontFamily: FONT_FAMILY,
                 wordBreak: "break-all",
                 overflowWrap: "break-word",
@@ -1274,7 +1146,7 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
             <Input.TextArea
               placeholder="Brief description of the bookmark"
               rows={3}
-              style={{ 
+              style={{
                 fontFamily: FONT_FAMILY,
                 wordBreak: "break-word",
                 overflowWrap: "break-word",
@@ -1350,7 +1222,10 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
                   Entertainment
                 </div>
               </Option>
-              <Option value="Add Custom Category" style={{ fontFamily: FONT_FAMILY }}>
+              <Option
+                value="Add Custom Category"
+                style={{ fontFamily: FONT_FAMILY }}
+              >
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <EllipsisOutlined
                     style={{ fontSize: "14px", color: "#3a1e1eff" }}
@@ -1379,7 +1254,7 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
                 placeholder="Enter custom Sub Category name"
                 value={customCategory}
                 onChange={(e) => setCustomCategory(e.target.value)}
-                style={{ 
+                style={{
                   fontFamily: FONT_FAMILY,
                   wordBreak: "break-word",
                   overflowWrap: "break-word",
@@ -1407,424 +1282,6 @@ const BookmarkHub: React.FC<BookmarkHubProps> = ({
           </Form.Item>
         </Form>
       </Modal>
-
-      {/* Enhanced Share Modal with White Theme and 4-Column Grid */}
-     <Modal
-  title={null}
-  open={shareModalVisible}
-  onCancel={() => {
-    setShareModalVisible(false);
-    setCurrentShareBookmark(null);
-    setSelectedMemberIds([]);
-    shareForm.resetFields();
-    setSearchTerm(""); // ✅ Reset search term
-  }}
-  footer={null}
-  centered
-  width={520}
-  destroyOnClose
-  style={{
-    fontFamily: FONT_FAMILY,
-  }}
-  styles={{
-    body: {
-      padding: "0px",
-      background: "#ffffff",
-      borderRadius: "16px",
-      overflow: "hidden",
-    },
-    header: {
-      padding: "0px",
-      marginBottom: "0px",
-      border: "none",
-    },
-    mask: {
-      backdropFilter: "blur(8px)",
-      backgroundColor: "rgba(0, 0, 0, 0.5)",
-    },
-    content: {
-      borderRadius: "16px",
-      overflow: "hidden",
-      boxShadow: "0 25px 50px rgba(0, 0, 0, 0.15)",
-      border: "1px solid #e5e7eb",
-    },
-  }}
->
-  {currentShareBookmark && (
-    <div>
-      {/* Header with Search */}
-      <div
-        style={{
-          padding: "20px 20px 16px",
-          borderBottom: "1px solid #e5e7eb",
-          background: "#ffffff",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: "16px",
-          }}
-        >
-          <div
-            style={{
-              background: "#f3f4f6",
-              borderRadius: "50%",
-              padding: "10px",
-              marginRight: "12px",
-            }}
-          >
-            <ShareAltOutlined
-              style={{
-                color: "#374151",
-                fontSize: "18px",
-              }}
-            />
-          </div>
-          <Text
-            style={{
-              fontSize: "18px",
-              fontWeight: 600,
-              color: "#1f2937",
-              fontFamily: FONT_FAMILY,
-              wordBreak: "break-word",
-              overflowWrap: "break-word",
-            }}
-          >
-            Share Bookmark
-          </Text>
-        </div>
-
-        <Input
-          placeholder="Search family members..."
-          prefix={<SearchOutlined style={{ color: "#9ca3af" }} />}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{
-            background: "#f9fafb",
-            border: "1px solid #e5e7eb",
-            borderRadius: "8px",
-            color: "#374151",
-            fontFamily: FONT_FAMILY,
-            height: "36px",
-          }}
-        />
-      </div>
-
-      {/* Family Members Grid OR Empty State */}
-      <div style={{ padding: "16px 20px" }}>
-        {/* ✅ Updated to use filteredFamilyMembers which now includes pending filter */}
-        {filteredFamilyMembers.length > 0 ? (
-          <div
-            style={{
-              maxHeight: "280px",
-              overflowY: "auto",
-              marginBottom: "20px",
-              scrollbarWidth: "none", // Firefox
-              msOverflowStyle: "none",
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4, 1fr)",
-                gap: "10px",
-              }}
-            >
-              {/* ✅ Use filteredFamilyMembers instead of filtering inline */}
-              {filteredFamilyMembers.map((member: any) => (
-                <div
-                  key={member.id}
-                  onClick={() => {
-                    setSelectedMemberIds((prev) =>
-                      prev.includes(member.id)
-                        ? prev.filter((id) => id !== member.id)
-                        : [...prev, member.id]
-                    );
-                  }}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    cursor: "pointer",
-                    padding: "12px 8px",
-                    borderRadius: "12px",
-                    transition: "all 0.3s ease",
-                    background: selectedMemberIds.includes(member.id)
-                      ? "#f0f9ff"
-                      : "transparent",
-                    border: selectedMemberIds.includes(member.id)
-                      ? "2px solid #3b82f6"
-                      : "2px solid transparent",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!selectedMemberIds.includes(member.id)) {
-                      e.currentTarget.style.background = "#f9fafb";
-                      e.currentTarget.style.transform = "scale(1.02)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!selectedMemberIds.includes(member.id)) {
-                      e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.transform = "scale(1)";
-                    }
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "relative",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    <Avatar
-                      size={60}
-                      style={{
-                        background: selectedMemberIds.includes(member.id)
-                          ? "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
-                          : "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)",
-                        fontSize: "24px",
-                        fontWeight: "600",
-                        border: selectedMemberIds.includes(member.id)
-                          ? "3px solid #3b82f6"
-                          : "3px solid #e5e7eb",
-                        boxShadow: selectedMemberIds.includes(member.id)
-                          ? "0 4px 20px rgba(59, 130, 246, 0.3)"
-                          : "0 2px 8px rgba(0, 0, 0, 0.1)",
-                        transition: "all 0.3s ease",
-                        color: "#ffffff",
-                      }}
-                      icon={<UserOutlined />}
-                    >
-                      {member.name?.charAt(0)?.toUpperCase() || "U"}
-                    </Avatar>
-                    {selectedMemberIds.includes(member.id) && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          bottom: "-2px",
-                          right: "-2px",
-                          width: "20px",
-                          height: "20px",
-                          background: "#10b981",
-                          borderRadius: "50%",
-                          border: "2px solid #ffffff",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          boxShadow: "0 2px 8px rgba(16, 185, 129, 0.4)",
-                        }}
-                      >
-                        <CheckCircleOutlined
-                          style={{
-                            fontSize: "10px",
-                            color: "#fff",
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <Text
-                    style={{
-                      color: "#374151",
-                      fontSize: "13px",
-                      fontWeight: selectedMemberIds.includes(member.id)
-                        ? 600
-                        : 500,
-                      fontFamily: FONT_FAMILY,
-                      textAlign: "center",
-                      lineHeight: "1.2",
-                      maxWidth: "80px",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      wordBreak: "break-word",
-                      overflowWrap: "break-word",
-                    }}
-                  >
-                    {member.name}
-                  </Text>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "40px 20px",
-              color: "#6b7280",
-              fontFamily: FONT_FAMILY,
-            }}
-          >
-            <TeamOutlined style={{ fontSize: "40px", marginBottom: "12px" }} />
-            <div style={{ fontSize: "15px", fontWeight: 500, wordBreak: "break-word", overflowWrap: "break-word" }}>
-              {/* ✅ Updated empty state messages to match FamilyTasksComponent */}
-              {searchTerm ? "No members found" : "No family members added yet"}
-            </div>
-            <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "4px", wordBreak: "break-word", overflowWrap: "break-word" }}>
-              {searchTerm 
-                ? "Try adjusting your search terms" 
-                : "Add family members to start sharing bookmarks."}
-            </div>
-          </div>
-        )}
-
-        {/* Share Button */}
-        {selectedMemberIds.length > 0 && (
-          <Button
-            type="primary"
-            block
-            size="large"
-            onClick={handleShareToMembers}
-            loading={loading}
-            style={{
-              borderRadius: "12px",
-              height: "44px",
-              fontSize: "15px",
-              fontWeight: 600,
-              fontFamily: FONT_FAMILY,
-              marginBottom: "20px",
-              background: "#255198ff",
-              border: "none",
-              boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
-              transition: "all 0.3s ease",
-              wordBreak: "break-word",
-              overflowWrap: "break-word",
-            }}
-          >
-            Share with {selectedMemberIds.length} member
-            {selectedMemberIds.length > 1 ? "s" : ""}
-          </Button>
-        )}
-
-        {/* Email Share Section */}
-        <div
-          style={{
-            borderTop: "1px solid #e5e7eb",
-            paddingTop: "20px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              marginBottom: "12px",
-            }}
-          >
-            <div
-              style={{
-                background: "#f3f4f6",
-                borderRadius: "50%",
-                padding: "6px",
-                marginRight: "10px",
-              }}
-            >
-              <MailOutlined
-                style={{
-                  color: "#374151",
-                  fontSize: "14px",
-                }}
-              />
-            </div>
-            <Text
-              style={{
-                color: "#374151",
-                fontSize: "15px",
-                fontWeight: 600,
-                fontFamily: FONT_FAMILY,
-                wordBreak: "break-word",
-                overflowWrap: "break-word",
-              }}
-            >
-              Or share via email
-            </Text>
-          </div>
-
-          <Form form={shareForm} onFinish={handleEmailShare}>
-            <div
-              style={{
-                display: "flex",
-                gap: "10px",
-                alignItems: "flex-start",
-              }}
-            >
-              <Form.Item
-                name="email"
-                rules={[
-                  {
-                    required: true,
-                    message: "Please enter an email address",
-                  },
-                  {
-                    type: "email",
-                    message: "Please enter a valid email address",
-                  },
-                ]}
-                style={{ flex: 1, marginBottom: 0 }}
-              >
-                <Input
-                  placeholder="Enter email address"
-                  style={{
-                    background: "#f9fafb",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                    color: "#374151",
-                    fontFamily: FONT_FAMILY,
-                    height: "40px",
-                    fontSize: "14px",
-                    wordBreak: "break-all",
-                    overflowWrap: "break-word",
-                  }}
-                />
-              </Form.Item>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={loading}
-                style={{
-                  height: "40px",
-                  minWidth: "100px",
-                  fontFamily: FONT_FAMILY,
-                  borderRadius: "8px",
-                  fontWeight: 600,
-                  background: "#10b981",
-                  border: "none",
-                  boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
-                  fontSize: "14px",
-                  flexShrink: 0,
-                }}
-              >
-                Send
-              </Button>
-            </div>
-          </Form>
-
-          <div
-            style={{
-              marginTop: "12px",
-              fontSize: "12px",
-              color: "#6b7280",
-              fontFamily: FONT_FAMILY,
-              textAlign: "center",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "6px",
-              wordBreak: "break-word",
-              overflowWrap: "break-word",
-            }}
-          >
-            <MailOutlined style={{ fontSize: "11px" }} />
-            <span>Email will be sent with bookmark details</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  )}
-</Modal>
-
     </div>
   );
 };

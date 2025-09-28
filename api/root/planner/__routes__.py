@@ -6,14 +6,8 @@ from .models import (
     AddWeeklyTodos,
     DeleteWeeklyGoal,
     DeleteWeeklyTodo,
-    FrequentNotes,
     GetHabits,
-    GetPlanner,
     GetSmartNotes,
-    GetWeeklyGoals,
-    GetWeeklyTodos,
-    AddWeeklyFocus,
-    GetWeeklyFocus,
     ShareGoal,
     ShareTodo,
     UpdateHabitProgress,
@@ -31,21 +25,20 @@ planner_api.add_resource(GetPlannerDataComprehensive, "/get/planner-data-compreh
 
 planner_api.add_resource(AddWeeklyGoals, "/add/weekly-goals")
 planner_api.add_resource(UpdateWeeklyGoals, "/update/weekly-goals")
-planner_api.add_resource(GetWeeklyGoals, "/get/weekly-goals")
+# planner_api.add_resource(GetWeeklyGoals, "/get/weekly-goals")
 
-planner_api.add_resource(GetPlanner, "/get/planner")
 planner_api.add_resource(GetCalendarEvents, "/get/calendar/events")
 
 planner_api.add_resource(AddWeeklyTodos, "/add/weekly-todos")
 planner_api.add_resource(UpdateWeeklyTodos, "/update/weekly-todos")
-planner_api.add_resource(GetWeeklyTodos, "/get/weekly-todos")
+# planner_api.add_resource(GetWeeklyTodos, "/get/weekly-todos")
 
-planner_api.add_resource(AddWeeklyFocus, "/add/weekly-focus")
-planner_api.add_resource(GetWeeklyFocus, "/get/weekly-focus")
+# planner_api.add_resource(AddWeeklyFocus, "/add/weekly-focus")
+# planner_api.add_resource(GetWeeklyFocus, "/get/weekly-focus")
 
 planner_api.add_resource(AddSmartNote, "/add/smart-notes")
 planner_api.add_resource(GetSmartNotes, "/get/smart-notes")
-planner_api.add_resource(FrequentNotes, "/smartnotes/suggestions/<string:uid>")
+# planner_api.add_resource(FrequentNotes, "/smartnotes/suggestions/<string:uid>")
 
 
 planner_api.add_resource(DeleteWeeklyGoal, "/delete/weekly-goals")

@@ -58,6 +58,16 @@ const DocklyLogin = () => {
       return;
     }
 
+    // Check if username contains at least one alphabet
+    if (/^[0-9 ]+$/.test(trimmedUsername)) {
+      showNotification(
+        "Error",
+        "Username must contain at least one alphabet.",
+        "error"
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       type ApiResponse = {
@@ -93,7 +103,7 @@ const DocklyLogin = () => {
         if (payload?.token) {
           localStorage.setItem("Dtoken", payload?.token || "");
         }
-       router.push(`/${trimmedUsername}${payload.redirectUrl}`);
+        router.push(`/${trimmedUsername}${payload.redirectUrl}`);
       }
     } catch (error: any) {
       const errMsg =
@@ -112,8 +122,7 @@ const DocklyLogin = () => {
     ? "32px"
     : "64px";
 
-
-   const formMaxWidth = responsive("desktop") ? "420px" : "100%"; 
+  const formMaxWidth = responsive("desktop") ? "420px" : "100%";
 
   return (
     <>
@@ -220,4 +229,4 @@ const DocklyLogin = () => {
   );
 };
 
-export default DocklyLogin;
+export default DocklyLogin;

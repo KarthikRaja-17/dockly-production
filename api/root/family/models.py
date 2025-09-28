@@ -6,6 +6,7 @@ import json
 import re
 import smtplib
 import traceback
+import uuid
 from root.helpers.logs import AuditLogger
 import requests
 
@@ -17,11 +18,23 @@ from root.utilis import (
     create_calendar_event,
     delete_calendar_event,
     ensure_drive_folder_structure,
+    get_or_create_subfolder,
     uniqueId,
     update_calendar_event,
 )
 from root.users.models import generate_otp, send_otp_email
-from root.config import CLIENT_ID, CLIENT_SECRET, EMAIL_PASSWORD, EMAIL_SENDER, SCOPE, SMTP_PORT, SMTP_SERVER, WEB_URL
+from root.config import (
+    CLIENT_ID,
+    CLIENT_SECRET,
+    EMAIL_PASSWORD,
+    EMAIL_SENDER,
+    SCOPE,
+    SEND_GRID_EMAIL,
+    SENDGRID_API_KEY,
+    SMTP_PORT,
+    SMTP_SERVER,
+    WEB_URL,
+)
 from root.email import generate_invitation_email
 from flask import Request, request, jsonify, send_file
 from root.auth.auth import auth_required
@@ -30,6 +43,7 @@ from flask import request, jsonify
 from root.db.dbHelper import DBHelper
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+
 
 class InviteFamily(Resource):
     def post(self):
@@ -45,7 +59,11 @@ class InviteFamily(Resource):
                     error_message="No input data provided",
                     metadata={"input": {}, "error": "Missing request body"},
                 )
-                return {"status": 0, "message": "No input data provided", "payload": {}}, 400
+                return {
+                    "status": 0,
+                    "message": "No input data provided",
+                    "payload": {},
+                }, 400
 
             # Validate required fields
             required_fields = [
@@ -144,7 +162,9 @@ class InviteFamily(Resource):
 
         except Exception as e:
             AuditLogger.log(
-                user_id=data.get("userId", "unknown") if "data" in locals() else "unknown",
+                user_id=(
+                    data.get("userId", "unknown") if "data" in locals() else "unknown"
+                ),
                 action="invite_family",
                 resource_type="family_member",
                 resource_id=None,
@@ -157,6 +177,7 @@ class InviteFamily(Resource):
                 "message": f"Failed to invite family member: {str(e)}",
                 "payload": {},
             }, 500
+
 
 def sendInviteEmail(inputData, user, rusername, encodedToken, inviteLink):
     if not inviteLink:
@@ -226,7 +247,9 @@ class AddFamilyMembers(Resource):
             # Prepare shared item IDs
             sharedKeys = list(inputData["sharedItems"].keys())
             sharedItems = [
-                DBHelper.find_one("boards", filters={"board_name": key}, select_fields=["id"])
+                DBHelper.find_one(
+                    "boards", filters={"board_name": key}, select_fields=["id"]
+                )
                 for key in sharedKeys
             ]
             sharedItemsIds = [item["id"] for item in sharedItems if item]
@@ -247,7 +270,9 @@ class AddFamilyMembers(Resource):
                 encodedToken = "<encoded_token>"
                 inviteLink = f"{WEB_URL}/{rusername}/dashboard"
 
-                sendInviteEmail(inputData, user, rusername, encodedToken, inviteLink=inviteLink)
+                sendInviteEmail(
+                    inputData, user, rusername, encodedToken, inviteLink=inviteLink
+                )
 
                 notification = {
                     "sender_id": user["uid"],
@@ -308,7 +333,9 @@ class AddFamilyMembers(Resource):
                 },
             )
 
-            sendInviteEmail(inputData, user, user["user_name"], encodedToken, inviteLink=inviteLink)
+            sendInviteEmail(
+                inputData, user, user["user_name"], encodedToken, inviteLink=inviteLink
+            )
             send_otp_email(inputData["email"], otp)
 
             AuditLogger.log(
@@ -334,14 +361,18 @@ class AddFamilyMembers(Resource):
                 resource_id=None,
                 success=False,
                 error_message="Failed to add family member",
-                metadata={"input": inputData if "inputData" in locals() else {}, "error": str(e)},
+                metadata={
+                    "input": inputData if "inputData" in locals() else {},
+                    "error": str(e),
+                },
             )
             return {
                 "status": 0,
                 "message": f"Failed to add family member: {str(e)}",
                 "payload": {},
             }, 500
-    
+
+
 class GetUserFamilyGroups(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
@@ -350,8 +381,11 @@ class GetUserFamilyGroups(Resource):
             user_groups = DBHelper.find_all(
                 table_name="family_members",
                 select_fields=[
-                    "family_group_id", "user_id", "fm_user_id",
-                    "method", "invited_by"
+                    "family_group_id",
+                    "user_id",
+                    "fm_user_id",
+                    "method",
+                    "invited_by",
                 ],
                 filters={"fm_user_id": uid},
             )
@@ -367,27 +401,18 @@ class GetUserFamilyGroups(Resource):
                         name=user["user_name"],
                         relationship="paid_user",
                         user_id=uid,
-                        fm_user_id=uid,   # Self-reference
+                        fm_user_id=uid,  # Self-reference
                         email=user["email"],
                         access_code="",
                         family_group_id=gid,
                         method="Direct",
                         shared_items="",
                         permissions="",
-                        invited_by=uid,   # owner = self
+                        invited_by=uid,  # owner = self
                         color="#FFD1DC",
-                        created_at=datetime.utcnow()
+                        created_at=datetime.utcnow(),
                     )
-
-                    AuditLogger.log(
-                        user_id=uid,
-                        action="GET_USER_FAMILY_GROUPS_SUCCESS",
-                        resource_type="family_groups",
-                        resource_id=gid,
-                        success=True,
-                        metadata={"auto_created": True},
-                    )
-
+                   
                     return {
                         "status": 1,
                         "message": "New family group created for paid member",
@@ -406,7 +431,11 @@ class GetUserFamilyGroups(Resource):
                                             "type": "family",
                                             "color": "#0033FF",
                                             "initials": "".join(
-                                                [p[0].upper() for p in user["user_name"].split() if p]
+                                                [
+                                                    p[0].upper()
+                                                    for p in user["user_name"].split()
+                                                    if p
+                                                ]
                                             )[:2],
                                             "status": "accepted",
                                             "isPet": False,
@@ -419,16 +448,10 @@ class GetUserFamilyGroups(Resource):
 
                 else:  # Guest fallback
                     current_user_name = user["user_name"]
-                    initials = "".join([p[0].upper() for p in current_user_name.split() if p])[:2]
-
-                    AuditLogger.log(
-                        user_id=uid,
-                        action="GET_USER_FAMILY_GROUPS_SUCCESS",
-                        resource_type="family_groups",
-                        resource_id=None,
-                        success=True,
-                        metadata={"guest": True},
-                    )
+                    initials = "".join(
+                        [p[0].upper() for p in current_user_name.split() if p]
+                    )[:2]
+                   
 
                     return {
                         "status": 1,
@@ -458,15 +481,22 @@ class GetUserFamilyGroups(Resource):
                     }
 
             # Case: user has groups
-            group_ids = list(set([g["family_group_id"] for g in user_groups if g["family_group_id"]]))
+            group_ids = list(
+                set([g["family_group_id"] for g in user_groups if g["family_group_id"]])
+            )
             family_groups = []
 
             for group_id in group_ids:
                 group_members = DBHelper.find_all(
                     table_name="family_members",
                     select_fields=[
-                        "name", "relationship", "fm_user_id", "user_id",
-                        "method", "email", "invited_by"
+                        "name",
+                        "relationship",
+                        "fm_user_id",
+                        "user_id",
+                        "method",
+                        "email",
+                        "invited_by",
                     ],
                     filters={"family_group_id": group_id},
                 )
@@ -480,7 +510,9 @@ class GetUserFamilyGroups(Resource):
 
                 owner_name = None
                 if owner_id:
-                    owner_member = next((m for m in group_members if m["fm_user_id"] == owner_id), None)
+                    owner_member = next(
+                        (m for m in group_members if m["fm_user_id"] == owner_id), None
+                    )
                     if owner_member:
                         owner_name = owner_member.get("name")
 
@@ -488,24 +520,19 @@ class GetUserFamilyGroups(Resource):
                     owner_name = user["user_name"]
 
                 # Count unique members
-                unique_members = list(set([m["fm_user_id"] for m in group_members if m["fm_user_id"]]))
+                unique_members = list(
+                    set([m["fm_user_id"] for m in group_members if m["fm_user_id"]])
+                )
                 member_count = len(unique_members)
 
-                family_groups.append({
-                    "id": group_id,
-                    "name": f"{owner_name}'s Family",
-                    "ownerName": owner_name,
-                    "memberCount": member_count,
-                })
-
-            AuditLogger.log(
-                user_id=uid,
-                action="GET_USER_FAMILY_GROUPS_SUCCESS",
-                resource_type="family_groups",
-                resource_id=None,
-                success=True,
-                metadata={"groups_count": len(family_groups)},
-            )
+                family_groups.append(
+                    {
+                        "id": group_id,
+                        "name": f"{owner_name}'s Family",
+                        "ownerName": owner_name,
+                        "memberCount": member_count,
+                    }
+                )
 
             return {
                 "status": 1,
@@ -522,11 +549,11 @@ class GetUserFamilyGroups(Resource):
                 resource_id=None,
                 success=False,
                 error_message="Failed to fetch family groups",
-                metadata={"trace": traceback.format_exc(),"error": str(e)},
+                metadata={"trace": traceback.format_exc(), "error": str(e)},
             )
             return {
                 "status": 0,
-                "message": f"Failed to fetch family groups: {str(e)}"
+                "message": f"Failed to fetch family groups: {str(e)}",
             }, 500
 
 
@@ -536,7 +563,7 @@ class GetFamilyMembers(Resource):
         try:
             role = request.args.get("role")
             fuser = request.args.get("fuser")
-            family_group_id = request.args.get("family_group_id")  # New parameter for specific group
+            family_group_id = request.args.get("family_group_id")
             familyMembers = []
 
             def clean_relationship(rel):
@@ -548,10 +575,10 @@ class GetFamilyMembers(Resource):
                     .strip()
                 )
 
-            # Step 0: Preload notifications metadata for enrichment
+            # Preload notifications metadata for enrichment
             notifications = DBHelper.find_all(
                 table_name="notifications",
-                filters={"sender_id": uid},  # include all (pending or accepted)
+                filters={"sender_id": uid},
                 select_fields=["metadata", "status"],
             )
 
@@ -583,30 +610,21 @@ class GetFamilyMembers(Resource):
                         }
                     )
 
-            # Step 1: Get family group id of the user
+            # Determine family group id
             if family_group_id:
-                # Use the provided specific group ID
                 group_id = family_group_id
-
-                # Verify that the user actually belongs to this group
                 user_in_group = DBHelper.find_one(
                     table_name="family_members",
                     select_fields=["id"],
                     filters={"fm_user_id": uid, "family_group_id": group_id},
                 )
-
                 if not user_in_group:
-                    return {
-                        "status": 0,
-                        "message": "User does not belong to the specified family group",
-                        "payload": {"members": []},
-                    }
+                    return {"status": 0, "message": "User does not belong to the specified family group", "payload": {"members": []}}
             else:
-                # Get user's primary/first family group
                 gid = DBHelper.find_one(
                     table_name="family_members",
                     select_fields=["family_group_id"],
-                    filters={"fm_user_id": uid},  # Changed from user_id to fm_user_id
+                    filters={"fm_user_id": uid},
                 )
                 group_id = gid.get("family_group_id") if gid else None
 
@@ -623,15 +641,15 @@ class GetFamilyMembers(Resource):
                                 "id": "",
                                 "user_id": uid,
                                 "sharedItems": {},
-                                "permissions": {},
+                                "permissions": [],
                                 "color": "#0033FF",
                             }
                         ]
-                        + pending_invites
+                        + pending_invites,
                     },
                 }
 
-            # Step 2: Get all members in that specific group
+            # Get all members in the group
             group_members = DBHelper.find_all(
                 table_name="family_members",
                 select_fields=[
@@ -646,7 +664,7 @@ class GetFamilyMembers(Resource):
                 filters={"family_group_id": group_id},
             )
 
-            # Step 2b: Keep only unique fm_user_id
+            # Keep only unique fm_user_id
             seen_fm_ids = set()
             unique_group_members = []
             for m in group_members:
@@ -656,20 +674,33 @@ class GetFamilyMembers(Resource):
                     unique_group_members.append(m)
             group_members = unique_group_members
 
-            # Step 3: Build the member list
+            # Build member list with actual permissions
             for member in group_members:
                 fm_user_id = member.get("fm_user_id")
-                relationship = (
-                    "me"
-                    if fm_user_id == uid
-                    else clean_relationship(member.get("relationship", "Unknown"))
-                )
+                relationship = "me" if fm_user_id == uid else clean_relationship(member.get("relationship", "Unknown"))
 
                 raw_email = member.get("email")
                 email = raw_email.lower().strip() if raw_email else ""
                 metadata = email_to_metadata.get(email, {})
                 sharedItems = metadata.get("sharedItems", {})
-                permissions = metadata.get("permissions", {})
+
+                # Fetch permissions from user_permissions table
+                permissions_records = DBHelper.find_all(
+                    table_name="user_permissions",
+                    filters={"user_id": fm_user_id},
+                    select_fields=["target_type", "target_id", "can_read", "can_write"]
+                )
+
+                permissions = [
+                    {
+                        "target_type": p["target_type"],
+                        "target_id": p["target_id"],
+                        "can_read": p.get("can_read", False),
+                        "can_write": p.get("can_write", False)
+                    }
+                    for p in permissions_records
+                ]
+
                 color = "#0033FF" if relationship == "me" else member.get("color")
 
                 familyMembers.append(
@@ -685,7 +716,7 @@ class GetFamilyMembers(Resource):
                     }
                 )
 
-            # Step 4: If guest, add the owner
+            # Add guest owner if applicable
             if role is not None and fuser:
                 try:
                     if int(role) == DocklyUsers.Guests.value:
@@ -703,29 +734,24 @@ class GetFamilyMembers(Resource):
                                     "id": fuserMember.get("id", ""),
                                     "user_id": fuser,
                                     "sharedItems": {},
-                                    "permissions": {},
+                                    "permissions": [],
                                     "color": "#7A7A7A",
                                 }
                             )
                 except ValueError:
                     pass
 
-            # Step 5: Add pending invites (only for the current user's invites)
+            # Add pending invites
             if not family_group_id or family_group_id == group_id:
                 familyMembers.extend(pending_invites)
 
-            # Step 6: Remove duplicate emails (extra safety)
+            # Remove duplicate emails / user_ids
             unique_members = []
-            seen_emails = set()
+            seen_identifiers = set()
             for member in familyMembers:
-                email = (member.get("email") or "").lower().strip()
-                user_id = member.get("user_id", "")
-
-                # Use user_id as primary identifier, email as secondary
-                identifier = user_id if user_id else email
-
-                if identifier and identifier not in seen_emails:
-                    seen_emails.add(identifier)
+                identifier = member.get("user_id") or (member.get("email") or "").lower().strip()
+                if identifier and identifier not in seen_identifiers:
+                    seen_identifiers.add(identifier)
                     unique_members.append(member)
 
             return {
@@ -735,7 +761,6 @@ class GetFamilyMembers(Resource):
             }
 
         except Exception as e:
-            # ✅ Store error in audit log
             AuditLogger.log(
                 user_id=uid,
                 action="get_family_members",
@@ -804,7 +829,9 @@ class AddPet(Resource):
 
         try:
             required_fields = ["name", "species", "breed"]
-            missing_fields = [field for field in required_fields if field not in inputData]
+            missing_fields = [
+                field for field in required_fields if field not in inputData
+            ]
             if missing_fields:
                 AuditLogger.log(
                     user_id=uid,
@@ -841,7 +868,11 @@ class AddPet(Resource):
                     error_message="No family_group_id found (only paid members can add pets)",
                     metadata={"input": inputData},
                 )
-                return {"status": 0, "message": "Only paid members can add Pets", "payload": {}}, 400
+                return {
+                    "status": 0,
+                    "message": "Only paid members can add Pets",
+                    "payload": {},
+                }, 400
 
             # Insert pet
             pet_id = DBHelper.insert(
@@ -891,7 +922,10 @@ class AddPet(Resource):
                         resource_id=str(pet_id),
                         success=False,
                         error_message="Failed to send guardian email",
-                        metadata={"input": inputData, "error": email_result.get("message")},
+                        metadata={
+                            "input": inputData,
+                            "error": email_result.get("message"),
+                        },
                     )
                     return {
                         "status": 1,
@@ -915,7 +949,12 @@ class AddPet(Resource):
                 error_message="Failed to add pet",
                 metadata={"input": inputData if inputData else {}, "error": str(e)},
             )
-            return {"status": 0, "message": f"Failed to add pet: {str(e)}", "payload": {}}, 500
+            return {
+                "status": 0,
+                "message": f"Failed to add pet: {str(e)}",
+                "payload": {},
+            }, 500
+
 
 class AddContacts(Resource):
     @auth_required(isOptional=True)
@@ -946,11 +985,17 @@ class AddContacts(Resource):
                     error_message="No contact data provided",
                     metadata={"input": inputData},
                 )
-                return {"status": 0, "message": "No contact data provided", "payload": {}}, 400
+                return {
+                    "status": 0,
+                    "message": "No contact data provided",
+                    "payload": {},
+                }, 400
 
             # Validate required fields
             required_fields = ["name", "role", "phone", "addedBy"]
-            missing_fields = [field for field in required_fields if field not in contact]
+            missing_fields = [
+                field for field in required_fields if field not in contact
+            ]
             if missing_fields:
                 AuditLogger.log(
                     user_id=uid,
@@ -1023,6 +1068,7 @@ class AddGuardianEmergencyInfo(Resource):
         inputData = request.get_json(silent=True)
         current_time = datetime.now().isoformat()
 
+        # ✅ Handle empty/invalid input
         if not inputData:
             AuditLogger.log(
                 user_id=uid,
@@ -1036,7 +1082,7 @@ class AddGuardianEmergencyInfo(Resource):
             return {"status": 0, "message": "Invalid input", "payload": {}}, 400
 
         try:
-            # Insert guardian emergency info into DB
+            # ✅ Insert guardian emergency info into DB
             userId = DBHelper.insert(
                 "guardian_emergency_info",
                 return_column="user_id",
@@ -1066,9 +1112,10 @@ class AddGuardianEmergencyInfo(Resource):
                 "status": 1,
                 "message": "Guardian emergency info added successfully",
                 "payload": {"userId": userId},
-            }
+            }, 201
 
         except Exception as e:
+            # ✅ Audit Logging failure
             AuditLogger.log(
                 user_id=uid,
                 action="ADD_GUARDIAN_INFO_FAILED",
@@ -1076,8 +1123,12 @@ class AddGuardianEmergencyInfo(Resource):
                 resource_id=None,
                 success=False,
                 error_message="Failed to add guardian emergency info",
-                metadata={"input": inputData, "error": str(e)},
+                metadata={
+                    "input": inputData if "inputData" in locals() else {},
+                    "error": str(e),
+                },
             )
+
             return {
                 "status": 0,
                 "message": f"Failed to add guardian emergency info: {str(e)}",
@@ -1085,53 +1136,80 @@ class AddGuardianEmergencyInfo(Resource):
             }, 500
 
 
-
-
 class GetPets(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
-        fuser = request.args.get("fuser")  # from query param
-        if not fuser:
-            # Fallback to current user's family_group_id
-            gid = DBHelper.find_one(
-                table_name="family_members",
-                select_fields=["family_group_id"],
-                filters={"user_id": uid},
-            )
-            fuser = gid.get("family_group_id") if gid else None
+        try:
+            fuser = request.args.get("fuser")  # from query param
+            if not fuser:
+                # Fallback to current user's family_group_id
+                gid = DBHelper.find_one(
+                    table_name="family_members",
+                    select_fields=["family_group_id"],
+                    filters={"user_id": uid},
+                )
+                fuser = gid.get("family_group_id") if gid else None
 
-        if not fuser:
-            return {"status": 0, "message": "Missing family_group_id (fuser)"}, 400
+            if not fuser:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="GET_PETS_FAILED",
+                    resource_type="pets",
+                    resource_id=None,
+                    success=False,
+                    error_message="Missing family_group_id (fuser)",
+                    metadata={"query_params": dict(request.args)},
+                )
+                return {"status": 0, "message": "Missing family_group_id (fuser)"}, 400
 
-        pets = DBHelper.find_all(
-            table_name="pets",
-            select_fields=[
-                "name",
-                "species",
-                "breed",
-                "guardian_email",
-                "guardian_contact",
-            ],
-            filters={"family_group_id": fuser},
-        )
-
-        pet_list = []
-        for pet in pets:
-            pet_list.append(
-                {
-                    "name": pet["name"],
-                    "species": pet["species"],
-                    "breed": pet["breed"] or "N/A",
-                    "guardian_email": pet["guardian_email"] or "N/A",
-                    "guardian_contact": pet["guardian_contact"] or "N/A",
-                }
+            pets = DBHelper.find_all(
+                table_name="pets",
+                select_fields=[
+                    "name",
+                    "species",
+                    "breed",
+                    "guardian_email",
+                    "guardian_contact",
+                ],
+                filters={"family_group_id": fuser},
             )
 
-        return {
-            "status": 1,
-            "message": "Pets fetched successfully",
-            "payload": {"pets": pet_list},
-        }
+            pet_list = []
+            for pet in pets:
+                pet_list.append(
+                    {
+                        "name": pet["name"],
+                        "species": pet["species"],
+                        "breed": pet["breed"] or "N/A",
+                        "guardian_email": pet["guardian_email"] or "N/A",
+                        "guardian_contact": pet["guardian_contact"] or "N/A",
+                    }
+                )
+            return {
+                "status": 1,
+                "message": "Pets fetched successfully",
+                "payload": {"pets": pet_list},
+            }, 200
+
+        except Exception as e:
+            # ✅ Error log
+            AuditLogger.log(
+                user_id=uid,
+                action="GET_PETS_FAILED",
+                resource_type="pets",
+                resource_id=None,
+                success=False,
+                error_message="Failed to fetch pets",
+                metadata={
+                    "query_params": dict(request.args),
+                    "error": str(e),
+                },
+            )
+            return {
+                "status": 0,
+                "message": f"Failed to fetch pets: {str(e)}",
+                "payload": {},
+            }, 500
 
 
 class GetContacts(Resource):
@@ -1205,13 +1283,30 @@ class GetContacts(Resource):
                 }
                 for key, items in grouped_by_role.items()
             ]
+
+
             return {
                 "status": 1,
                 "message": "Emergency contacts fetched successfully",
                 "payload": {"contacts": contact_sections},
             }, 200
+
         except Exception as e:
-            return {"status": 0, "message": f"Failed to fetch contacts: {str(e)}"}, 500
+            # ✅ Error log
+            AuditLogger.log(
+                user_id=uid,
+                action="GET_CONTACTS_FAILED",
+                resource_type="contacts",
+                resource_id=None,
+                success=False,
+                error_message="Failed to fetch contacts",
+                metadata={"error": str(e)},
+            )
+            return {
+                "status": 0,
+                "message": f"Failed to fetch contacts: {str(e)}",
+                "payload": {},
+            }, 500
 
 
 def get_connected_family_member_ids(uid: str) -> list:
@@ -1248,6 +1343,7 @@ class GetGuardianEmergencyInfo(Resource):
     def get(self, uid, user):
         try:
             family_member_ids = get_connected_family_member_ids(uid)
+
             # 3. Fetch emergency info for all family members
             emergency_info = DBHelper.find_in(
                 table_name="guardian_emergency_info",
@@ -1271,6 +1367,7 @@ class GetGuardianEmergencyInfo(Resource):
                     }
                 )
 
+            # ✅ Log success
             return {
                 "status": 1,
                 "message": "Guardian emergency info fetched successfully",
@@ -1278,11 +1375,26 @@ class GetGuardianEmergencyInfo(Resource):
             }, 200
 
         except Exception as e:
+            # ✅ Log failure
+            AuditLogger.log(
+                user_id=uid,
+                action="fetch_guardian_emergency_info",
+                resource_type="guardian_emergency_info",
+                resource_id="get_connected_family_member_ids(uid)",
+                success=False,
+                error_message="Failed to fetch guardian emergency info",
+                metadata={
+                    "error": str(e),
+                    "family_member_ids": (
+                        family_member_ids if "family_member_ids" in locals() else []
+                    ),
+                },
+            )
+
             return {
                 "status": 0,
                 "message": f"Failed to fetch emergency info: {str(e)}",
             }, 500
-
 
 
 class AddSharedTasks(Resource):
@@ -1315,7 +1427,11 @@ class AddSharedTasks(Resource):
                     error_message="No task data provided",
                     metadata={"input": inputData},
                 )
-                return {"status": 0, "message": "No task data provided", "payload": {}}, 400
+                return {
+                    "status": 0,
+                    "message": "No task data provided",
+                    "payload": {},
+                }, 400
 
             # Validate required fields
             required_fields = ["title", "assignedTo", "dueDate", "addedBy"]
@@ -1393,59 +1509,77 @@ class AddSharedTasks(Resource):
             }, 500
 
 
-
 # models.py (Update GetGuardianEmergencyInfo)
 
 
 class GetFamilyTasks(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
-        familyMembers = DBHelper.find_all(
-            table_name="family_members",
-            select_fields=["fm_user_id"],
-            filters={"user_id": uid},
-        )
-        familyMembersIds = [member["fm_user_id"] for member in familyMembers]
-        familyMembersIds.append(uid)
-        familyMembersTasks = DBHelper.find_in(
-            table_name="sharedtasks",
-            select_fields=[
-                "task",
-                "assigned_to",
-                "due_date",
-                "completed",
-                "added_by",
-                "added_time",
-            ],
-            field="user_id",
-            values=[familyMembersIds],  # or uids variable
-        )
-        task_list = []
-        for task in familyMembersTasks:
-            task_list.append(
-                {
-                    "task": task["task"],
-                    "assigned_to": task["assigned_to"],
-                    "due_date": (
-                        task["due_date"].isoformat()
-                        if isinstance(task["due_date"], (datetime, date))
-                        else None
-                    ),
-                    "completed": task["completed"],
-                    "added_by": task["added_by"],
-                    "added_time": (
-                        task["added_time"].isoformat()
-                        if isinstance(task["added_time"], datetime)
-                        else None
-                    ),
-                }
+        try:
+            familyMembers = DBHelper.find_all(
+                table_name="family_members",
+                select_fields=["fm_user_id"],
+                filters={"user_id": uid},
+            )
+            familyMembersIds = [member["fm_user_id"] for member in familyMembers]
+            familyMembersIds.append(uid)
+
+            familyMembersTasks = DBHelper.find_in(
+                table_name="sharedtasks",
+                select_fields=[
+                    "task",
+                    "assigned_to",
+                    "due_date",
+                    "completed",
+                    "added_by",
+                    "added_time",
+                ],
+                field="user_id",
+                values=familyMembersIds,  # ✅ no need to wrap in another list
             )
 
-        return {
-            "status": 1,
-            "message": "Family tasks fetched successfully",
-            "payload": {"shared_tasks": task_list},
-        }
+            task_list = []
+            for task in familyMembersTasks:
+                task_list.append(
+                    {
+                        "task": task["task"],
+                        "assigned_to": task["assigned_to"],
+                        "due_date": (
+                            task["due_date"].isoformat()
+                            if isinstance(task["due_date"], (datetime, date))
+                            else None
+                        ),
+                        "completed": task["completed"],
+                        "added_by": task["added_by"],
+                        "added_time": (
+                            task["added_time"].isoformat()
+                            if isinstance(task["added_time"], datetime)
+                            else None
+                        ),
+                    }
+                )
+            return {
+                "status": 1,
+                "message": "Family tasks fetched successfully",
+                "payload": {"shared_tasks": task_list},
+            }
+
+        except Exception as e:
+            # ✅ Error audit log
+            AuditLogger.log(
+                user_id=uid,
+                action="FETCH_FAMILY_TASKS",
+                resource_type="shared_task",
+                resource_id="bulk",
+                success=False,
+                error_message="Failed to fetch family tasks",
+                metadata={"error": str(e)},
+            )
+            return {
+                "status": 0,
+                "message": f"Failed to fetch family tasks: {str(e)}",
+            }, 500
+
 
 class SendInvitation(Resource):
     @auth_required(isOptional=True)
@@ -1456,24 +1590,33 @@ class SendInvitation(Resource):
             form_data = data.get("formData") if data else None
             shared_items_list = data.get("sharedItemsList", "") if data else ""
 
+            # ✅ Validate required fields
             if not form_data or "email" not in form_data or "name" not in form_data:
                 AuditLogger.log(
                     user_id=uid,
                     action="SEND_INVITATION_FAILED",
-                    resource_type="invitations",
+                    resource_type="invitation",
                     resource_id=None,
                     success=False,
                     error_message="Failed to send invitation",
-                    metadata={"input": data, "error": "Missing required fields"},
+                    metadata={
+                        "input": data if data else {},
+                        "error": "Missing required fields",
+                    },
                 )
-                return {"status": 0, "message": "Missing required fields", "payload": {}}, 400
+                return {
+                    "status": 0,
+                    "message": "Missing required fields",
+                    "payload": {},
+                }, 400
 
             email = form_data["email"]
             name = form_data["name"]
             username = user.get("user_name", "Unknown")
             invite_link = f"{WEB_URL}/satheesh/verify-email"
-            otp = generate_otp()
+            otp = generate_otp()  # ✅ generated but not stored/used here?
 
+            # ✅ Generate email
             email_html = generate_invitation_email(
                 form_data,
                 shared_items_list,
@@ -1481,13 +1624,14 @@ class SendInvitation(Resource):
                 invite_link=invite_link,
             )
 
+            # ✅ Send email
             send_invitation_email(email, name, email_html)
 
             # ✅ Audit log success
             AuditLogger.log(
                 user_id=uid,
                 action="SEND_INVITATION_SUCCESS",
-                resource_type="invitations",
+                resource_type="invitation",
                 resource_id=None,
                 success=True,
                 metadata={
@@ -1499,37 +1643,58 @@ class SendInvitation(Resource):
                 },
             )
 
-            return {"status": 1, "message": "Invitation sent successfully", "payload": {}}
+            return {
+                "status": 1,
+                "message": "Invitation sent successfully",
+                "payload": {},
+            }
 
         except Exception as e:
+            # ✅ Error logging
             AuditLogger.log(
                 user_id=uid,
                 action="SEND_INVITATION_FAILED",
-                resource_type="invitations",
+                resource_type="invitation",
                 resource_id=None,
                 success=False,
                 error_message="Failed to send invitation",
-                metadata={"input": data, "error": str(e)},
+                metadata={
+                    "input": data if data else {},
+                    "error": str(e),
+                },
             )
-            return {"status": 0, "message": f"Failed to send invitation: {str(e)}", "payload": {}}, 500
+            return {
+                "status": 0,
+                "message": f"Failed to send invitation: {str(e)}",
+                "payload": {},
+            }, 500
 
 
+from sendgrid.helpers.mail import Mail
+from sendgrid import SendGridAPIClient
+import ssl
+import certifi
+
+ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
 
 def send_invitation_email(
     email, name, email_html, invite_subject="Invitation to Join Family Hub"
 ):
-    msg = EmailMessage()
-    msg["Subject"] = f"{invite_subject} - {name}"
-    msg["From"] = EMAIL_SENDER  # e.g., 'no-reply@familyhub.com'
-    msg["To"] = email
+    message = Mail(
+        from_email="tulasidivya.cc@gmail.com",
+        to_emails=email,
+        subject=f"{invite_subject} - {name}",
+        html_content=email_html
+    )
 
-    # Add the HTML version
-    msg.add_alternative(email_html, subtype="html")
-
-    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-        server.starttls()
-        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-        server.send_message(msg)
+    try:
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        response = sg.send(message)
+        print(f"✅ Email sent to {email}, Status Code: {response.status_code}")
+        return True
+    except Exception as e:
+        print(f"❌ Error sending email: {e}")
+        return False
 
 
 def get_category_name(category_id):
@@ -1576,7 +1741,7 @@ class AddNotes(Resource):
             # Insert note
             new_note_id = DBHelper.insert(
                 "notes_lists",
-                return_column="id",   # ✅ should return note id
+                return_column="id",  # ✅ should return note id
                 user_id=uid,
                 title=title,
                 description=description,
@@ -1617,19 +1782,26 @@ class AddNotes(Resource):
                 resource_id=None,
                 success=False,
                 error_message="Failed to save note",
-                metadata={"input": inputData if 'inputData' in locals() else {}, "error": str(e)},
+                metadata={
+                    "input": inputData if "inputData" in locals() else {},
+                    "error": str(e),
+                },
             )
-            return {"status": 0, "message": f"Failed to save note: {str(e)}", "payload": {}}, 500
+            return {
+                "status": 0,
+                "message": f"Failed to save note: {str(e)}",
+                "payload": {},
+            }, 500
 
 
 from flask import request
 from flask_restful import Resource
-from datetime import datetime
 from email.message import EmailMessage
 import smtplib
 
 # make sure you have your SMTP configs set:
 # SMTP_SERVER, SMTP_PORT, EMAIL_SENDER, EMAIL_PASSWORD
+
 
 class EmailSender:
     def __init__(self):
@@ -1685,8 +1857,8 @@ Best regards!
 </html>
 """
 
-        msg.set_content(plain_text)                       # Plain text
-        msg.add_alternative(html_content, subtype="html") # HTML alternative
+        msg.set_content(plain_text)  # Plain text
+        msg.add_alternative(html_content, subtype="html")  # HTML alternative
 
         try:
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
@@ -1696,7 +1868,6 @@ Best regards!
             return True, "Email sent successfully"
         except Exception as e:
             return False, str(e)
-
 
 
 class ShareNote(Resource):
@@ -1716,7 +1887,10 @@ class ShareNote(Resource):
                     resource_id=note.get("id") if note else None,
                     success=False,
                     error_message="Failed to share note",
-                    metadata={"input": data, "error": "Both 'email' and 'note' are required"},
+                    metadata={
+                        "input": data,
+                        "error": "Both 'email' and 'note' are required",
+                    },
                 )
                 return {
                     "status": 0,
@@ -1735,14 +1909,18 @@ class ShareNote(Resource):
             # Resolve tagged emails to fm_user_ids
             for email in tagged_members:
                 family_member = DBHelper.find_one(
-                    "family_members", filters={"email": email}, select_fields=["fm_user_id"]
+                    "family_members",
+                    filters={"email": email},
+                    select_fields=["fm_user_id"],
                 )
                 if family_member:
                     resolved_tagged_ids.append(family_member["fm_user_id"])
 
             # Send emails
             for email in emails:
-                success, message = email_sender.send_note_email(email, note, user["user_name"])
+                success, message = email_sender.send_note_email(
+                    email, note, user["user_name"]
+                )
                 if not success:
                     failures.append((email, message))
 
@@ -1757,7 +1935,9 @@ class ShareNote(Resource):
                     continue
 
                 receiver_uid = family_member.get("fm_user_id") or DBHelper.find_one(
-                    "users", filters={"email": family_member["email"]}, select_fields=["uid"]
+                    "users",
+                    filters={"email": family_member["email"]},
+                    select_fields=["uid"],
                 ).get("uid", None)
 
                 if not receiver_uid:
@@ -1781,19 +1961,25 @@ class ShareNote(Resource):
                         },
                     },
                 }
-                notif_id = DBHelper.insert("notifications", return_column="id", **notif_data)
+                notif_id = DBHelper.insert(
+                    "notifications", return_column="id", **notif_data
+                )
                 notifications_created.append(notif_id)
 
             # Update note with tagged_ids
             if resolved_tagged_ids:
                 note_record = DBHelper.find_one(
-                    "notes_lists", filters={"id": note.get("id")}, select_fields=["tagged_ids"]
+                    "notes_lists",
+                    filters={"id": note.get("id")},
+                    select_fields=["tagged_ids"],
                 )
                 existing_ids = note_record.get("tagged_ids") or []
                 combined_ids = list(set(existing_ids + resolved_tagged_ids))
                 pg_array_str = "{" + ",".join(f'"{i}"' for i in combined_ids) + "}"
                 DBHelper.update_one(
-                    "notes_lists", filters={"id": note.get("id")}, updates={"tagged_ids": pg_array_str}
+                    "notes_lists",
+                    filters={"id": note.get("id")},
+                    updates={"tagged_ids": pg_array_str},
                 )
 
             if failures:
@@ -1819,7 +2005,10 @@ class ShareNote(Resource):
                 resource_type="notes_lists",
                 resource_id=note.get("id"),
                 success=True,
-                metadata={"input": data, "notifications_created": notifications_created},
+                metadata={
+                    "input": data,
+                    "notifications_created": notifications_created,
+                },
             )
 
             return {
@@ -1833,12 +2022,17 @@ class ShareNote(Resource):
                 user_id=uid,
                 action="SHARE_NOTE_FAILED",
                 resource_type="notes_lists",
-                resource_id=note.get("id") if 'note' in locals() and note else None,
+                resource_id=note.get("id") if "note" in locals() and note else None,
                 success=False,
                 error_message="Failed to share note",
-                metadata={"input": data if 'data' in locals() else {}, "error": str(e)},
+                metadata={"input": data if "data" in locals() else {}, "error": str(e)},
             )
-            return {"status": 0, "message": f"Failed to share note: {str(e)}", "payload": {}}, 500
+            return {
+                "status": 0,
+                "message": f"Failed to share note: {str(e)}",
+                "payload": {},
+            }, 500
+
 
 class GetNotes(Resource):
     @auth_required(isOptional=True)
@@ -1903,7 +2097,6 @@ class GetNotes(Resource):
                         ),
                     }
                 )
-
             return {
                 "status": 1,
                 "message": "Notes fetched successfully",
@@ -1911,6 +2104,19 @@ class GetNotes(Resource):
             }
 
         except Exception as e:
+            # ✅ Error audit log
+            AuditLogger.log(
+                user_id=uid,
+                action="FETCH_NOTES",
+                resource_type="notes",
+                resource_id="bulk",
+                success=False,
+                error_message="Failed to fetch notes",
+                metadata={
+                    "filters": filters if "filters" in locals() else {},
+                    "error": str(e),
+                },
+            )
             return {"status": 0, "message": f"Failed to fetch notes: {str(e)}"}, 500
 
 
@@ -1935,7 +2141,10 @@ class UpdateNote(Resource):
                     resource_id=note_id,
                     success=False,
                     error_message="Failed to update note",
-                    metadata={"input": data, "error": "Missing required fields: id, title, description, category_id"},
+                    metadata={
+                        "input": data,
+                        "error": "Missing required fields: id, title, description, category_id",
+                    },
                 )
                 return {
                     "status": 0,
@@ -1984,19 +2193,27 @@ class UpdateNote(Resource):
                 metadata={"input": data, "updated_note_ids": updated_note_ids},
             )
 
-            return {"status": 1, "message": "Note updated successfully", "payload": {"updated_note_ids": updated_note_ids}}
+            return {
+                "status": 1,
+                "message": "Note updated successfully",
+                "payload": {"updated_note_ids": updated_note_ids},
+            }
 
         except Exception as e:
             AuditLogger.log(
                 user_id=uid,
                 action="UPDATE_NOTE_FAILED",
                 resource_type="notes_lists",
-                resource_id=data.get("id") if 'data' in locals() else None,
+                resource_id=data.get("id") if "data" in locals() else None,
                 success=False,
                 error_message="Failed to update note",
-                metadata={"input": data if 'data' in locals() else {}, "error": str(e)},
+                metadata={"input": data if "data" in locals() else {}, "error": str(e)},
             )
-            return {"status": 0, "message": f"Failed to update note: {str(e)}", "payload": {}}, 500
+            return {
+                "status": 0,
+                "message": f"Failed to update note: {str(e)}",
+                "payload": {},
+            }, 500
 
 
 class DeleteNote(Resource):
@@ -2015,9 +2232,20 @@ class DeleteNote(Resource):
                     resource_id=None,
                     success=False,
                     error_message="Failed to delete note",
-                    metadata={"input": {"id": note_id, "title": note_title, "description": note_description}, "error": "Note ID is required"},
+                    metadata={
+                        "input": {
+                            "id": note_id,
+                            "title": note_title,
+                            "description": note_description,
+                        },
+                        "error": "Note ID is required",
+                    },
                 )
-                return {"status": 0, "message": "Note ID is required", "payload": {}}, 422
+                return {
+                    "status": 0,
+                    "message": "Note ID is required",
+                    "payload": {},
+                }, 422
 
             if note_title and note_description:
                 DBHelper.update_all(
@@ -2047,20 +2275,38 @@ class DeleteNote(Resource):
                 metadata={"deleted_note_ids": deleted_note_ids},
             )
 
-            return {"status": 1, "message": "Note deleted successfully from all hubs", "payload": {"deleted_note_ids": deleted_note_ids}}
+            return {
+                "status": 1,
+                "message": "Note deleted successfully from all hubs",
+                "payload": {"deleted_note_ids": deleted_note_ids},
+            }
 
         except Exception as e:
             AuditLogger.log(
                 user_id=uid,
                 action="DELETE_NOTE_FAILED",
                 resource_type="notes_lists",
-                resource_id=note_id if 'note_id' in locals() else None,
+                resource_id=note_id if "note_id" in locals() else None,
                 success=False,
                 error_message="Failed to delete note",
-                metadata={"input": {"id": note_id, "title": note_title, "description": note_description} if 'note_id' in locals() else {}, "error": str(e)},
+                metadata={
+                    "input": (
+                        {
+                            "id": note_id,
+                            "title": note_title,
+                            "description": note_description,
+                        }
+                        if "note_id" in locals()
+                        else {}
+                    ),
+                    "error": str(e),
+                },
             )
-            return {"status": 0, "message": f"Failed to delete note: {str(e)}", "payload": {}}, 500
-
+            return {
+                "status": 0,
+                "message": f"Failed to delete note: {str(e)}",
+                "payload": {},
+            }, 500
 
 
 class AddNoteCategory(Resource):
@@ -2083,7 +2329,11 @@ class AddNoteCategory(Resource):
                     error_message="Failed to add category",
                     metadata={"input": data, "error": "Category name is required"},
                 )
-                return {"status": 0, "message": "Category name is required", "payload": {}}, 422
+                return {
+                    "status": 0,
+                    "message": "Category name is required",
+                    "payload": {},
+                }, 422
 
             # generate custom ID
             nid = uniqueId(digit=3, isNum=True)
@@ -2136,6 +2386,7 @@ class AddNoteCategory(Resource):
                 "payload": {},
             }, 500
 
+
 class UpdateNoteCategory(Resource):
     @auth_required(isOptional=True)
     def post(self, uid=None, user=None):
@@ -2154,7 +2405,11 @@ class UpdateNoteCategory(Resource):
                     error_message="Failed to update category",
                     metadata={"input": data, "error": "Missing id or pinned value"},
                 )
-                return {"status": 0, "message": "Missing id or pinned value", "payload": {}}, 422
+                return {
+                    "status": 0,
+                    "message": "Missing id or pinned value",
+                    "payload": {},
+                }, 422
 
             DBHelper.update_one(
                 table_name="notes_categories",
@@ -2184,7 +2439,11 @@ class UpdateNoteCategory(Resource):
                 error_message="Failed to update category",
                 metadata={"input": data if "data" in locals() else {}, "error": str(e)},
             )
-            return {"status": 0, "message": f"Failed to update category: {str(e)}", "payload": {}}, 500
+            return {
+                "status": 0,
+                "message": f"Failed to update category: {str(e)}",
+                "payload": {},
+            }, 500
 
 
 class GetNoteCategories(Resource):
@@ -2207,12 +2466,23 @@ class GetNoteCategories(Resource):
                         "pinned": category["pinned"],
                     }
                 )
-            # print(f"==>> notesCategories: {notesCategories}")
-
             return {"status": 1, "payload": notesCategories}
 
         except Exception as e:
-            return {"status": 0, "message": f"Failed to fetch categories: {str(e)}"}
+            # ✅ Error audit log
+            AuditLogger.log(
+                user_id=uid,
+                action="FETCH_NOTE_CATEGORIES",
+                resource_type="note_category",
+                resource_id="bulk",
+                success=False,
+                error_message="Failed to fetch note categories",
+                metadata={"error": str(e)},
+            )
+            return {
+                "status": 0,
+                "message": f"Failed to fetch categories: {str(e)}",
+            }, 500
 
 
 class DeleteNoteCategory(Resource):
@@ -2231,7 +2501,11 @@ class DeleteNoteCategory(Resource):
                     error_message="Failed to delete category",
                     metadata={"error": "Category ID is required"},
                 )
-                return {"status": 0, "message": "Category ID is required", "payload": {}}, 422
+                return {
+                    "status": 0,
+                    "message": "Category ID is required",
+                    "payload": {},
+                }, 422
 
             # Soft delete category
             DBHelper.update_one(
@@ -2277,7 +2551,8 @@ class DeleteNoteCategory(Resource):
                 "message": f"Failed to delete category: {str(e)}",
                 "payload": {},
             }, 500
-            
+
+
 class AddProject(Resource):
     @auth_required(isOptional=True)
     def post(self, uid, user):
@@ -2293,7 +2568,11 @@ class AddProject(Resource):
                     error_message="No input data provided",
                     metadata={"input": input_data},
                 )
-                return {"status": 0, "message": "No input data provided", "payload": {}}, 422
+                return {
+                    "status": 0,
+                    "message": "No input data provided",
+                    "payload": {},
+                }, 422
 
             project_id = input_data.get("project_id")
             meta = input_data.get("meta") or {}
@@ -2334,7 +2613,11 @@ class AddProject(Resource):
                     metadata={**input_data, "meta": meta},
                 )
 
-                return {"status": 1, "message": "Project updated successfully", "payload": {"id": project_id}}
+                return {
+                    "status": 1,
+                    "message": "Project updated successfully",
+                    "payload": {"id": project_id},
+                }
 
             else:
                 # Create new project
@@ -2375,113 +2658,144 @@ class AddProject(Resource):
                 resource_id=project_id or None,
                 success=False,
                 error_message="Failed to save project",
-                metadata={"input": input_data if 'input_data' in locals() else {}, "error": str(e)},
+                metadata={
+                    "input": input_data if "input_data" in locals() else {},
+                    "error": str(e),
+                },
             )
-            return {"status": 0, "message": f"Failed to save project: {str(e)}", "payload": {}}, 500
+            return {
+                "status": 0,
+                "message": f"Failed to save project: {str(e)}",
+                "payload": {},
+            }, 500
 
 
 class GetProjects(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
-        source = request.args.get("source", None)
-        family_group_id = request.args.get("family_group_id", None)
+        try:
+            source = request.args.get("source", None)
+            family_group_id = request.args.get("family_group_id", None)
 
-        # ✅ Collect all family groups for this user
-        if family_group_id:
-            user_family_groups = [family_group_id]
-        else:
-            user_groups = DBHelper.find_all(
-                table_name="family_members",
-                select_fields=["family_group_id"],
-                filters={"fm_user_id": uid},
+            # ✅ Collect all family groups for this user
+            if family_group_id:
+                user_family_groups = [family_group_id]
+            else:
+                user_groups = DBHelper.find_all(
+                    table_name="family_members",
+                    select_fields=["family_group_id"],
+                    filters={"fm_user_id": uid},
+                )
+                user_family_groups = [
+                    g["family_group_id"] for g in user_groups if g["family_group_id"]
+                ]
+
+            # ✅ Fetch all projects (we don't filter by family_groups here, only later)
+            projects = DBHelper.find_all(
+                table_name="projects",
+                select_fields=[
+                    "id",
+                    "title",
+                    "description",
+                    "due_date",
+                    "meta",
+                    "progress",
+                    "created_at",
+                    "updated_at",
+                    "source",
+                    "user_id",
+                    "tagged_ids",
+                    "is_active",
+                ],
+                filters={},  # no restriction by uid
             )
-            user_family_groups = [
-                g["family_group_id"] for g in user_groups if g["family_group_id"]
-            ]
 
-        # ✅ Fetch all projects (we don't filter by family_groups here, only later)
-        projects = DBHelper.find_all(
-            table_name="projects",
-            select_fields=[
-                "id",
-                "title",
-                "description",
-                "due_date",
-                "meta",
-                "progress",
-                "created_at",
-                "updated_at",
-                "source",
-                "user_id",
-                "tagged_ids",
-                "is_active",
-            ],
-            filters={},  # no restriction by uid
-        )
+            projects = [p for p in projects if p.get("is_active", 1) == 1]
 
-        projects = [p for p in projects if p.get("is_active", 1) == 1]
+            # ✅ Preload creator names
+            creator_ids = list(set([p["user_id"] for p in projects if p["user_id"]]))
+            creators = {}
+            if creator_ids:
+                creator_data = DBHelper.find_in(
+                    table_name="users",
+                    select_fields=["uid", "user_name"],
+                    field="uid",
+                    values=creator_ids,
+                )
+                creators = {c["uid"]: c["user_name"] for c in creator_data}
 
-        # ✅ Preload creator names
-        creator_ids = list(set([p["user_id"] for p in projects if p["user_id"]]))
-        creators = {}
-        if creator_ids:
-            creator_data = DBHelper.find_in(
-                table_name="users",
-                select_fields=["uid", "user_name"],
-                field="uid",
-                values=creator_ids,
-            )
-            creators = {c["uid"]: c["user_name"] for c in creator_data}
+            # ✅ Filter projects based on new access rule
+            filtered_projects = []
+            for p in projects:
+                meta = p.get("meta") or {}
+                project_family_groups = meta.get("family_groups", [])
+                visibility = meta.get("visibility", "private")
+                src = p.get("source")
 
-        # ✅ Filter projects based on new access rule
-        filtered_projects = []
-        for p in projects:
-            meta = p.get("meta") or {}
-            project_family_groups = meta.get("family_groups", [])
-            visibility = meta.get("visibility", "private")
-            src = p.get("source")
+                # Flags
+                is_owner = p["user_id"] == uid
+                in_family_group = any(
+                    fg in user_family_groups for fg in project_family_groups
+                )
 
-            # Flags
-            is_owner = p["user_id"] == uid
-            in_family_group = any(fg in user_family_groups for fg in project_family_groups)
-            if src == "familyhub":
-                if is_owner or in_family_group:
-                    filtered_projects.append(p)
-
-            elif src == "planner":
-                if visibility == "private":
-                    if is_owner:
-                        filtered_projects.append(p)
-                elif visibility == "public":
+                if src == "familyhub":
                     if is_owner or in_family_group:
                         filtered_projects.append(p)
 
+                elif src == "planner":
+                    if visibility == "private":
+                        if is_owner:
+                            filtered_projects.append(p)
+                    elif visibility == "public":
+                        if is_owner or in_family_group:
+                            filtered_projects.append(p)
 
-        # ✅ Format output
-        formatted = [
-            {
-                "id": p["id"],
-                "title": p["title"],
-                "description": p["description"],
-                "due_date": p["due_date"].isoformat() if p["due_date"] else None,
-                "meta": p["meta"],
-                "progress": p["progress"],
-                "created_at": p["created_at"].isoformat(),
-                "updated_at": p["updated_at"].isoformat(),
-                "source": p["source"],
-                "created_by": p["user_id"],
-                "creator_name": creators.get(p["user_id"], "Unknown"),
-                # "family_groups": (p.get("meta") or {}).get("family_groups", []),
+            # ✅ Format output
+            formatted = [
+                {
+                    "id": p["id"],
+                    "title": p["title"],
+                    "description": p["description"],
+                    "due_date": p["due_date"].isoformat() if p["due_date"] else None,
+                    "meta": p["meta"],
+                    "progress": p["progress"],
+                    "created_at": p["created_at"].isoformat(),
+                    "updated_at": p["updated_at"].isoformat(),
+                    "source": p["source"],
+                    "created_by": p["user_id"],
+                    "creator_name": creators.get(p["user_id"], "Unknown"),
+                }
+                for p in filtered_projects
+            ]
+
+            return {
+                "status": 1,
+                "message": "Projects fetched successfully",
+                "payload": {"projects": formatted},
             }
-            for p in filtered_projects
-        ]
 
-        return {
-            "status": 1,
-            "message": "Projects fetched successfully",
-            "payload": {"projects": formatted},
-        }
-    
+        except Exception as e:
+            # ✅ Error audit log
+            AuditLogger.log(
+                user_id=uid,
+                action="FETCH_PROJECTS",
+                resource_type="project",
+                resource_id="bulk",
+                success=False,
+                error_message="Failed to fetch projects",
+                metadata={
+                    "source": source if "source" in locals() else None,
+                    "family_group_id": (
+                        family_group_id if "family_group_id" in locals() else None
+                    ),
+                    "error": str(e),
+                },
+            )
+            return {
+                "status": 0,
+                "message": f"Failed to fetch projects: {str(e)}",
+            }, 500
+
 
 class UpdateProject(Resource):
     @auth_required(isOptional=True)
@@ -2498,7 +2812,11 @@ class UpdateProject(Resource):
                     error_message="No input data provided",
                     metadata={"input": input_data},
                 )
-                return {"status": 0, "message": "No input data provided", "payload": {}}, 422
+                return {
+                    "status": 0,
+                    "message": "No input data provided",
+                    "payload": {},
+                }, 422
 
             project_id = input_data.get("id") or input_data.get("project_id")
             if not project_id:
@@ -2511,13 +2829,25 @@ class UpdateProject(Resource):
                     error_message="Project id is required",
                     metadata={"input": input_data},
                 )
-                return {"status": 0, "message": "Project id is required", "payload": {}}, 422
+                return {
+                    "status": 0,
+                    "message": "Project id is required",
+                    "payload": {},
+                }, 422
 
             # Check if project exists & belongs to user
             project = DBHelper.find_one(
                 table_name="projects",
                 filters={"id": project_id, "user_id": uid},
-                select_fields=["id", "title", "description", "due_date", "meta", "progress", "is_active"]
+                select_fields=[
+                    "id",
+                    "title",
+                    "description",
+                    "due_date",
+                    "meta",
+                    "progress",
+                    "is_active",
+                ],
             )
 
             if not project:
@@ -2530,7 +2860,11 @@ class UpdateProject(Resource):
                     error_message="Project not found or not owned by user",
                     metadata={"input": input_data},
                 )
-                return {"status": 0, "message": "Project not found or not owned by user", "payload": {}}, 404
+                return {
+                    "status": 0,
+                    "message": "Project not found or not owned by user",
+                    "payload": {},
+                }, 404
 
             updates = {}
             if "title" in input_data:
@@ -2539,7 +2873,11 @@ class UpdateProject(Resource):
                 updates["description"] = input_data.get("description")
             if "due_date" in input_data:
                 try:
-                    updates["due_date"] = datetime.fromisoformat(input_data.get("due_date")) if input_data.get("due_date") else None
+                    updates["due_date"] = (
+                        datetime.fromisoformat(input_data.get("due_date"))
+                        if input_data.get("due_date")
+                        else None
+                    )
                 except ValueError as e:
                     AuditLogger.log(
                         user_id=uid,
@@ -2550,7 +2888,11 @@ class UpdateProject(Resource):
                         error_message="Invalid due_date format",
                         metadata={"input": input_data, "error": str(e)},
                     )
-                    return {"status": 0, "message": "Invalid due_date format. Use ISO format", "payload": {}}, 400
+                    return {
+                        "status": 0,
+                        "message": "Invalid due_date format. Use ISO format",
+                        "payload": {},
+                    }, 400
             if "meta" in input_data:
                 updates["meta"] = input_data.get("meta")
             if "progress" in input_data:
@@ -2584,9 +2926,18 @@ class UpdateProject(Resource):
                 table_name="projects",
                 filters={"id": project_id},
                 select_fields=[
-                    "id", "title", "description", "due_date", "meta", "progress",
-                    "created_at", "updated_at", "source", "user_id", "is_active"
-                ]
+                    "id",
+                    "title",
+                    "description",
+                    "due_date",
+                    "meta",
+                    "progress",
+                    "created_at",
+                    "updated_at",
+                    "source",
+                    "user_id",
+                    "is_active",
+                ],
             )
 
             return {
@@ -2597,14 +2948,20 @@ class UpdateProject(Resource):
                         "id": updated_project["id"],
                         "title": updated_project.get("title"),
                         "description": updated_project.get("description"),
-                        "due_date": updated_project["due_date"].isoformat() if updated_project.get("due_date") else None,
+                        "due_date": (
+                            updated_project["due_date"].isoformat()
+                            if updated_project.get("due_date")
+                            else None
+                        ),
                         "meta": updated_project.get("meta"),
                         "progress": updated_project.get("progress"),
                         "created_at": updated_project["created_at"].isoformat(),
                         "updated_at": updated_project["updated_at"].isoformat(),
                         "source": updated_project.get("source"),
                         "user_id": updated_project.get("user_id"),
-                        "family_groups": (updated_project.get("meta") or {}).get("family_groups", []),
+                        "family_groups": (updated_project.get("meta") or {}).get(
+                            "family_groups", []
+                        ),
                         "is_active": updated_project.get("is_active", 1),
                     }
                 },
@@ -2615,12 +2972,19 @@ class UpdateProject(Resource):
                 user_id=uid,
                 action="UPDATE_PROJECT_FAILED",
                 resource_type="projects",
-                resource_id=project_id if 'project_id' in locals() else None,
+                resource_id=project_id if "project_id" in locals() else None,
                 success=False,
                 error_message="Failed to save project",
-                metadata={"input": input_data if 'input_data' in locals() else {}, "error": str(e)},
+                metadata={
+                    "input": input_data if "input_data" in locals() else {},
+                    "error": str(e),
+                },
             )
-            return {"status": 0, "message": f"Failed to save project: {str(e)}", "payload": {}}, 500
+            return {
+                "status": 0,
+                "message": f"Failed to save project: {str(e)}",
+                "payload": {},
+            }, 500
 
 
 class DeleteProject(Resource):
@@ -2640,13 +3004,17 @@ class DeleteProject(Resource):
                     error_message="Project ID is required",
                     metadata={"input": data or {}},
                 )
-                return {"status": 0, "message": "Project ID is required", "payload": {}}, 400
+                return {
+                    "status": 0,
+                    "message": "Project ID is required",
+                    "payload": {},
+                }, 400
 
             # Ensure the project belongs to this user
             project = DBHelper.find_one(
                 "projects",
                 filters={"id": project_id, "user_id": uid},
-                select_fields=["id", "title"]
+                select_fields=["id", "title"],
             )
 
             if not project:
@@ -2699,17 +3067,16 @@ class DeleteProject(Resource):
                 user_id=uid,
                 action="DELETE_PROJECT_FAILED",
                 resource_type="projects",
-                resource_id=project_id if 'project_id' in locals() else None,
+                resource_id=project_id if "project_id" in locals() else None,
                 success=False,
                 error_message="Failed to delete project",
-                metadata={"input": data if 'data' in locals() else {}, "error": str(e)},
+                metadata={"input": data if "data" in locals() else {}, "error": str(e)},
             )
             return {
                 "status": 0,
                 "message": f"Failed to delete project: {str(e)}",
                 "payload": {},
             }, 500
-
 
 
 class AddTask(Resource):
@@ -2783,7 +3150,7 @@ class AddTask(Resource):
             # ✅ Audit log for success
             AuditLogger.log(
                 user_id=uid,
-                action="ADD_TASK",
+                action="CREATE_TASK",
                 resource_type="tasks",
                 resource_id=task_id,
                 success=True,
@@ -2811,7 +3178,7 @@ class AddTask(Resource):
                 resource_id=None,
                 success=False,
                 error_message="Failed to add task",
-                metadata={"input": data if 'data' in locals() else {}, "error": str(e)},
+                metadata={"input": data if "data" in locals() else {}, "error": str(e)},
             )
             return {
                 "status": 0,
@@ -2824,59 +3191,90 @@ class GetTasks(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
         project_id = request.args.get("project_id")
+        action = "GET_TASKS"
+        resource_type = "TASKS"
 
-        sent_invites = DBHelper.find_all(
-            table_name="family_members",
-            select_fields=["fm_user_id"],
-            filters={"user_id": uid},
-        )
-        received_invites = DBHelper.find_all(
-            table_name="family_members",
-            select_fields=["user_id"],
-            filters={"fm_user_id": uid},
-        )
+        try:
+            sent_invites = DBHelper.find_all(
+                table_name="family_members",
+                select_fields=["fm_user_id"],
+                filters={"user_id": uid},
+            )
+            received_invites = DBHelper.find_all(
+                table_name="family_members",
+                select_fields=["user_id"],
+                filters={"fm_user_id": uid},
+            )
 
-        familyMembersIds = [m["fm_user_id"] for m in sent_invites] + [
-            m["user_id"] for m in received_invites
-        ]
-        familyMembersIds = list(set(familyMembersIds + [uid]))
+            familyMembersIds = [m["fm_user_id"] for m in sent_invites] + [
+                m["user_id"] for m in received_invites
+            ]
+            familyMembersIds = list(set(familyMembersIds + [uid]))
 
-        tasks = DBHelper.find_in(
-            table_name="tasks",
-            select_fields=[
-                "id",
-                "title",
-                "due_date",
-                "assignee",
-                "type",
-                "completed",
-                "project_id", 
-                "is_active"
-            ],
-            field="user_id",
-            values=familyMembersIds,
-        )
+            tasks = DBHelper.find_in(
+                table_name="tasks",
+                select_fields=[
+                    "id",
+                    "title",
+                    "due_date",
+                    "assignee",
+                    "type",
+                    "completed",
+                    "project_id",
+                    "is_active",
+                ],
+                field="user_id",
+                values=familyMembersIds,
+            )
 
-        # Filter only tasks for the requested project
-        tasks = [t for t in tasks if str(t.get("project_id")) == str(project_id) and t.get("is_active", 1) == 1]
+            # Filter only tasks for the requested project
+            tasks = [
+                t
+                for t in tasks
+                if str(t.get("project_id")) == str(project_id)
+                and t.get("is_active", 1) == 1
+            ]
 
-        formatted_tasks = [
-            {
-                "id": t["id"],
-                "title": t["title"],
-                "due_date": t["due_date"].isoformat() if t["due_date"] else None,
-                "assignee": t["assignee"],
-                "type": t["type"],
-                "completed": t["completed"],
+            formatted_tasks = [
+                {
+                    "id": t["id"],
+                    "title": t["title"],
+                    "due_date": t["due_date"].isoformat() if t["due_date"] else None,
+                    "assignee": t["assignee"],
+                    "type": t["type"],
+                    "completed": t["completed"],
+                }
+                for t in tasks
+            ]
+
+           
+            return {
+                "status": 1,
+                "message": "Tasks fetched",
+                "payload": {"tasks": formatted_tasks},
             }
-            for t in tasks
-        ]
 
-        return {
-            "status": 1,
-            "message": "Tasks fetched",
-            "payload": {"tasks": formatted_tasks},
-        }
+        except Exception as e:
+            # ❌ Log failure with input + error
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id=project_id if project_id else "bulk",
+                success=False,
+                error_message="Failed to fetch tasks",
+                metadata={
+                    "project_id": project_id,
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                },
+            )
+
+            return {
+                "status": 0,
+                "message": "Error fetching tasks",
+                "payload": {},
+            }
 
 
 class UpdateTask(Resource):
@@ -2896,7 +3294,11 @@ class UpdateTask(Resource):
                     error_message="Task ID is required",
                     metadata={"input": data or {}},
                 )
-                return {"status": 0, "message": "Task ID is required", "payload": {}}, 400
+                return {
+                    "status": 0,
+                    "message": "Task ID is required",
+                    "payload": {},
+                }, 400
 
             task = DBHelper.find_one("tasks", filters={"id": task_id, "user_id": uid})
             if not task:
@@ -2939,16 +3341,24 @@ class UpdateTask(Resource):
 
                 if calendar_event_id:
                     try:
-                        update_calendar_event(uid, calendar_event_id, event_title, start_dt, end_dt)
+                        update_calendar_event(
+                            uid, calendar_event_id, event_title, start_dt, end_dt
+                        )
                         calendar_log = "Existing Google Calendar event updated"
                     except Exception as e:
-                        new_event_id = create_calendar_event(uid, event_title, start_dt, end_dt)
+                        new_event_id = create_calendar_event(
+                            uid, event_title, start_dt, end_dt
+                        )
                         updates["calendar_event_id"] = new_event_id
                         calendar_log = f"Failed to update existing event. Created new event {new_event_id}"
                 else:
-                    new_event_id = create_calendar_event(uid, event_title, start_dt, end_dt)
+                    new_event_id = create_calendar_event(
+                        uid, event_title, start_dt, end_dt
+                    )
                     updates["calendar_event_id"] = new_event_id
-                    calendar_log = f"No existing calendar event. Created new event {new_event_id}"
+                    calendar_log = (
+                        f"No existing calendar event. Created new event {new_event_id}"
+                    )
 
             except Exception as e:
                 calendar_log = f"Google Calendar sync failed: {str(e)}"
@@ -2974,19 +3384,28 @@ class UpdateTask(Resource):
                 },
             )
 
-            return {"status": 1, "message": "Task updated successfully", "payload": {"task_id": task_id}}
+            return {
+                "status": 1,
+                "message": "Task updated successfully",
+                "payload": {"task_id": task_id},
+            }
 
         except Exception as e:
             AuditLogger.log(
                 user_id=uid,
                 action="UPDATE_TASK_FAILED",
                 resource_type="tasks",
-                resource_id=task_id if 'task_id' in locals() else None,
+                resource_id=task_id if "task_id" in locals() else None,
                 success=False,
                 error_message="Failed to update task",
-                metadata={"input": data if 'data' in locals() else {}, "error": str(e)},
+                metadata={"input": data if "data" in locals() else {}, "error": str(e)},
             )
-            return {"status": 0, "message": f"Failed to update task: {str(e)}", "payload": {}}, 500
+            return {
+                "status": 0,
+                "message": f"Failed to update task: {str(e)}",
+                "payload": {},
+            }, 500
+
 
 class DeleteTask(Resource):
     @auth_required(isOptional=True)
@@ -3005,7 +3424,11 @@ class DeleteTask(Resource):
                     error_message="Task ID is required",
                     metadata={"input": data or {}},
                 )
-                return {"status": 0, "message": "Task ID is required", "payload": {}}, 400
+                return {
+                    "status": 0,
+                    "message": "Task ID is required",
+                    "payload": {},
+                }, 400
 
             # Fetch the task first
             task = DBHelper.find_one("tasks", filters={"id": task_id, "user_id": uid})
@@ -3027,9 +3450,13 @@ class DeleteTask(Resource):
                 if calendar_event_id:
                     try:
                         delete_calendar_event(uid, calendar_event_id)
-                        calendar_log = f"Google Calendar event {calendar_event_id} deleted"
+                        calendar_log = (
+                            f"Google Calendar event {calendar_event_id} deleted"
+                        )
                     except Exception as e:
-                        calendar_log = f"Failed to delete Google Calendar event: {str(e)}"
+                        calendar_log = (
+                            f"Failed to delete Google Calendar event: {str(e)}"
+                        )
             except Exception as e:
                 calendar_log = f"Google Calendar processing failed: {str(e)}"
 
@@ -3050,20 +3477,27 @@ class DeleteTask(Resource):
                 metadata={"calendar_log": calendar_log, "task_data": task},
             )
 
-            return {"status": 1, "message": "Task deleted successfully", "payload": {"task_id": task_id}}
+            return {
+                "status": 1,
+                "message": "Task deleted successfully",
+                "payload": {"task_id": task_id},
+            }
 
         except Exception as e:
             AuditLogger.log(
                 user_id=uid,
                 action="DELETE_TASK_FAILED",
                 resource_type="tasks",
-                resource_id=task_id if 'task_id' in locals() else None,
+                resource_id=task_id if "task_id" in locals() else None,
                 success=False,
                 error_message="Failed to delete task",
-                metadata={"input": data if 'data' in locals() else {}, "error": str(e)},
+                metadata={"input": data if "data" in locals() else {}, "error": str(e)},
             )
-            return {"status": 0, "message": f"Failed to delete task: {str(e)}", "payload": {}}, 500
-
+            return {
+                "status": 0,
+                "message": f"Failed to delete task: {str(e)}",
+                "payload": {},
+            }, 500
 
 
 class AddPersonalInfo(Resource):
@@ -3096,7 +3530,10 @@ class AddPersonalInfo(Resource):
                     resource_id=None,
                     success=False,
                     error_message="Failed to save personal info",
-                    metadata={"input": inputData, "error": "No personal info data provided"},
+                    metadata={
+                        "input": inputData,
+                        "error": "No personal info data provided",
+                    },
                 )
                 return {
                     "status": 0,
@@ -3105,7 +3542,9 @@ class AddPersonalInfo(Resource):
                 }, 500
 
             required_fields = ["addedBy", "userId"]
-            missing_fields = [field for field in required_fields if field not in personal_info]
+            missing_fields = [
+                field for field in required_fields if field not in personal_info
+            ]
             if missing_fields:
                 AuditLogger.log(
                     user_id=uid,
@@ -3116,7 +3555,7 @@ class AddPersonalInfo(Resource):
                     error_message="Failed to save personal info",
                     metadata={
                         "input": inputData,
-                        "error": f"Missing required fields: {', '.join(missing_fields)}"
+                        "error": f"Missing required fields: {', '.join(missing_fields)}",
                     },
                 )
                 return {
@@ -3173,7 +3612,9 @@ class AddPersonalInfo(Resource):
                 student_id=personal_info.get("studentId", ""),
                 added_by=personal_info.get("addedBy", ""),
                 added_time=current_time,
-                edited_by=personal_info.get("editedBy", personal_info.get("addedBy", "")),
+                edited_by=personal_info.get(
+                    "editedBy", personal_info.get("addedBy", "")
+                ),
                 updated_at=current_time,
             )
 
@@ -3213,6 +3654,9 @@ class AddPersonalInfo(Resource):
 class GetPersonalInfo(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
+        action = "GET_PERSONAL_INFO"
+        resource_type = "PERSONAL_INFO"
+
         try:
             fm_user_id = request.args.get("userId") or uid
             personal_info = DBHelper.find_one(
@@ -3265,13 +3709,7 @@ class GetPersonalInfo(Resource):
                 filters={"family_member_user_id": fm_user_id},
             )
 
-            if not personal_info:
-                return {
-                    "status": 1,
-                    "message": "No personal information found",
-                    "payload": {},
-                }, 200
-
+            
             def serialize_datetime(dt):
                 return dt.isoformat() if isinstance(dt, (datetime, date)) else ""
 
@@ -3326,12 +3764,29 @@ class GetPersonalInfo(Resource):
                 "updatedAt": serialize_datetime(personal_info["updated_at"]),
             }
 
+           
+
             return {
                 "status": 1,
                 "message": "Personal information fetched successfully",
                 "payload": response_data,
             }, 200
+
         except Exception as e:
+            # ❌ Log failure
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id=request.args.get("userId") or uid,
+                success=False,
+                error_message="Failed to fetch personal info",
+                metadata={
+                    "userId": request.args.get("userId"),
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                },
+            )
             return {
                 "status": 0,
                 "message": f"Failed to fetch personal info: {str(e)}",
@@ -3370,7 +3825,10 @@ class UpdatePersonalInfo(Resource):
                     resource_id=None,
                     success=False,
                     error_message="Failed to update personal info",
-                    metadata={"input": inputData, "error": "No personal info data provided"},
+                    metadata={
+                        "input": inputData,
+                        "error": "No personal info data provided",
+                    },
                 )
                 return {
                     "status": 0,
@@ -3379,7 +3837,9 @@ class UpdatePersonalInfo(Resource):
                 }, 500
 
             required_fields = ["addedBy"]
-            missing_fields = [field for field in required_fields if field not in personal_info]
+            missing_fields = [
+                field for field in required_fields if field not in personal_info
+            ]
             if missing_fields:
                 AuditLogger.log(
                     user_id=uid,
@@ -3390,7 +3850,7 @@ class UpdatePersonalInfo(Resource):
                     error_message="Failed to update personal info",
                     metadata={
                         "input": inputData,
-                        "error": f"Missing required fields: {', '.join(missing_fields)}"
+                        "error": f"Missing required fields: {', '.join(missing_fields)}",
                     },
                 )
                 return {
@@ -3409,7 +3869,10 @@ class UpdatePersonalInfo(Resource):
                     resource_id=None,
                     success=False,
                     error_message="Failed to update personal info",
-                    metadata={"input": inputData, "error": f"User with ID {uid} not found"},
+                    metadata={
+                        "input": inputData,
+                        "error": f"User with ID {uid} not found",
+                    },
                 )
                 return {
                     "status": 0,
@@ -3430,7 +3893,10 @@ class UpdatePersonalInfo(Resource):
                     resource_id=None,
                     success=False,
                     error_message="Failed to update personal info",
-                    metadata={"input": inputData, "error": "Personal info record not found"},
+                    metadata={
+                        "input": inputData,
+                        "error": "Personal info record not found",
+                    },
                 )
                 return {
                     "status": 0,
@@ -3488,7 +3954,9 @@ class UpdatePersonalInfo(Resource):
                 if input_key in personal_info:
                     updates[db_key] = personal_info[input_key]
 
-            updates["edited_by"] = personal_info.get("editedBy", personal_info.get("addedBy", ""))
+            updates["edited_by"] = personal_info.get(
+                "editedBy", personal_info.get("addedBy", "")
+            )
             updates["updated_at"] = current_time
 
             # Perform update
@@ -3582,7 +4050,7 @@ class AddProvider(Resource):
                     error_message="Failed to save provider",
                     metadata={
                         "input": inputData,
-                        "error": f"Missing required fields: {', '.join(missing_fields)}"
+                        "error": f"Missing required fields: {', '.join(missing_fields)}",
                     },
                 )
                 return {
@@ -3645,9 +4113,21 @@ class AddProvider(Resource):
 class GetProviders(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
+        action = "GET_PROVIDERS"
+        resource_type = "HEALTHCARE_PROVIDERS"
+
         try:
             user_id = request.args.get("userId")
             if not user_id:
+                AuditLogger.log(
+                    user_id=uid,
+                    action=action,
+                    resource_type=resource_type,
+                    resource_id="N/A",
+                    success=False,
+                    error_message="User ID is required",
+                    metadata={"args": dict(request.args)},
+                )
                 return {"status": 0, "message": "User ID is required"}, 400
 
             providers = DBHelper.find_all(
@@ -3661,9 +4141,33 @@ class GetProviders(Resource):
                     if provider.get(key) and isinstance(provider[key], datetime):
                         provider[key] = provider[key].isoformat()
 
+            # ✅ Log success
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id=user_id,
+                success=True,
+                metadata={"count": len(providers), "userId": user_id},
+            )
+
             return {"status": 1, "payload": providers}, 200
 
         except Exception as e:
+            # ❌ Log failure
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id=request.args.get("userId") or "N/A",
+                success=False,
+                error_message="Failed to fetch providers",
+                metadata={
+                    "args": dict(request.args),
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                },
+            )
             return {"status": 0, "message": f"Failed to fetch providers: {str(e)}"}, 500
 
 
@@ -3706,7 +4210,13 @@ class UpdateProvider(Resource):
                     "payload": {},
                 }, 500
 
-            required_fields = ["id", "providerTitle", "providerName", "addedBy", "userId"]
+            required_fields = [
+                "id",
+                "providerTitle",
+                "providerName",
+                "addedBy",
+                "userId",
+            ]
             missing_fields = [f for f in required_fields if f not in provider]
             if missing_fields:
                 AuditLogger.log(
@@ -3718,7 +4228,7 @@ class UpdateProvider(Resource):
                     error_message="Failed to update provider",
                     metadata={
                         "input": inputData,
-                        "error": f"Missing required fields: {', '.join(missing_fields)}"
+                        "error": f"Missing required fields: {', '.join(missing_fields)}",
                     },
                 )
                 return {
@@ -3798,32 +4308,76 @@ class UpdateProvider(Resource):
 class GetFamilyMemberUserId(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
-        member_id = request.args.get("memberId")
-        if not member_id:
-            return {"status": 0, "message": "Missing memberId"}, 400
+        action = "GET_FAMILY_MEMBER_USERID"
+        resource_type = "FAMILY_MEMBER"
 
-        member = DBHelper.find_one(
-            table_name="family_members",
-            filters={"id": member_id},
-            select_fields=["fm_user_id"],
-        )
+        try:
+            member_id = request.args.get("memberId")
+            if not member_id:
+                AuditLogger.log(
+                    user_id=uid,
+                    action=action,
+                    resource_type=resource_type,
+                    resource_id="N/A",
+                    success=False,
+                    error_message="Missing memberId",
+                    metadata={"args": dict(request.args)},
+                )
+                return {"status": 0, "message": "Missing memberId"}, 400
 
-        if not member:
-            return {"status": 0, "message": "Family member not found"}, 404
+            member = DBHelper.find_one(
+                table_name="family_members",
+                filters={"id": member_id},
+                select_fields=["fm_user_id"],
+            )
 
-        user = DBHelper.find_one(
-            table_name="users",
-            filters={"uid": member["fm_user_id"]},
-            select_fields=["user_name"],
-        )
+            if not member:
+                AuditLogger.log(
+                    user_id=uid,
+                    action=action,
+                    resource_type=resource_type,
+                    resource_id=member_id,
+                    success=False,
+                    error_message="Family member not found",
+                    metadata={"args": dict(request.args)},
+                )
+                return {"status": 0, "message": "Family member not found"}, 404
 
-        return {
-            "status": 1,
-            "payload": {
-                "userId": member["fm_user_id"],
-                "userName": user["user_name"] if user else None,
-            },
-        }
+            user_data = DBHelper.find_one(
+                table_name="users",
+                filters={"uid": member["fm_user_id"]},
+                select_fields=["user_name"],
+            )
+
+           
+
+            return {
+                "status": 1,
+                "payload": {
+                    "userId": member["fm_user_id"],
+                    "userName": user_data["user_name"] if user_data else None,
+                },
+            }
+
+        except Exception as e:
+            # ❌ Log failure with traceback
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id=request.args.get("memberId") or "N/A",
+                success=False,
+                error_message="Failed to fetch family member userId",
+                metadata={
+                    "args": dict(request.args),
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                },
+            )
+            return {
+                "status": 0,
+                "message": f"Failed to fetch family member userId: {str(e)}",
+            }, 500
 
 
 class AddAccountPassword(Resource):
@@ -3877,7 +4431,7 @@ class AddAccountPassword(Resource):
                     error_message="Failed to add account",
                     metadata={
                         "input": account,
-                        "error": f"Missing required fields: {', '.join(missing_fields)}"
+                        "error": f"Missing required fields: {', '.join(missing_fields)}",
                     },
                 )
                 return {
@@ -3939,19 +4493,43 @@ class AddAccountPassword(Resource):
 class GetAccountPasswords(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
+        action = "GET_ACCOUNT_PASSWORDS"
+        resource_type = "ACCOUNT_PASSWORDS"
+
         try:
             user_id = request.args.get("userId")
             if not user_id:
+                AuditLogger.log(
+                    user_id=uid,
+                    action=action,
+                    resource_type=resource_type,
+                    resource_id="N/A",
+                    success=False,
+                    error_message="Missing userId",
+                    metadata={"args": dict(request.args)},
+                )
                 return {"status": 0, "message": "Missing userId"}, 400
 
             results = DBHelper.find_all(
                 table_name="account_passwords",
                 filters={"family_member_user_id": user_id},
             )
+
+            # Convert datetime objects to ISO strings
             for r in results:
                 for key in r:
                     if isinstance(r[key], datetime):
                         r[key] = r[key].isoformat()
+
+            # ✅ Log success
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id=user_id,
+                success=True,
+                metadata={"count": len(results), "userId": user_id},
+            )
 
             return {
                 "status": 1,
@@ -3960,7 +4538,24 @@ class GetAccountPasswords(Resource):
             }, 200
 
         except Exception as e:
-            return {"status": 0, "message": f"Failed to fetch accounts: {str(e)}"}, 500
+            # ❌ Log failure with traceback
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id=request.args.get("userId") or "N/A",
+                success=False,
+                error_message="Failed to fetch accounts",
+                metadata={
+                    "args": dict(request.args),
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                },
+            )
+            return {
+                "status": 0,
+                "message": f"Failed to fetch accounts: {str(e)}",
+            }, 500
 
 
 class UpdateAccountPassword(Resource):
@@ -3976,7 +4571,7 @@ class UpdateAccountPassword(Resource):
                     resource_id=None,
                     success=False,
                     error_message="No input data provided",
-                    metadata={}
+                    metadata={},
                 )
                 return {"status": 0, "message": "No input data provided"}, 400
 
@@ -3989,7 +4584,7 @@ class UpdateAccountPassword(Resource):
                     resource_id=None,
                     success=False,
                     error_message="Missing account ID or data",
-                    metadata={"input_data": account}
+                    metadata={"input_data": account},
                 )
                 return {"status": 0, "message": "Missing account ID or data"}, 400
 
@@ -4018,7 +4613,7 @@ class UpdateAccountPassword(Resource):
                 resource_type="account_passwords",
                 resource_id=account["id"],
                 success=True,
-                metadata={"updated_fields": update_fields}
+                metadata={"updated_fields": update_fields},
             )
 
             return {"status": 1, "message": "Account updated successfully"}, 200
@@ -4031,36 +4626,14 @@ class UpdateAccountPassword(Resource):
                 resource_id=account.get("id") if account else None,
                 success=False,
                 error_message="Failed to update account",
-                metadata={"input_data": inputData,"error": str(e)}
+                metadata={"input_data": inputData, "error": str(e)},
             )
             return {"status": 0, "message": f"Failed to update account: {str(e)}"}, 500
+
 
 from werkzeug.utils import secure_filename
 from googleapiclient.http import MediaIoBaseUpload
 import io
-
-
-def get_or_create_subfolder(service, folder_name: str, parent_id: str):
-    """Check if a folder with name exists under parent, else create it"""
-    query = (
-        f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' "
-        f"and '{parent_id}' in parents and trashed = false"
-    )
-
-    response = service.files().list(q=query, fields="files(id, name)").execute()
-    folders = response.get("files", [])
-
-    if folders:
-        return folders[0]["id"]
-
-    # Folder not found, so create it
-    metadata = {
-        "name": folder_name,
-        "mimeType": "application/vnd.google-apps.folder",
-        "parents": [parent_id],
-    }
-    created_folder = service.files().create(body=metadata, fields="id").execute()
-    return created_folder["id"]
 
 class UploadDriveFile(DriveBaseResource):
     @auth_required(isOptional=True)
@@ -4070,6 +4643,7 @@ class UploadDriveFile(DriveBaseResource):
         doc_type = None
 
         try:
+            # Step 0: Validate file
             if "file" not in request.files:
                 AuditLogger.log(
                     user_id=uid,
@@ -4083,10 +4657,11 @@ class UploadDriveFile(DriveBaseResource):
                 return {"status": 0, "message": "No file provided"}, 400
 
             file = request.files["file"]
-            hub = request.form.get("hub", "").capitalize()
-            doc_type = request.form.get("docType", "").strip()
+            hub = (request.form.get("hub") or "").capitalize()
+            doc_type = (request.form.get("docType") or "").strip()
 
-            if not hub or hub not in ["Home", "Family", "Finance", "Health"]:
+            # Step 1: Validate hub
+            if hub not in ["Home", "Family", "Finance", "Health", "Planner"]:
                 AuditLogger.log(
                     user_id=uid,
                     action="UPLOAD_DRIVE_FILE_FAILED",
@@ -4098,6 +4673,7 @@ class UploadDriveFile(DriveBaseResource):
                 )
                 return {"status": 0, "message": "Invalid or missing hub name"}, 400
 
+            # Step 2: Validate docType for Family hub
             if hub == "Family" and doc_type != "EstateDocuments":
                 AuditLogger.log(
                     user_id=uid,
@@ -4108,11 +4684,9 @@ class UploadDriveFile(DriveBaseResource):
                     error_message="Missing or invalid docType for Family hub",
                     metadata={"input": {"docType": doc_type}, "error": "Invalid docType"},
                 )
-                return {
-                    "status": 0,
-                    "message": "Missing or invalid docType for Family hub",
-                }, 400
+                return {"status": 0, "message": "Missing or invalid docType for Family hub"}, 400
 
+            # Step 3: Get Drive service
             service = self.get_drive_service(uid)
             if not service:
                 AuditLogger.log(
@@ -4124,51 +4698,55 @@ class UploadDriveFile(DriveBaseResource):
                     error_message="Google Drive not connected or token expired",
                     metadata={"input": {"hub": hub, "docType": doc_type}, "error": "No drive service"},
                 )
-                return {
-                    "status": 0,
-                    "message": "Google Drive not connected or token expired",
-                    "payload": {},
-                }, 401
+                return {"status": 0, "message": "Google Drive not connected or token expired"}, 401
 
-            # Step 1: Ensure base folder structure exists
-            folder_data = ensure_drive_folder_structure(service)
-            family_folder_id = folder_data["subfolders"].get("Family")
-            if not family_folder_id:
-                AuditLogger.log(
+            # Step 4: Ensure Drive folder structure
+            storage_account = DBHelper.find_one(
+                "connected_accounts", filters={"user_id": uid, "provider": "google", "is_active": 1}
+            )
+            folder_data = ensure_drive_folder_structure(service, uid, storage_account["id"])
+
+            if hub == "Family" and doc_type == "EstateDocuments":
+                family_google_id = folder_data["subfolders"]["Family"]
+                family_db_id = folder_data["subfolders_db"]["Family"]
+                target_folder = get_or_create_subfolder(
+                    service,
+                    folder_name="Estate Documents",
+                    parent_google_id=family_google_id,
+                    parent_db_id=family_db_id,
                     user_id=uid,
-                    action="UPLOAD_DRIVE_FILE_FAILED",
-                    resource_type="google_drive",
-                    resource_id=None,
-                    success=False,
-                    error_message="Family folder not found",
-                    metadata={"input": {"hub": hub}, "error": "Missing Family folder"},
+                    storage_account_id=storage_account["id"],
                 )
-                return {"status": 0, "message": "Family folder not found"}, 404
+            else:
+                target_folder = {
+                    "google_id": folder_data["subfolders"][hub],
+                    "db_id": folder_data["subfolders_db"][hub],
+                }
 
-            # Step 2: Ensure Estate Documents folder exists
-            estate_folder_id = get_or_create_subfolder(
-                service, "Estate Documents", parent_id=family_folder_id
+            # Step 5: Upload file to Drive
+            file_metadata = {"name": secure_filename(file.filename), "parents": [target_folder["google_id"]]}
+            media = MediaIoBaseUpload(io.BytesIO(file.read()), mimetype=file.content_type or "application/octet-stream")
+            uploaded_file = service.files().create(body=file_metadata, media_body=media, fields="id, name, webViewLink, mimeType, size, modifiedTime").execute()
+
+            # Step 6: Insert uploaded file into DB
+            DBHelper.insert(
+                table_name="files_index",
+                id=str(uuid.uuid4()),
+                user_id=uid,
+                storage_account_id=storage_account["id"],
+                file_name=uploaded_file.get("name"),
+                file_path=uploaded_file.get("webViewLink"),
+                file_type=uploaded_file.get("mimeType"),
+                mime_type=uploaded_file.get("mimeType"),
+                is_folder=False,
+                parent_folder_id=target_folder["db_id"],
+                external_file_id=uploaded_file.get("id"),
+                last_modified=uploaded_file.get("modifiedTime", datetime.now().isoformat()),
+                created_at=datetime.now().isoformat(),
+                indexed_at=datetime.now().isoformat(),
             )
 
-            # Step 3: Upload file
-            file_metadata = {
-                "name": secure_filename(file.filename),
-                "parents": [estate_folder_id],
-            }
-            media = MediaIoBaseUpload(
-                io.BytesIO(file.read()),
-                mimetype=file.content_type or "application/octet-stream",
-            )
-
-            uploaded_file = (
-                service.files()
-                .create(
-                    body=file_metadata, media_body=media, fields="id, name, webViewLink"
-                )
-                .execute()
-            )
-
-            # ✅ Success log
+            # Step 7: Log success
             AuditLogger.log(
                 user_id=uid,
                 action="UPLOAD_DRIVE_FILE",
@@ -4183,13 +4761,10 @@ class UploadDriveFile(DriveBaseResource):
                 },
             )
 
-            return {
-                "status": 1,
-                "message": "File uploaded successfully",
-                "payload": {"file": uploaded_file},
-            }, 200
+            return {"status": 1, "message": "File uploaded successfully", "payload": {"file": uploaded_file}}, 200
 
         except Exception as e:
+            traceback.print_exc()
             AuditLogger.log(
                 user_id=uid,
                 action="UPLOAD_DRIVE_FILE_FAILED",
@@ -4197,69 +4772,90 @@ class UploadDriveFile(DriveBaseResource):
                 resource_id=None,
                 success=False,
                 error_message="Failed to upload drive file",
-                metadata={
-                    "input": {
-                        "hub": hub,
-                        "docType": doc_type,
-                        "file": file.filename if file else None,
-                        "error": str(e),
-                    },
-                    
-                },
+                metadata={"input": {"hub": hub, "docType": doc_type, "file": file.filename if file else None, "error": str(e)}},
             )
-            return {
-                "status": 0,
-                "message": f"Failed to upload file: {str(e)}",
-                "payload": {},
-            }, 500
+            return {"status": 0, "message": f"Failed to upload file: {str(e)}", "payload": {}}, 500
 
 
 class GetFamilyDriveFiles(DriveBaseResource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
+        action = "GET_FAMILY_DRIVE_FILES"
+        resource_type = "ESTATE_DOCUMENTS"
+
         try:
+            # Step 1: Get Google Drive service
             service = self.get_drive_service(uid)
             if not service:
-                return {
-                    "status": 0,
-                    "message": "Google Drive not connected",
-                    "payload": {},
-                }, 401
+                AuditLogger.log(
+                    user_id=uid,
+                    action=action,
+                    resource_type=resource_type,
+                    resource_id="N/A",
+                    success=False,
+                    error_message="Google Drive not connected",
+                    metadata={},
+                )
+                return {"status": 0, "message": "Google Drive not connected", "payload": {}}, 401
 
-            folder_data = ensure_drive_folder_structure(service)
-            family_folder_id = folder_data["subfolders"].get("Family")
-            if not family_folder_id:
-                return {
-                    "status": 0,
-                    "message": "Family folder not found",
-                    "payload": {},
-                }, 404
-
-            # 🔥 Get or create "Estate Documents" subfolder inside Family
-            estate_folder_id = get_or_create_subfolder(
-                service, "Estate Documents", parent_id=family_folder_id
+            # Step 2: Ensure connected Google account exists
+            storage_account = DBHelper.find_one(
+                "connected_accounts", filters={"user_id": uid, "provider": "google", "is_active": 1}
             )
+            if not storage_account:
+                return {"status": 0, "message": "No connected Google Drive account found", "payload": {}}, 404
 
-            # 🔍 Fetch only files from Estate Documents folder
-            query = f"'{estate_folder_id}' in parents and trashed = false"
-            results = (
-                service.files()
-                .list(q=query, fields="files(id, name, webViewLink)", spaces="drive")
-                .execute()
+            # Step 3: Ensure folder structure in Google Drive and DB
+            folder_data = ensure_drive_folder_structure(
+                service, user_id=uid, storage_account_id=storage_account["id"]
             )
+            family_google_id = folder_data["subfolders"]["Family"]
+            family_db_id = folder_data["subfolders_db"]["Family"]
+
+            # Step 4: Get or create "Estate Documents" subfolder
+            estate_folder = get_or_create_subfolder(
+                service,
+                folder_name="Estate Documents",
+                parent_google_id=family_google_id,
+                parent_db_id=family_db_id,
+                user_id=uid,
+                storage_account_id=storage_account["id"],
+            )
+            estate_google_id = estate_folder["google_id"]
+
+            # Step 5: Fetch files from "Estate Documents" folder
+            query = f"'{estate_google_id}' in parents and trashed = false"
+            results = service.files().list(
+                q=query,
+                fields="files(id, name, webViewLink, mimeType, size, modifiedTime)",
+                spaces="drive",
+            ).execute()
             files = results.get("files", [])
 
-            return {
-                "status": 1,
-                "message": "Estate documents fetched successfully",
-                "payload": {"files": files},
-            }, 200
+            # ✅ Log success
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id="estate_folder_id",
+                success=True,
+                metadata={"file_count": len(files)},
+            )
+
+            return {"status": 1, "message": "Estate documents fetched successfully", "payload": {"files": files}}, 200
 
         except Exception as e:
-            return {
-                "status": 0,
-                "message": f"Failed to fetch estate documents: {str(e)}",
-            }, 500
+            # Log failure with traceback
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id="EstateDocuments",
+                success=False,
+                error_message="Failed to fetch estate documents",
+                metadata={"error": str(e), "traceback": traceback.format_exc()},
+            )
+            return {"status": 0, "message": f"Failed to fetch estate documents: {str(e)}"}, 500
 
 
 class DeleteDriveFile(Resource):
@@ -4274,7 +4870,7 @@ class DeleteDriveFile(Resource):
                 resource_id=None,
                 success=False,
                 error_message="Missing file_id",
-                metadata={}
+                metadata={},
             )
             return {"status": 0, "message": "Missing file_id"}, 400
 
@@ -4287,22 +4883,14 @@ class DeleteDriveFile(Resource):
                 resource_id=file_id,
                 success=False,
                 error_message="Drive not connected",
-                metadata={}
+                metadata={},
             )
             return {"status": 0, "message": "Drive not connected"}, 401
 
         try:
             service.files().delete(fileId=file_id).execute()
 
-            # Audit log for successful deletion
-            AuditLogger.log(
-                user_id=uid,
-                action="delete_drive_file",
-                resource_type="google_drive",
-                resource_id=file_id,
-                success=True,
-                metadata={}
-            )
+           
 
             return {"status": 1, "message": "File deleted"}, 200
 
@@ -4314,27 +4902,25 @@ class DeleteDriveFile(Resource):
                 resource_id=file_id,
                 success=False,
                 error_message="Delete failed",
-                metadata={"error":{str(e)}}
+                metadata={"error": {str(e)}},
             )
             return {"status": 0, "message": f"Delete failed: {str(e)}"}, 500
-
 
 
 class UploadDocumentRecordFile(DriveBaseResource):
     @auth_required(isOptional=True)
     def post(self, uid, user):
-        target_user_id = request.form.get("userId", uid)
-
+        target_user_id = uid
         try:
             if "file" not in request.files:
                 AuditLogger.log(
                     user_id=uid,
-                    action="upload_drive_file",
+                    action="UPLOAD_DOCUMENT_RECORD_FILE_FAILED",
                     resource_type="google_drive",
                     resource_id=None,
                     success=False,
                     error_message="No file provided",
-                    metadata={"target_user_id": target_user_id}
+                    metadata={"target_user_id": target_user_id},
                 )
                 return {"status": 0, "message": "No file provided"}, 400
 
@@ -4342,18 +4928,185 @@ class UploadDocumentRecordFile(DriveBaseResource):
 
             account = DBHelper.find_one(
                 table_name="connected_accounts",
-                filters={"user_id": target_user_id, "provider": "google", "is_active": 1},
-                select_fields=["access_token", "refresh_token", "user_id"]
+                filters={
+                    "user_id": target_user_id,
+                    "provider": "google",
+                    "is_active": 1,
+                },
+                select_fields=["access_token", "refresh_token", "id", "user_id"],
             )
             if not account:
                 AuditLogger.log(
                     user_id=uid,
-                    action="upload_drive_file",
+                    action="UPLOAD_DOCUMENT_RECORD_FILE_FAILED",
                     resource_type="google_drive",
                     resource_id=None,
                     success=False,
                     error_message="Google Drive not connected",
-                    metadata={"target_user_id": target_user_id}
+                    metadata={"target_user_id": target_user_id},
+                )
+                return {
+                    "status": 0,
+                    "message": "Google Drive not connected for this member",
+                }, 401
+
+            creds = Credentials(
+                token=account["access_token"],
+                refresh_token=account["refresh_token"],
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=CLIENT_ID,
+                client_secret=CLIENT_SECRET,
+                scopes=SCOPE.split(),
+            )
+
+            if not creds.valid or creds.expired:
+                if creds.refresh_token:
+                    creds.refresh(Request())
+                    DBHelper.update(
+                        "connected_accounts",
+                        filters={"user_id": target_user_id, "provider": "google"},
+                        data={
+                            "access_token": creds.token,
+                            "token_expiry": creds.expiry,
+                        },
+                    )
+                else:
+                    AuditLogger.log(
+                        user_id=uid,
+                        action="UPLOAD_DOCUMENT_RECORD_FILE_FAILED",
+                        resource_type="google_drive",
+                        resource_id=None,
+                        success=False,
+                        error_message="No valid Google Drive credentials",
+                        metadata={"target_user_id": target_user_id},
+                    )
+                    return {
+                        "status": 0,
+                        "message": "No valid Google Drive credentials",
+                    }, 401
+
+            service = build("drive", "v3", credentials=creds, cache_discovery=False)
+
+            # Ensure folder hierarchy
+            folder_info = ensure_drive_folder_structure(service, target_user_id, account["id"])
+            family_folder_id = folder_info["subfolders"]["Family"]
+            documents_folder = get_or_create_subfolder(
+                service, "Documents and Records", parent_google_id=family_folder_id,
+                parent_db_id=folder_info["subfolders_db"]["Family"],
+                user_id=target_user_id,
+                storage_account_id=account["id"]
+            )
+
+            # Upload file to Google Drive
+            file_metadata = {
+                "name": secure_filename(file.filename),
+                "parents": [documents_folder["google_id"]],
+            }
+            media = MediaIoBaseUpload(
+                io.BytesIO(file.read()),
+                mimetype=file.content_type or "application/octet-stream",
+                resumable=True,
+            )
+            uploaded_file = (
+                service.files()
+                .create(
+                    body=file_metadata,
+                    media_body=media,
+                    fields="id, name, mimeType, size, modifiedTime, webViewLink",
+                )
+                .execute()
+            )
+
+            # Audit log for success
+            AuditLogger.log(
+                user_id=uid,
+                action="upload_drive_file",
+                resource_type="google_drive",
+                resource_id=uploaded_file.get("id"),
+                success=True,
+                metadata={"target_user_id": target_user_id, "file_name": file.filename},
+            )
+
+            # Insert into files_index
+            file_db_id = DBHelper.insert(
+                table_name="files_index",
+                id=str(uuid.uuid4()),
+                return_column="id",
+                user_id=target_user_id,
+                storage_account_id=account["id"],
+                file_path=uploaded_file.get("webViewLink"),
+                file_name=uploaded_file.get("name"),
+                file_size=int(uploaded_file.get("size", 0)),
+                file_type=uploaded_file.get("mimeType"),
+                mime_type=uploaded_file.get("mimeType"),
+                is_folder=False,
+                parent_folder_id=documents_folder["db_id"],
+                external_file_id=uploaded_file["id"],
+                last_modified=uploaded_file.get("modifiedTime", datetime.now().isoformat()),
+                created_at=datetime.now().isoformat(),
+                indexed_at=datetime.now().isoformat(),
+            )
+
+            AuditLogger.log(
+                user_id=uid,
+                action="UPLOAD_DOCUMENT_RECORD_FILE",
+                resource_type="google_drive",
+                resource_id=uploaded_file.get("id"),
+                success=True,
+                metadata={
+                    "target_user_id": target_user_id,
+                    "file_name": uploaded_file.get("name"),
+                    "webViewLink": uploaded_file.get("webViewLink"),
+                },
+            )
+
+            return {
+                "status": 1,
+                "message": "File uploaded successfully",
+                "payload": {"file": uploaded_file, "db_id": file_db_id},
+            }, 200
+
+        except Exception as e:
+            traceback.print_exc()
+            AuditLogger.log(
+                user_id=uid,
+                action="UPLOAD_DOCUMENT_RECORD_FILE_FAILED",
+                resource_type="google_drive",
+                resource_id=None,
+                success=False,
+                error_message="Upload failed",
+                metadata={"target_user_id": target_user_id, "error": str(e)},
+            )
+            return {"status": 0, "message": f"Upload failed: {str(e)}"}, 500
+
+
+class GetDocumentRecordsFiles(DriveBaseResource):
+    @auth_required(isOptional=True)
+    def get(self, uid, user):
+        action = "GET_DOCUMENT_RECORDS_FILES"
+        resource_type = "DOCUMENT_RECORDS"
+
+        try:
+            target_user_id = request.args.get("userId", uid)
+
+            account = DBHelper.find_one(
+                table_name="connected_accounts",
+                filters={
+                    "user_id": target_user_id,
+                    "provider": "google",
+                    "is_active": 1,
+                },
+                select_fields=["access_token", "refresh_token", "user_id"],
+            )
+            if not account:
+                AuditLogger.log(
+                    user_id=uid,
+                    action=action,
+                    resource_type=resource_type,
+                    resource_id=target_user_id,
+                    success=False,
+                    error_message="Google Drive not connected for this member",
+                    metadata={},
                 )
                 return {"status": 0, "message": "Google Drive not connected for this member"}, 401
 
@@ -4365,7 +5118,127 @@ class UploadDocumentRecordFile(DriveBaseResource):
                 client_secret=CLIENT_SECRET,
                 scopes=SCOPE.split(),
             )
+            if not creds.valid or creds.expired:
+                if creds.refresh_token:
+                    creds.refresh(Request())
+                    DBHelper.update(
+                        "connected_accounts",
+                        filters={"user_id": target_user_id, "provider": "google"},
+                        data={
+                            "access_token": creds.token,
+                            "token_expiry": creds.expiry,
+                        },
+                    )
+                else:
+                    AuditLogger.log(
+                        user_id=uid,
+                        action=action,
+                        resource_type=resource_type,
+                        resource_id=target_user_id,
+                        success=False,
+                        error_message="No valid Google Drive credentials",
+                        metadata={},
+                    )
+                    return {"status": 0, "message": "No valid Google Drive credentials"}, 401
 
+            service = build("drive", "v3", credentials=creds, cache_discovery=False)
+
+            # Folder path: DOCKLY → Family → Documents and Records
+            folder_info = ensure_drive_folder_structure(service, target_user_id, account["user_id"])
+            family_folder_id = folder_info["subfolders"]["Family"]
+            documents_folder = get_or_create_subfolder(
+                service, "Documents and Records",
+                parent_google_id=family_folder_id,
+                parent_db_id=folder_info["subfolders_db"]["Family"],
+                user_id=target_user_id,
+                storage_account_id=account["user_id"]
+            )
+
+            query = f"'{documents_folder['google_id']}' in parents and trashed=false"
+            results = service.files().list(
+                q=query,
+                fields="files(id, name, mimeType, size, modifiedTime, webViewLink)",
+                spaces="drive",
+            ).execute()
+            files = results.get("files", [])
+
+            # ✅ Log success
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id="documents_id",
+                success=True,
+                metadata={"file_count": len(files), "target_user_id": target_user_id},
+            )
+
+            return {"status": 1, "message": "Files fetched successfully", "payload": {"files": files}}
+
+        except Exception as e:
+            traceback.print_exc()
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id=request.args.get("userId") or uid,
+                success=False,
+                error_message="Failed to fetch files",
+                metadata={"error": str(e), "traceback": traceback.format_exc()},
+            )
+            return {"status": 0, "message": f"Failed to fetch files: {str(e)}"}, 500
+
+
+class UploadMedicalRecordFile(DriveBaseResource):
+    @auth_required(isOptional=True)
+    def post(self, uid, user):
+        target_user_id = uid  # Use current user; can expand for family members if needed
+
+        try:
+            if "file" not in request.files:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="UPLOAD_MEDICAL_RECORD_FILE_FAILED",
+                    resource_type="google_drive",
+                    resource_id=None,
+                    success=False,
+                    error_message="No file provided",
+                    metadata={"target_user_id": target_user_id},
+                )
+                return {"status": 0, "message": "No file provided"}, 400
+
+            file = request.files["file"]
+
+            # Get connected Google account
+            account = DBHelper.find_one(
+                table_name="connected_accounts",
+                filters={
+                    "user_id": target_user_id,
+                    "provider": "google",
+                    "is_active": 1,
+                },
+                select_fields=["access_token", "refresh_token", "id", "user_id"],
+            )
+            if not account:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="UPLOAD_MEDICAL_RECORD_FILE_FAILED",
+                    resource_type="google_drive",
+                    resource_id=None,
+                    success=False,
+                    error_message="Google Drive not connected",
+                    metadata={"target_user_id": target_user_id},
+                )
+                return {"status": 0, "message": "Google Drive not connected"}, 401
+
+            # Build credentials
+            creds = Credentials(
+                token=account["access_token"],
+                refresh_token=account["refresh_token"],
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=CLIENT_ID,
+                client_secret=CLIENT_SECRET,
+                scopes=SCOPE.split(),
+            )
             if not creds.valid or creds.expired:
                 if creds.refresh_token:
                     creds.refresh(Request())
@@ -4377,83 +5250,119 @@ class UploadDocumentRecordFile(DriveBaseResource):
                 else:
                     AuditLogger.log(
                         user_id=uid,
-                        action="upload_drive_file",
+                        action="UPLOAD_MEDICAL_RECORD_FILE_FAILED",
                         resource_type="google_drive",
                         resource_id=None,
                         success=False,
                         error_message="No valid Google Drive credentials",
-                        metadata={"target_user_id": target_user_id}
+                        metadata={"target_user_id": target_user_id},
                     )
                     return {"status": 0, "message": "No valid Google Drive credentials"}, 401
 
             service = build("drive", "v3", credentials=creds, cache_discovery=False)
 
-            # Folder structure
-            root_id = get_or_create_subfolder(service, "DOCKLY", "root")
-            family_id = get_or_create_subfolder(service, "Family", root_id)
-            documents_id = get_or_create_subfolder(service, "Documents and Records", family_id)
-
-            file_metadata = {
-                "name": secure_filename(file.filename),
-                "parents": [documents_id],
-            }
-            media = MediaIoBaseUpload(
-                io.BytesIO(file.read()),
-                mimetype=file.content_type or "application/octet-stream",
-                resumable=True,
+            # Ensure folder hierarchy in both Google Drive & DB
+            folder_info = ensure_drive_folder_structure(service, target_user_id, account["id"])
+            family_folder_id = folder_info["subfolders"]["Family"]
+            medical_folder = get_or_create_subfolder(
+                service,
+                "Medical Records",
+                parent_google_id=family_folder_id,
+                parent_db_id=folder_info["subfolders_db"]["Family"],
+                user_id=target_user_id,
+                storage_account_id=account["id"],
             )
+
+            # Upload file to Google Drive
+            file_metadata = {"name": secure_filename(file.filename), "parents": [medical_folder["google_id"]]}
+            media = MediaIoBaseUpload(io.BytesIO(file.read()), mimetype=file.content_type or "application/octet-stream", resumable=True)
             uploaded_file = service.files().create(
                 body=file_metadata,
                 media_body=media,
                 fields="id, name, mimeType, size, modifiedTime, webViewLink",
             ).execute()
 
-            # Audit log for success
+            # Insert uploaded file into DB
+            file_db_id = DBHelper.insert(
+                table_name="files_index",
+                id=str(uuid.uuid4()),
+                return_column="id",
+                user_id=target_user_id,
+                storage_account_id=account["id"],
+                file_path=uploaded_file.get("webViewLink"),
+                file_name=uploaded_file.get("name"),
+                file_size=int(uploaded_file.get("size", 0)),
+                file_type=uploaded_file.get("mimeType"),
+                mime_type=uploaded_file.get("mimeType"),
+                is_folder=False,
+                parent_folder_id=medical_folder["db_id"],
+                external_file_id=uploaded_file["id"],
+                last_modified=uploaded_file.get("modifiedTime", datetime.now().isoformat()),
+                created_at=datetime.now().isoformat(),
+                indexed_at=datetime.now().isoformat(),
+            )
+
             AuditLogger.log(
                 user_id=uid,
-                action="upload_drive_file",
+                action="UPLOAD_MEDICAL_RECORD_FILE",
                 resource_type="google_drive",
                 resource_id=uploaded_file.get("id"),
                 success=True,
-                metadata={"target_user_id": target_user_id, "file_name": file.filename}
+                metadata={
+                    "target_user_id": target_user_id,
+                    "file_name": uploaded_file.get("name"),
+                    "webViewLink": uploaded_file.get("webViewLink"),
+                },
             )
 
             return {
                 "status": 1,
-                "message": "File uploaded successfully",
-                "payload": {"file": uploaded_file},
+                "message": "Medical file uploaded successfully",
+                "payload": {"file": uploaded_file, "db_id": file_db_id},
             }, 200
 
         except Exception as e:
             traceback.print_exc()
             AuditLogger.log(
                 user_id=uid,
-                action="upload_drive_file",
+                action="UPLOAD_MEDICAL_RECORD_FILE_FAILED",
                 resource_type="google_drive",
                 resource_id=None,
                 success=False,
                 error_message="Upload failed",
-                metadata={"target_user_id": target_user_id, "error": str(e)}
+                metadata={"target_user_id": target_user_id, "error": str(e)},
             )
             return {"status": 0, "message": f"Upload failed: {str(e)}"}, 500
 
 
-class GetDocumentRecordsFiles(DriveBaseResource):
+class GetMedicalRecordFiles(DriveBaseResource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
-        try:
-            # Get target user id (default = current user)
-            target_user_id = request.args.get("userId", uid)
+        action = "GET_MEDICAL_RECORD_FILES"
+        resource_type = "MEDICAL_RECORDS"
 
-            # Find target user’s Google account
+        try:
+            target_uid = request.args.get("userId") or uid  # pick family member if provided
+
+            # Fetch connected Google account
             account = DBHelper.find_one(
                 table_name="connected_accounts",
-                filters={"user_id": target_user_id, "provider": "google", "is_active": 1},
-                select_fields=["access_token", "refresh_token", "user_id"]
+                filters={"user_id": target_uid, "provider": "google", "is_active": 1},
+                select_fields=["access_token", "refresh_token", "user_id"],
             )
             if not account:
+                AuditLogger.log(
+                    user_id=uid,
+                    action=action,
+                    resource_type=resource_type,
+                    resource_id=target_uid,
+                    success=False,
+                    error_message="Google Drive not connected for this member",
+                    metadata={},
+                )
                 return {"status": 0, "message": "Google Drive not connected for this member"}, 401
 
+            # Build Google Drive credentials
             creds = Credentials(
                 token=account["access_token"],
                 refresh_token=account["refresh_token"],
@@ -4462,145 +5371,77 @@ class GetDocumentRecordsFiles(DriveBaseResource):
                 client_secret=CLIENT_SECRET,
                 scopes=SCOPE.split(),
             )
+
             if not creds.valid or creds.expired:
                 if creds.refresh_token:
                     creds.refresh(Request())
                     DBHelper.update(
                         "connected_accounts",
-                        filters={"user_id": target_user_id, "provider": "google"},
+                        filters={"user_id": target_uid, "provider": "google"},
                         data={"access_token": creds.token, "token_expiry": creds.expiry},
                     )
                 else:
+                    AuditLogger.log(
+                        user_id=uid,
+                        action=action,
+                        resource_type=resource_type,
+                        resource_id=target_uid,
+                        success=False,
+                        error_message="No valid Google Drive credentials",
+                        metadata={},
+                    )
                     return {"status": 0, "message": "No valid Google Drive credentials"}, 401
 
             service = build("drive", "v3", credentials=creds, cache_discovery=False)
 
-            # Navigate: DOCKLY → Family → Documents and Records
-            root_id = get_or_create_subfolder(service, "DOCKLY", "root")
-            family_id = get_or_create_subfolder(service, "Family", root_id)
-            documents_id = get_or_create_subfolder(service, "Documents and Records", family_id)
+            # Folder path: DOCKLY → Family → Medical Records
+            folder_info = ensure_drive_folder_structure(service, target_uid, account["user_id"])
+            family_folder_id = folder_info["subfolders"]["Family"]
+            medical_folder = get_or_create_subfolder(
+                service,
+                "Medical Records",
+                parent_google_id=family_folder_id,
+                parent_db_id=folder_info["subfolders_db"]["Family"],
+                user_id=target_uid,
+                storage_account_id=account["user_id"],
+            )
 
-            query = f"'{documents_id}' in parents and trashed = false"
+            # Fetch files from Google Drive
+            query = f"'{medical_folder['google_id']}' in parents and trashed=false"
             results = service.files().list(
                 q=query,
-                fields="files(id, name, mimeType, size, modifiedTime, webViewLink, size)",
+                fields="files(id, name, mimeType, size, modifiedTime, webViewLink)",
                 spaces="drive",
             ).execute()
+            files = results.get("files", [])
 
-            return {
-                "status": 1,
-                "message": "Files fetched successfully",
-                "payload": {"files": results.get("files", [])},
-            }
-        except Exception as e:
-            traceback.print_exc()
-            return {"status": 0, "message": f"Failed to fetch files: {str(e)}"}, 500
-
-
-class UploadMedicalRecordFile(DriveBaseResource):
-    @auth_required(isOptional=True)
-    def post(self, uid, user):
-        target_uid = request.args.get("userId") or uid
-
-        try:
-            if "file" not in request.files:
-                AuditLogger.log(
-                    user_id=uid,
-                    action="upload_medical_record",
-                    resource_type="google_drive",
-                    resource_id=None,
-                    success=False,
-                    error_message="No file provided",
-                    metadata={"target_user_id": target_uid}
-                )
-                return {"status": 0, "message": "No file provided"}, 400
-
-            file = request.files["file"]
-
-            service = self.get_drive_service(target_uid)
-            if not service:
-                AuditLogger.log(
-                    user_id=uid,
-                    action="upload_medical_record",
-                    resource_type="google_drive",
-                    resource_id=None,
-                    success=False,
-                    error_message="Google Drive not connected",
-                    metadata={"target_user_id": target_uid}
-                )
-                return {"status": 0, "message": "Google Drive not connected"}, 401
-
-            root_id = get_or_create_subfolder(service, "DOCKLY", "root")
-            family_id = get_or_create_subfolder(service, "Family", root_id)
-            medical_id = get_or_create_subfolder(service, "Medical Records", family_id)
-
-            file_metadata = {"name": secure_filename(file.filename), "parents": [medical_id]}
-            media = MediaIoBaseUpload(
-                io.BytesIO(file.read()),
-                mimetype=file.content_type or "application/octet-stream",
-                resumable=True
-            )
-
-            uploaded_file = service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields="id, name, mimeType, size, modifiedTime, webViewLink",
-            ).execute()
-
+            # ✅ Log success
             AuditLogger.log(
                 user_id=uid,
-                action="upload_medical_record",
-                resource_type="google_drive",
-                resource_id=uploaded_file.get("id"),
+                action=action,
+                resource_type=resource_type,
+                resource_id="medical_id",
                 success=True,
-                metadata={"target_user_id": target_uid, "file_name": file.filename}
+                metadata={"file_count": len(files), "target_uid": target_uid},
             )
 
             return {
                 "status": 1,
-                "message": "Medical file uploaded successfully",
-                "payload": {"file": uploaded_file}
+                "message": "Medical files fetched successfully",
+                "payload": {"files": files},
             }, 200
 
         except Exception as e:
             traceback.print_exc()
             AuditLogger.log(
                 user_id=uid,
-                action="upload_medical_record",
-                resource_type="google_drive",
-                resource_id=None,
+                action=action,
+                resource_type=resource_type,
+                resource_id=target_uid,
                 success=False,
-                error_message=str(e),
-                metadata={"target_user_id": target_uid}
+                error_message="Failed to fetch medical files",
+                metadata={"error": str(e), "traceback": traceback.format_exc()},
             )
-            return {"status": 0, "message": f"Upload failed: {str(e)}"}, 500
-
-
-class GetMedicalRecordFiles(DriveBaseResource):
-    @auth_required(isOptional=True)
-    def get(self, uid, user):
-        try:
-            target_uid = request.args.get("userId") or uid  # ✅ pick family member if provided
-
-            service = self.get_drive_service(target_uid)  # ✅ use target_uid
-            if not service:
-                return {"status": 0, "message": "Google Drive not connected"}, 401
-
-            root_id = get_or_create_subfolder(service, "DOCKLY", "root")
-            family_id = get_or_create_subfolder(service, "Family", root_id)
-            medical_id = get_or_create_subfolder(service, "Medical Records", family_id)
-
-            query = f"'{medical_id}' in parents and trashed = false"
-            results = service.files().list(
-                q=query,
-                fields="files(id, name, mimeType, size, modifiedTime, webViewLink)",
-                spaces="drive",
-            ).execute()
-
-            return {"status": 1, "message": "Medical files fetched successfully", "payload": {"files": results.get("files", [])}}
-
-        except Exception as e:
-            traceback.print_exc()
             return {"status": 0, "message": f"Failed to fetch files: {str(e)}"}, 500
 
 
@@ -4616,7 +5457,7 @@ class AddBeneficiary(Resource):
                     resource_type="beneficiaries",
                     resource_id=None,
                     success=False,
-                    error_message="No input data provided"
+                    error_message="No input data provided",
                 )
                 return {"status": 0, "message": "No input data provided"}, 400
 
@@ -4630,7 +5471,7 @@ class AddBeneficiary(Resource):
                     resource_type="beneficiaries",
                     resource_id=None,
                     success=False,
-                    error_message=f"Missing fields: {', '.join(missing)}"
+                    error_message=f"Missing fields: {', '.join(missing)}",
                 )
                 return {
                     "status": 0,
@@ -4658,8 +5499,8 @@ class AddBeneficiary(Resource):
                 success=True,
                 metadata={
                     "account": beneficiary["account"],
-                    "primary_beneficiary": beneficiary["primary_beneficiary"]
-                }
+                    "primary_beneficiary": beneficiary["primary_beneficiary"],
+                },
             )
 
             return {
@@ -4675,7 +5516,8 @@ class AddBeneficiary(Resource):
                 resource_type="beneficiaries",
                 resource_id=None,
                 success=False,
-                error_message=str(e)
+                error_message="Failed to add beneficiary",
+                metadata={"input": inputData, "error": str(e)},
             )
             return {"status": 0, "message": f"Failed to add beneficiary: {str(e)}"}, 500
 
@@ -4683,9 +5525,21 @@ class AddBeneficiary(Resource):
 class GetBeneficiaries(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
+        action = "GET_BENEFICIARIES"
+        resource_type = "BENEFICIARIES"
+
         try:
             user_id = request.args.get("userId")
             if not user_id:
+                AuditLogger.log(
+                    user_id=uid,
+                    action=action,
+                    resource_type=resource_type,
+                    resource_id="N/A",
+                    success=False,
+                    error_message="User ID is required",
+                    metadata={"args": dict(request.args)},
+                )
                 return {"status": 0, "message": "User ID is required"}, 400
 
             beneficiaries = DBHelper.find_all(
@@ -4696,13 +5550,27 @@ class GetBeneficiaries(Resource):
             for b in beneficiaries:
                 updated_at = b.pop("updated_at", None)
                 created_at = b.pop("created_at", None)
-
                 b["updated"] = updated_at.strftime("%Y-%m-%d") if updated_at else ""
                 b["created"] = created_at.strftime("%Y-%m-%d") if created_at else ""
 
+           
             return {"status": 1, "payload": beneficiaries}, 200
 
         except Exception as e:
+            # ❌ Log failure with traceback
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id=request.args.get("userId") or "N/A",
+                success=False,
+                error_message="Failed to fetch beneficiaries",
+                metadata={
+                    "args": dict(request.args),
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                },
+            )
             return {
                 "status": 0,
                 "message": f"Failed to fetch beneficiaries: {str(e)}",
@@ -4731,7 +5599,7 @@ class UpdateBeneficiary(Resource):
                     resource_type="beneficiaries",
                     resource_id=beneficiary.get("id"),
                     success=False,
-                    error_message=f"Missing fields: {', '.join(missing)}"
+                    error_message=f"Missing fields: {', '.join(missing)}",
                 )
                 return {
                     "status": 0,
@@ -4749,7 +5617,7 @@ class UpdateBeneficiary(Resource):
                     resource_type="beneficiaries",
                     resource_id=beneficiary.get("id"),
                     success=False,
-                    error_message="Beneficiary not found"
+                    error_message="Beneficiary not found",
                 )
                 return {"status": 0, "message": "Beneficiary not found"}, 404
 
@@ -4761,7 +5629,9 @@ class UpdateBeneficiary(Resource):
                 updates={
                     "account": beneficiary["account"],
                     "primary_beneficiary": beneficiary["primary_beneficiary"],
-                    "secondary_beneficiary": beneficiary.get("secondary_beneficiary", ""),
+                    "secondary_beneficiary": beneficiary.get(
+                        "secondary_beneficiary", ""
+                    ),
                     "updated": beneficiary.get("updated", ""),
                     "updated_at": now,
                 },
@@ -4776,7 +5646,7 @@ class UpdateBeneficiary(Resource):
                 metadata={
                     "account": beneficiary["account"],
                     "primary_beneficiary": beneficiary["primary_beneficiary"],
-                }
+                },
             )
 
             return {"status": 1, "message": "Beneficiary updated"}, 200
@@ -4788,13 +5658,17 @@ class UpdateBeneficiary(Resource):
                 resource_type="beneficiaries",
                 resource_id=beneficiary.get("id"),
                 success=False,
-                error_message=str(e)
+                error_message="Failed to update beneficiary",
+                metadata={
+                    "beneficiary": beneficiary,
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                },
             )
             return {
                 "status": 0,
                 "message": f"Failed to update beneficiary: {str(e)}",
             }, 500
-
 
 
 class AddDevice(Resource):
@@ -4808,7 +5682,7 @@ class AddDevice(Resource):
                     action="add_device",
                     resource_type="user_devices",
                     success=False,
-                    error_message="No input data provided"
+                    error_message="No input data provided",
                 )
                 return {"status": 0, "message": "No input data provided"}, 400
 
@@ -4819,11 +5693,17 @@ class AddDevice(Resource):
                     action="add_device",
                     resource_type="user_devices",
                     success=False,
-                    error_message="No device data provided"
+                    error_message="No device data provided",
                 )
                 return {"status": 0, "message": "No device data provided"}, 400
 
-            required_fields = ["deviceName", "deviceModel", "userId", "addedBy", "passcode"]
+            required_fields = [
+                "deviceName",
+                "deviceModel",
+                "userId",
+                "addedBy",
+                "passcode",
+            ]
             missing = [field for field in required_fields if field not in device]
             if missing:
                 AuditLogger.log(
@@ -4831,7 +5711,7 @@ class AddDevice(Resource):
                     action="add_device",
                     resource_type="user_devices",
                     success=False,
-                    error_message=f"Missing fields: {', '.join(missing)}"
+                    error_message=f"Missing fields: {', '.join(missing)}",
                 )
                 return {
                     "status": 0,
@@ -4863,7 +5743,7 @@ class AddDevice(Resource):
                 metadata={
                     "device_name": device["deviceName"],
                     "device_model": device["deviceModel"],
-                }
+                },
             )
 
             return {
@@ -4878,7 +5758,12 @@ class AddDevice(Resource):
                 action="add_device",
                 resource_type="user_devices",
                 success=False,
-                error_message=str(e)
+                error_message="Failed to add device",
+                metadata={
+                    "device": device,
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                },
             )
             return {"status": 0, "message": f"Failed to add device: {str(e)}"}, 500
 
@@ -4886,20 +5771,42 @@ class AddDevice(Resource):
 class GetDevices(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
+        action = "GET_DEVICES"
+        resource_type = "USER_DEVICES"
+
         try:
             user_id = request.args.get("userId")
             if not user_id:
+                AuditLogger.log(
+                    user_id=uid,
+                    action=action,
+                    resource_type=resource_type,
+                    resource_id="N/A",
+                    success=False,
+                    error_message="Missing userId",
+                    metadata={"args": dict(request.args)},
+                )
                 return {"status": 0, "message": "Missing userId"}, 400
 
             results = DBHelper.find_all(
-                table_name="user_devices",
-                filters={"family_member_user_id": user_id}
+                table_name="user_devices", filters={"family_member_user_id": user_id}
             )
 
+            # Convert datetime fields to ISO format
             for device in results:
                 for key in device:
                     if isinstance(device[key], datetime):
                         device[key] = device[key].isoformat()
+
+            # ✅ Log success
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id=user_id,
+                success=True,
+                metadata={"count": len(results), "userId": user_id},
+            )
 
             return {
                 "status": 1,
@@ -4908,6 +5815,20 @@ class GetDevices(Resource):
             }, 200
 
         except Exception as e:
+            # ❌ Log failure with traceback
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id=request.args.get("userId") or "N/A",
+                success=False,
+                error_message="Failed to fetch devices",
+                metadata={
+                    "args": dict(request.args),
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                },
+            )
             return {"status": 0, "message": f"Failed to fetch devices: {str(e)}"}, 500
 
 
@@ -4922,7 +5843,7 @@ class UpdateDevice(Resource):
                     action="update_device",
                     resource_type="user_devices",
                     success=False,
-                    error_message="No input data provided"
+                    error_message="No input data provided",
                 )
                 return {"status": 0, "message": "No input data provided"}, 400
 
@@ -4933,7 +5854,7 @@ class UpdateDevice(Resource):
                     action="update_device",
                     resource_type="user_devices",
                     success=False,
-                    error_message="Missing device ID or data"
+                    error_message="Missing device ID or data",
                 )
                 return {"status": 0, "message": "Missing device ID or data"}, 400
 
@@ -4958,7 +5879,11 @@ class UpdateDevice(Resource):
                 resource_type="user_devices",
                 resource_id=device["id"],
                 success=True,
-                metadata={k: update_fields[k] for k in ["device_name", "device_model"] if k in update_fields}
+                metadata={
+                    k: update_fields[k]
+                    for k in ["device_name", "device_model"]
+                    if k in update_fields
+                },
             )
 
             return {"status": 1, "message": "Device updated successfully"}, 200
@@ -4970,7 +5895,8 @@ class UpdateDevice(Resource):
                 resource_type="user_devices",
                 resource_id=device.get("id") if device else None,
                 success=False,
-                error_message=str(e)
+                error_message="Failed to update device",
+                metadata={"input": data, "error": str(e)},
             )
             return {"status": 0, "message": f"Failed to update device: {str(e)}"}, 500
 
@@ -4981,6 +5907,8 @@ class TagEmailSender:
         self.smtp_port = SMTP_PORT
         self.smtp_user = EMAIL_SENDER
         self.smtp_password = EMAIL_PASSWORD
+        
+        
 
     def send_project_email(self, recipient_email, project):
         msg = EmailMessage()
@@ -5029,7 +5957,7 @@ class ShareProject(Resource):
                 action="share_project",
                 resource_type="projects",
                 success=False,
-                error_message=f"Invalid JSON: {str(e)}"
+                error_message=f"Invalid JSON: {str(e)}",
             )
             return {"status": 0, "message": f"Invalid JSON: {str(e)}"}, 400
 
@@ -5043,7 +5971,7 @@ class ShareProject(Resource):
                 action="share_project",
                 resource_type="projects",
                 success=False,
-                error_message="Both 'email' and 'project' are required."
+                error_message="Both 'email' and 'project' are required.",
             )
             return {
                 "status": 0,
@@ -5078,7 +6006,7 @@ class ShareProject(Resource):
                 resource_id=project.get("id"),
                 success=success,
                 metadata={"email": email, "project_title": project.get("title")},
-                error_message=None if success else message
+                error_message=None if success else message,
             )
             if not success:
                 failures.append((email, message))
@@ -5137,7 +6065,10 @@ class ShareProject(Resource):
                 resource_type="notifications",
                 resource_id=notif_id,
                 success=True,
-                metadata={"receiver_uid": receiver_uid, "project_id": project.get("id")}
+                metadata={
+                    "receiver_uid": receiver_uid,
+                    "project_id": project.get("id"),
+                },
             )
 
         # Update tagged_ids in the project
@@ -5152,7 +6083,7 @@ class ShareProject(Resource):
                     resource_type="projects",
                     resource_id=project.get("id"),
                     success=False,
-                    error_message="Project not found"
+                    error_message="Project not found",
                 )
                 return {
                     "status": 0,
@@ -5175,7 +6106,8 @@ class ShareProject(Resource):
                 resource_type="projects",
                 resource_id=project.get("id"),
                 success=True,
-                metadata={"tagged_ids": combined_ids}
+                error_message="failed to send notification",
+                metadata={"tagged_ids": combined_ids, "error": str(failures)},
             )
 
         if failures:
@@ -5209,7 +6141,7 @@ class AddFamilyMemberWithoutInvite(Resource):
                 )
                 return {"status": 0, "message": "No input data provided"}, 400
 
-            if user["role"] != DocklyUsers.PaidMember.value:
+            if user["role"] == DocklyUsers.Guests.value:
                 AuditLogger.log(
                     user_id=uid,
                     action="ADD_FAMILY_MEMBER_WITHOUT_INVITE",
@@ -5248,12 +6180,18 @@ class AddFamilyMemberWithoutInvite(Resource):
                 filters={"user_id": uid},
                 select_fields=["family_group_id"],
             )
-            gid = gid_record.get("family_group_id") if gid_record else uniqueId(digit=5, isNum=True, prefix="G")
+            gid = (
+                gid_record.get("family_group_id")
+                if gid_record
+                else uniqueId(digit=5, isNum=True, prefix="G")
+            )
 
             # Step 3: Prepare shared items
             sharedKeys = list(inputData.get("sharedItems", {}).keys())
             sharedItems = [
-                DBHelper.find_one("boards", filters={"board_name": key}, select_fields=["id"])
+                DBHelper.find_one(
+                    "boards", filters={"board_name": key}, select_fields=["id"]
+                )
                 for key in sharedKeys
             ]
             sharedItemsIds = [item["id"] for item in sharedItems if item]
@@ -5318,7 +6256,11 @@ class AddFamilyMemberWithoutInvite(Resource):
                 resource_type="family_member",
                 resource_id=str(fid1),
                 success=True,
-                metadata={"new_user_uid": new_uid, "fid2": fid2, "shared_items": sharedKeys},
+                metadata={
+                    "new_user_uid": new_uid,
+                    "fid2": fid2,
+                    "shared_items": sharedKeys,
+                },
             )
 
             return {
@@ -5334,10 +6276,14 @@ class AddFamilyMemberWithoutInvite(Resource):
                 resource_type="family_member",
                 resource_id="N/A",
                 success=False,
-                error_message=str(e),
+                error_message="Failed to add family member",
                 metadata=inputData if "inputData" in locals() else {},
             )
-            return {"status": 0, "message": f"Failed to add family member: {str(e)}"}, 500
+            return {
+                "status": 0,
+                "message": f"Failed to add family member: {str(e)}",
+            }, 500
+
 
 class AddSchool(Resource):
     @auth_required(isOptional=True)
@@ -5406,19 +6352,32 @@ class AddSchool(Resource):
                 resource_type="school",
                 resource_id="N/A",
                 success=False,
-                error_message=str(e),
+                error_message="Failed to add school",
                 metadata=data if "data" in locals() else {},
             )
             return {"status": 0, "message": f"Failed to add school: {str(e)}"}, 500
 
+
 class GetSchools(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
+        action = "GET_SCHOOLS"
+        resource_type = "SCHOOLS"
+
         try:
             schools = DBHelper.find_all(
                 table_name="schools",
-                select_fields=["id", "name", "grade_level", "student_id", "custom_fields", "links", "created_at", "updated_at"],
-                filters={"user_id": uid, "is_active": 1}
+                select_fields=[
+                    "id",
+                    "name",
+                    "grade_level",
+                    "student_id",
+                    "custom_fields",
+                    "links",
+                    "created_at",
+                    "updated_at",
+                ],
+                filters={"user_id": uid, "is_active": 1},
             )
 
             school_list = []
@@ -5426,30 +6385,65 @@ class GetSchools(Resource):
                 custom_fields = school.get("custom_fields", [])
                 if isinstance(custom_fields, str):
                     custom_fields = json.loads(custom_fields)
-                
+
                 links = school.get("links", [])
                 if isinstance(links, str):
                     links = json.loads(links)
 
-                school_list.append({
-                    "id": school["id"],
-                    "name": school["name"],
-                    "gradeLevel": school.get("grade_level", ""),
-                    "studentId": school.get("student_id", ""),
-                    "customFields": custom_fields,
-                    "links": links,
-                    "createdAt": school["created_at"].isoformat() if school["created_at"] else "",
-                    "updatedAt": school["updated_at"].isoformat() if school["updated_at"] else ""
-                })
+                school_list.append(
+                    {
+                        "id": school["id"],
+                        "name": school["name"],
+                        "gradeLevel": school.get("grade_level", ""),
+                        "studentId": school.get("student_id", ""),
+                        "customFields": custom_fields,
+                        "links": links,
+                        "createdAt": (
+                            school["created_at"].isoformat()
+                            if school["created_at"]
+                            else ""
+                        ),
+                        "updatedAt": (
+                            school["updated_at"].isoformat()
+                            if school["updated_at"]
+                            else ""
+                        ),
+                    }
+                )
+
+            # ✅ Log success
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id="ALL",
+                success=True,
+                metadata={"count": len(school_list)},
+            )
 
             return {
                 "status": 1,
                 "message": "Schools fetched successfully",
-                "payload": {"schools": school_list}
+                "payload": {"schools": school_list},
             }, 200
 
         except Exception as e:
+            # ❌ Log failure with traceback
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id="ALL",
+                success=False,
+                error_message="Failed to fetch schools",
+                metadata={
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                },
+            )
+
             return {"status": 0, "message": f"Failed to fetch schools: {str(e)}"}, 500
+
 
 class UpdateSchool(Resource):
     @auth_required(isOptional=True)
@@ -5470,7 +6464,7 @@ class UpdateSchool(Resource):
 
             school = data.get("school", {})
             school_id = school.get("id")
-            
+
             if not school_id:
                 AuditLogger.log(
                     user_id=uid,
@@ -5484,7 +6478,7 @@ class UpdateSchool(Resource):
                 return {"status": 0, "message": "School ID is required"}, 400
 
             current_time = datetime.now().isoformat()
-            
+
             DBHelper.update_one(
                 table_name="schools",
                 filters={"id": school_id, "user_id": uid},
@@ -5494,8 +6488,8 @@ class UpdateSchool(Resource):
                     "student_id": school.get("studentId", ""),
                     "custom_fields": json.dumps(school.get("customFields", [])),
                     "links": json.dumps(school.get("links", [])),
-                    "updated_at": current_time
-                }
+                    "updated_at": current_time,
+                },
             )
 
             AuditLogger.log(
@@ -5510,7 +6504,7 @@ class UpdateSchool(Resource):
             return {
                 "status": 1,
                 "message": "School updated successfully",
-                "payload": {"id": school_id}
+                "payload": {"id": school_id},
             }, 200
 
         except Exception as e:
@@ -5520,9 +6514,10 @@ class UpdateSchool(Resource):
                 resource_type="school",
                 resource_id=school.get("id") if "school" in locals() else "N/A",
                 success=False,
-                error_message=str(e),
-                metadata=data if "data" in locals() else {},
+                error_message="Failed to update school",
+                metadata={"data": data if "data" in locals() else {}, "error": str(e)},
             )
+
             return {"status": 0, "message": f"Failed to update school: {str(e)}"}, 500
 
 
@@ -5546,7 +6541,7 @@ class DeleteSchool(Resource):
             DBHelper.update_one(
                 table_name="schools",
                 filters={"id": school_id, "user_id": uid},
-                updates={"is_active": 0, "updated_at": datetime.now().isoformat()}
+                updates={"is_active": 0, "updated_at": datetime.now().isoformat()},
             )
 
             AuditLogger.log(
@@ -5567,10 +6562,11 @@ class DeleteSchool(Resource):
                 resource_type="school",
                 resource_id=school_id if "school_id" in locals() else "N/A",
                 success=False,
-                error_message=str(e),
-                metadata={},
+                error_message="Failed to delete school",
+                metadata={"error": str(e), "traceback": traceback.format_exc()},
             )
             return {"status": 0, "message": f"Failed to delete school: {str(e)}"}, 500
+
 
 class AddActivity(Resource):
     @auth_required(isOptional=True)
@@ -5603,7 +6599,7 @@ class AddActivity(Resource):
                 return {"status": 0, "message": "Activity name is required"}, 400
 
             current_time = datetime.now().isoformat()
-            
+
             activity_id = DBHelper.insert(
                 "activities",
                 return_column="id",
@@ -5613,7 +6609,7 @@ class AddActivity(Resource):
                 custom_fields=json.dumps(activity.get("customFields", [])),
                 links=json.dumps(activity.get("links", [])),
                 created_at=current_time,
-                updated_at=current_time
+                updated_at=current_time,
             )
 
             AuditLogger.log(
@@ -5628,7 +6624,7 @@ class AddActivity(Resource):
             return {
                 "status": 1,
                 "message": "Activity added successfully",
-                "payload": {"id": activity_id}
+                "payload": {"id": activity_id},
             }, 200
 
         except Exception as e:
@@ -5638,19 +6634,34 @@ class AddActivity(Resource):
                 resource_type="activity",
                 resource_id="N/A",
                 success=False,
-                error_message=str(e),
-                metadata=data if "data" in locals() else {},
+                error_message="Failed to add activity",
+                metadata={
+                    "data": data if "data" in locals() else {},
+                    "error": str(e),
+                },
             )
             return {"status": 0, "message": f"Failed to add activity: {str(e)}"}, 500
+
 
 class GetActivities(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
+        action = "GET_ACTIVITIES"
+        resource_type = "ACTIVITIES"
+
         try:
             activities = DBHelper.find_all(
                 table_name="activities",
-                select_fields=["id", "name", "schedule", "custom_fields", "links", "created_at", "updated_at"],
-                filters={"user_id": uid, "is_active": 1}
+                select_fields=[
+                    "id",
+                    "name",
+                    "schedule",
+                    "custom_fields",
+                    "links",
+                    "created_at",
+                    "updated_at",
+                ],
+                filters={"user_id": uid, "is_active": 1},
             )
 
             activity_list = []
@@ -5658,29 +6669,58 @@ class GetActivities(Resource):
                 custom_fields = activity.get("custom_fields", [])
                 if isinstance(custom_fields, str):
                     custom_fields = json.loads(custom_fields)
-                
+
                 links = activity.get("links", [])
                 if isinstance(links, str):
                     links = json.loads(links)
 
-                activity_list.append({
-                    "id": activity["id"],
-                    "name": activity["name"],
-                    "schedule": activity.get("schedule", ""),
-                    "customFields": custom_fields,
-                    "links": links,
-                    "createdAt": activity["created_at"].isoformat() if activity["created_at"] else "",
-                    "updatedAt": activity["updated_at"].isoformat() if activity["updated_at"] else ""
-                })
+                activity_list.append(
+                    {
+                        "id": activity["id"],
+                        "name": activity["name"],
+                        "schedule": activity.get("schedule", ""),
+                        "customFields": custom_fields,
+                        "links": links,
+                        "createdAt": (
+                            activity["created_at"].isoformat()
+                            if activity["created_at"]
+                            else ""
+                        ),
+                        "updatedAt": (
+                            activity["updated_at"].isoformat()
+                            if activity["updated_at"]
+                            else ""
+                        ),
+                    }
+                )
+
+          
 
             return {
                 "status": 1,
                 "message": "Activities fetched successfully",
-                "payload": {"activities": activity_list}
+                "payload": {"activities": activity_list},
             }, 200
 
         except Exception as e:
-            return {"status": 0, "message": f"Failed to fetch activities: {str(e)}"}, 500
+            # ❌ Log failure with traceback
+            AuditLogger.log(
+                user_id=uid,
+                action=action,
+                resource_type=resource_type,
+                resource_id="ALL",
+                success=False,
+                error_message="Failed to fetch activities",
+                metadata={
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                },
+            )
+            return {
+                "status": 0,
+                "message": f"Failed to fetch activities: {str(e)}",
+            }, 500
+
 
 class UpdateActivity(Resource):
     @auth_required(isOptional=True)
@@ -5701,7 +6741,7 @@ class UpdateActivity(Resource):
 
             activity = data.get("activity", {})
             activity_id = activity.get("id")
-            
+
             if not activity_id:
                 AuditLogger.log(
                     user_id=uid,
@@ -5715,7 +6755,7 @@ class UpdateActivity(Resource):
                 return {"status": 0, "message": "Activity ID is required"}, 400
 
             current_time = datetime.now().isoformat()
-            
+
             DBHelper.update_one(
                 table_name="activities",
                 filters={"id": activity_id, "user_id": uid},
@@ -5724,8 +6764,8 @@ class UpdateActivity(Resource):
                     "schedule": activity.get("schedule", ""),
                     "custom_fields": json.dumps(activity.get("customFields", [])),
                     "links": json.dumps(activity.get("links", [])),
-                    "updated_at": current_time
-                }
+                    "updated_at": current_time,
+                },
             )
 
             AuditLogger.log(
@@ -5740,7 +6780,7 @@ class UpdateActivity(Resource):
             return {
                 "status": 1,
                 "message": "Activity updated successfully",
-                "payload": {"id": activity_id}
+                "payload": {"id": activity_id},
             }, 200
 
         except Exception as e:
@@ -5750,8 +6790,11 @@ class UpdateActivity(Resource):
                 resource_type="activity",
                 resource_id=activity.get("id") if "activity" in locals() else "N/A",
                 success=False,
-                error_message=str(e),
-                metadata=data if "data" in locals() else {},
+                error_message="Failed to update activity",
+                metadata={
+                    "data": data if "data" in locals() else {},
+                    "error": str(e),
+                },
             )
             return {"status": 0, "message": f"Failed to update activity: {str(e)}"}, 500
 
@@ -5776,7 +6819,7 @@ class DeleteActivity(Resource):
             DBHelper.update_one(
                 table_name="activities",
                 filters={"id": activity_id, "user_id": uid},
-                updates={"is_active": 0, "updated_at": datetime.now().isoformat()}
+                updates={"is_active": 0, "updated_at": datetime.now().isoformat()},
             )
 
             AuditLogger.log(
@@ -5797,7 +6840,735 @@ class DeleteActivity(Resource):
                 resource_type="activity",
                 resource_id=activity_id if "activity_id" in locals() else "N/A",
                 success=False,
-                error_message=str(e),
-                metadata={},
+                error_message="Failed to delete activity",
+                metadata={"error": str(e), "traceback": traceback.format_exc()},
             )
             return {"status": 0, "message": f"Failed to delete activity: {str(e)}"}, 500
+
+class AddOrUpdateMeal(Resource):
+    @auth_required(isOptional=True)
+    def post(self, uid, user):
+        data = request.get_json(silent=True)
+        if not data:
+            AuditLogger.log(
+                user_id=uid,
+                action="MEAL_FAILED",
+                resource_type="meals",
+                resource_id=None,
+                success=False,
+                error_message="Invalid or empty input",
+                metadata={"raw_request": str(request.data)},
+            )
+            return {"status": 0, "message": "Invalid input", "payload": {}}, 400
+
+        editing = data.get("editing")
+        meal_id = data.get("id")
+
+        # Helper: Convert Python list to PostgreSQL array
+        def format_pg_array(py_list):
+            if not py_list:
+                return "{}"
+            return "{" + ",".join(f'"{str(i)}"' for i in py_list) + "}"
+
+        # Handle tagged_ids safely
+        tagged_ids_data = data.get("tagged_ids", [])
+        tagged_ids_array = format_pg_array(tagged_ids_data) if isinstance(tagged_ids_data, list) else "{}"
+
+        try:
+            if editing and meal_id:
+                # ✅ Allow family members to edit meals
+                sent_invites = DBHelper.find_all(
+                    table_name="family_members",
+                    select_fields=["fm_user_id"],
+                    filters={"user_id": uid},
+                )
+                received_invites = DBHelper.find_all(
+                    table_name="family_members",
+                    select_fields=["user_id"],
+                    filters={"fm_user_id": uid},
+                )
+
+                familyMembersIds = [m["fm_user_id"] for m in sent_invites] + [
+                    m["user_id"] for m in received_invites
+                ]
+                familyMembersIds = list(set(familyMembersIds + [uid]))
+
+                # Fetch the existing meal
+                existing_meal = DBHelper.find_one(
+                    table_name="meals",
+                    filters={"id": meal_id}
+                )
+
+                if not existing_meal or existing_meal["user_id"] not in familyMembersIds:
+                    return {"status": 0, "message": "You don't have permission to edit this meal"}, 403
+
+                # If editing, update existing meal
+                payload = {
+                    "title": data.get("title"),
+                    "day": data.get("day"),
+                    "details": data.get("details", ""),
+                    "assigned_to": data.get("assigned_to", "All"),
+                    "tagged_ids": tagged_ids_array,
+                    "updated_at": datetime.utcnow(),
+                }
+
+                DBHelper.update_one(
+                    "meals",
+                    filters={"id": meal_id},  # ✅ no user_id restriction
+                    updates=payload,
+                )
+
+                AuditLogger.log(
+                    user_id=uid,
+                    action="MEAL_UPDATED",
+                    resource_type="meals",
+                    resource_id=meal_id,
+                    success=True,
+                    metadata=payload,
+                )
+
+                return {"status": 1, "message": f"Meal '{data.get('title')}' updated successfully", "payload": {}}
+
+            else:
+                # If adding, generate new ID
+                new_id = uniqueId(digit=5, isNum=True, prefix=uid)
+                payload = {
+                    "id": new_id,
+                    "user_id": uid,
+                    "title": data.get("title"),
+                    "day": data.get("day"),
+                    "details": data.get("details", ""),
+                    "assigned_to": data.get("assigned_to", "All"),
+                    "tagged_ids": tagged_ids_array,
+                    "is_active": 1,
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow(),
+                }
+
+                DBHelper.insert("meals", **payload)
+
+                AuditLogger.log(
+                    user_id=uid,
+                    action="MEAL_ADDED",
+                    resource_type="meals",
+                    resource_id=new_id,
+                    success=True,
+                    metadata=payload,
+                )
+
+                return {"status": 1, "message": f"Meal '{data.get('title')}' added successfully", "payload": {}}
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="MEAL_FAILED",
+                resource_type="meals",
+                resource_id=meal_id if editing else None,
+                success=False,
+                error_message="Failed to save meal",
+                metadata={"input": data, "error": str(e)},
+            )
+            return {"status": 0, "message": f"Failed to save meal: {str(e)}", "payload": {}}, 500
+
+class GetMeals(Resource):
+    @auth_required(isOptional=True)
+    def get(self, uid, user):
+        try:
+            # Get family members (similar to GetTasks implementation)
+            sent_invites = DBHelper.find_all(
+                table_name="family_members",
+                select_fields=["fm_user_id"],
+                filters={"user_id": uid},
+            )
+            received_invites = DBHelper.find_all(
+                table_name="family_members",
+                select_fields=["user_id"],
+                filters={"fm_user_id": uid},
+            )
+
+            familyMembersIds = [m["fm_user_id"] for m in sent_invites] + [
+                m["user_id"] for m in received_invites
+            ]
+            familyMembersIds = list(set(familyMembersIds + [uid]))
+
+            # Fetch meals
+            meals = DBHelper.find_in(
+                table_name="meals",
+                select_fields=[
+                    "id",
+                    "title",
+                    "day",
+                    "details",
+                    "assigned_to",
+                    "created_at",
+                    "user_id",
+                    "tagged_ids",
+                    "is_active",
+                ],
+                field="user_id",
+                values=familyMembersIds,
+            )
+
+            # Filter only active meals
+            meals = [m for m in meals if m.get("is_active", 1) == 1]
+
+            # Convert datetime to string
+            for m in meals:
+                if isinstance(m.get("created_at"), datetime):
+                    m["created_at"] = m["created_at"].isoformat()
+
+            return {"status": 1, "message": "Success", "payload": {"meals": meals}}
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="GET_MEALS_FAILED",
+                resource_type="meals",
+                resource_id=None,
+                success=False,
+                error_message=str(e),
+                metadata={"query_params": dict(request.args)},
+            )
+            return {
+                "status": 0,
+                "message": "Failed to fetch meals",
+                "error": str(e),
+            }, 500
+
+
+class DeleteMeal(Resource):
+    @auth_required(isOptional=True)
+    def post(self, uid, user):
+        data = request.get_json(silent=True)
+
+        if not data or not data.get("id"):
+            AuditLogger.log(
+                user_id=uid,
+                action="MEAL_DELETE_FAILED",
+                resource_type="meals",
+                resource_id=None,
+                success=False,
+                error_message="Missing meal ID for deletion",
+                metadata={"raw_request": str(request.data)},
+            )
+            return {"status": 0, "message": "Missing meal ID", "payload": {}}, 400
+
+        meal_id = data.get("id")
+
+        try:
+            # Mark meal as deleted (soft delete)
+            DBHelper.update_one(
+                table_name="meals",
+                filters={"id": meal_id, "user_id": uid},
+                updates={"is_active": 0, "updated_at": datetime.utcnow()},
+            )
+
+            AuditLogger.log(
+                user_id=uid,
+                action="MEAL_DELETED",
+                resource_type="meals",
+                resource_id=meal_id,
+                success=True,
+                metadata={"meal_id": meal_id, "deleted_by": user.get("user_name")},
+            )
+
+            return {"status": 1, "message": f"Meal '{meal_id}' deleted successfully", "payload": {}}
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="MEAL_DELETE_FAILED",
+                resource_type="meals",
+                resource_id=meal_id,
+                success=False,
+                error_message="Failed to delete meal",
+                metadata={"input": data, "error": str(e)},
+            )
+            return {"status": 0, "message": f"Failed to delete meal: {str(e)}", "payload": {}}, 500
+
+
+# CHORES APIs
+class AddOrUpdateChore(Resource):
+    @auth_required(isOptional=True)
+    def post(self, uid, user):
+        data = request.get_json(silent=True)
+        if not data:
+            AuditLogger.log(
+                user_id=uid,
+                action="CHORE_FAILED",
+                resource_type="chores",
+                resource_id=None,
+                success=False,
+                error_message="Invalid or empty input",
+                metadata={"raw_request": str(request.data)},
+            )
+            return {"status": 0, "message": "Invalid input", "payload": {}}, 400
+
+        editing = data.get("editing")
+        chore_id = data.get("id")
+
+        # Helper: Convert Python list to PostgreSQL array
+        def format_pg_array(py_list):
+            if not py_list:
+                return "{}"
+            return "{" + ",".join(f'"{str(i)}"' for i in py_list) + "}"
+
+        # Handle tagged_ids safely
+        tagged_ids_data = data.get("tagged_ids", [])
+        tagged_ids_array = format_pg_array(tagged_ids_data) if isinstance(tagged_ids_data, list) else "{}"
+
+        try:
+            if editing and chore_id:
+                # ✅ Allow family members to edit chores
+                sent_invites = DBHelper.find_all(
+                    table_name="family_members",
+                    select_fields=["fm_user_id"],
+                    filters={"user_id": uid},
+                )
+                received_invites = DBHelper.find_all(
+                    table_name="family_members",
+                    select_fields=["user_id"],
+                    filters={"fm_user_id": uid},
+                )
+
+                familyMembersIds = [m["fm_user_id"] for m in sent_invites] + [
+                    m["user_id"] for m in received_invites
+                ]
+                familyMembersIds = list(set(familyMembersIds + [uid]))
+
+                # Fetch the existing chore
+                existing_chore = DBHelper.find_one(
+                    table_name="chores",
+                    filters={"id": chore_id}
+                )
+
+                if not existing_chore or existing_chore["user_id"] not in familyMembersIds:
+                    return {"status": 0, "message": "You don't have permission to edit this chore"}, 403
+
+                # If editing, update existing chore
+                payload = {
+                    "title": data.get("title"),
+                    "schedule": data.get("schedule", ""),
+                    "assigned_to": data.get("assigned_to", "All"),
+                    "completed": data.get("completed", False),
+                    "tagged_ids": tagged_ids_array,
+                    "updated_at": datetime.utcnow(),
+                }
+
+                DBHelper.update_one(
+                    "chores",
+                    filters={"id": chore_id},  # ✅ no longer restricted by user_id
+                    updates=payload,
+                )
+
+                AuditLogger.log(
+                    user_id=uid,
+                    action="CHORE_UPDATED",
+                    resource_type="chores",
+                    resource_id=chore_id,
+                    success=True,
+                    metadata=payload,
+                )
+
+                return {"status": 1, "message": f"Chore '{data.get('title')}' updated successfully", "payload": {}}
+
+            else:
+                # If adding, generate new ID
+                new_id = uniqueId(digit=5, isNum=True, prefix=uid)
+                payload = {
+                    "id": new_id,
+                    "user_id": uid,
+                    "title": data.get("title"),
+                    "schedule": data.get("schedule", ""),
+                    "assigned_to": data.get("assigned_to", "All"),
+                    "completed": False,
+                    "tagged_ids": tagged_ids_array,
+                    "is_active": 1,
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow(),
+                }
+
+                DBHelper.insert("chores", **payload)
+
+                AuditLogger.log(
+                    user_id=uid,
+                    action="CHORE_ADDED",
+                    resource_type="chores",
+                    resource_id=new_id,
+                    success=True,
+                    metadata=payload,
+                )
+
+                return {"status": 1, "message": f"Chore '{data.get('title')}' added successfully", "payload": {}}
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="CHORE_FAILED",
+                resource_type="chores",
+                resource_id=chore_id if editing else None,
+                success=False,
+                error_message="Failed to save chore",
+                metadata={"input": data, "error": str(e)},
+            )
+            return {"status": 0, "message": f"Failed to save chore: {str(e)}", "payload": {}}, 500
+
+
+class GetChores(Resource):
+    @auth_required(isOptional=True)
+    def get(self, uid, user):
+        try:
+            # Get family members (similar to GetTasks implementation)
+            sent_invites = DBHelper.find_all(
+                table_name="family_members",
+                select_fields=["fm_user_id"],
+                filters={"user_id": uid},
+            )
+            received_invites = DBHelper.find_all(
+                table_name="family_members",
+                select_fields=["user_id"],
+                filters={"fm_user_id": uid},
+            )
+
+            familyMembersIds = [m["fm_user_id"] for m in sent_invites] + [
+                m["user_id"] for m in received_invites
+            ]
+            familyMembersIds = list(set(familyMembersIds + [uid]))
+
+            # Fetch chores
+            chores = DBHelper.find_in(
+                table_name="chores",
+                select_fields=[
+                    "id",
+                    "title",
+                    "schedule",
+                    "assigned_to",
+                    "completed",
+                    "created_at",
+                    "user_id",
+                    "tagged_ids",
+                    "is_active",
+                ],
+                field="user_id",
+                values=familyMembersIds,
+            )
+
+            # Filter only active chores
+            chores = [c for c in chores if c.get("is_active", 1) == 1]
+
+            # Convert datetime to string
+            for c in chores:
+                if isinstance(c.get("created_at"), datetime):
+                    c["created_at"] = c["created_at"].isoformat()
+
+            return {"status": 1, "message": "Success", "payload": {"chores": chores}}
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="GET_CHORES_FAILED",
+                resource_type="chores",
+                resource_id=None,
+                success=False,
+                error_message=str(e),
+                metadata={"query_params": dict(request.args)},
+            )
+            return {
+                "status": 0,
+                "message": "Failed to fetch chores",
+                "error": str(e),
+            }, 500
+
+
+class DeleteChore(Resource):
+    @auth_required(isOptional=True)
+    def post(self, uid, user):
+        data = request.get_json(silent=True)
+
+        if not data or not data.get("id"):
+            AuditLogger.log(
+                user_id=uid,
+                action="CHORE_DELETE_FAILED",
+                resource_type="chores",
+                resource_id=None,
+                success=False,
+                error_message="Missing chore ID for deletion",
+                metadata={"raw_request": str(request.data)},
+            )
+            return {"status": 0, "message": "Missing chore ID", "payload": {}}, 400
+
+        chore_id = data.get("id")
+
+        try:
+            # Mark chore as deleted (soft delete)
+            DBHelper.update_one(
+                table_name="chores",
+                filters={"id": chore_id, "user_id": uid},
+                updates={"is_active": 0, "updated_at": datetime.utcnow()},
+            )
+
+            AuditLogger.log(
+                user_id=uid,
+                action="CHORE_DELETED",
+                resource_type="chores",
+                resource_id=chore_id,
+                success=True,
+                metadata={"chore_id": chore_id, "deleted_by": user.get("user_name")},
+            )
+
+            return {"status": 1, "message": f"Chore '{chore_id}' deleted successfully", "payload": {}}
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="CHORE_DELETE_FAILED",
+                resource_type="chores",
+                resource_id=chore_id,
+                success=False,
+                error_message="Failed to delete chore",
+                metadata={"input": data, "error": str(e)},
+            )
+            return {"status": 0, "message": f"Failed to delete chore: {str(e)}", "payload": {}}, 500
+
+
+# TASKS APIs
+class AddOrUpdateTask(Resource):
+    @auth_required(isOptional=True)
+    def post(self, uid, user):
+        data = request.get_json(silent=True)
+        if not data:
+            AuditLogger.log(
+                user_id=uid,
+                action="TASK_FAILED",
+                resource_type="weekly_tasks",
+                resource_id=None,
+                success=False,
+                error_message="Invalid or empty input",
+                metadata={"raw_request": str(request.data)},
+            )
+            return {"status": 0, "message": "Invalid input", "payload": {}}, 400
+
+        editing = data.get("editing")
+        task_id = data.get("id")
+
+        # Helper: Convert Python list to PostgreSQL array
+        def format_pg_array(py_list):
+            if not py_list:
+                return "{}"
+            return "{" + ",".join(f'"{str(i)}"' for i in py_list) + "}"
+
+        # Handle tagged_ids safely
+        tagged_ids_data = data.get("tagged_ids", [])
+        tagged_ids_array = format_pg_array(tagged_ids_data) if isinstance(tagged_ids_data, list) else "{}"
+
+        try:
+            if editing and task_id:
+                # ✅ Allow family members to edit weekly tasks
+                sent_invites = DBHelper.find_all(
+                    table_name="family_members",
+                    select_fields=["fm_user_id"],
+                    filters={"user_id": uid},
+                )
+                received_invites = DBHelper.find_all(
+                    table_name="family_members",
+                    select_fields=["user_id"],
+                    filters={"fm_user_id": uid},
+                )
+
+                familyMembersIds = [m["fm_user_id"] for m in sent_invites] + [
+                    m["user_id"] for m in received_invites
+                ]
+                familyMembersIds = list(set(familyMembersIds + [uid]))
+
+                # Fetch the existing task
+                existing_task = DBHelper.find_one(
+                    table_name="weekly_tasks",
+                    filters={"id": task_id}
+                )
+
+                if not existing_task or existing_task["user_id"] not in familyMembersIds:
+                    return {"status": 0, "message": "You don't have permission to edit this task"}, 403
+
+                # If editing, update existing task
+                payload = {
+                    "title": data.get("title"),
+                    "schedule": data.get("schedule", ""),
+                    "assigned_to": data.get("assigned_to", "All"),
+                    "completed": data.get("completed", False),
+                    "tagged_ids": tagged_ids_array,
+                    "updated_at": datetime.utcnow(),
+                }
+
+                DBHelper.update_one(
+                    "weekly_tasks",
+                    filters={"id": task_id},  # ✅ no user_id restriction
+                    updates=payload,
+                )
+
+                AuditLogger.log(
+                    user_id=uid,
+                    action="TASK_UPDATED",
+                    resource_type="weekly_tasks",
+                    resource_id=task_id,
+                    success=True,
+                    metadata=payload,
+                )
+
+                return {"status": 1, "message": f"Task '{data.get('title')}' updated successfully", "payload": {}}
+
+            else:
+                # If adding, generate new ID
+                new_id = uniqueId(digit=5, isNum=True, prefix=uid)
+                payload = {
+                    "id": new_id,
+                    "user_id": uid,
+                    "title": data.get("title"),
+                    "schedule": data.get("schedule", ""),
+                    "assigned_to": data.get("assigned_to", "All"),
+                    "completed": False,
+                    "tagged_ids": tagged_ids_array,
+                    "is_active": 1,
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow(),
+                }
+
+                DBHelper.insert("weekly_tasks", **payload)
+
+                AuditLogger.log(
+                    user_id=uid,
+                    action="TASK_ADDED",
+                    resource_type="weekly_tasks",
+                    resource_id=new_id,
+                    success=True,
+                    metadata=payload,
+                )
+
+                return {"status": 1, "message": f"Task '{data.get('title')}' added successfully", "payload": {}}
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="TASK_FAILED",
+                resource_type="weekly_tasks",
+                resource_id=task_id if editing else None,
+                success=False,
+                error_message="Failed to save task",
+                metadata={"input": data, "error": str(e)},
+            )
+            return {"status": 0, "message": f"Failed to save task: {str(e)}", "payload": {}}, 500
+
+class GetWeeklyTasks(Resource):
+    @auth_required(isOptional=True)
+    def get(self, uid, user):
+        try:
+            # Get family members (similar to GetTasks implementation)
+            sent_invites = DBHelper.find_all(
+                table_name="family_members",
+                select_fields=["fm_user_id"],
+                filters={"user_id": uid},
+            )
+            received_invites = DBHelper.find_all(
+                table_name="family_members",
+                select_fields=["user_id"],
+                filters={"fm_user_id": uid},
+            )
+
+            familyMembersIds = [m["fm_user_id"] for m in sent_invites] + [
+                m["user_id"] for m in received_invites
+            ]
+            familyMembersIds = list(set(familyMembersIds + [uid]))
+
+            # Fetch tasks
+            tasks = DBHelper.find_in(
+                table_name="weekly_tasks",
+                select_fields=[
+                    "id",
+                    "title",
+                    "schedule",
+                    "assigned_to",
+                    "completed",
+                    "created_at",
+                    "user_id",
+                    "tagged_ids",
+                    "is_active",
+                ],
+                field="user_id",
+                values=familyMembersIds,
+            )
+
+            # Filter only active tasks
+            tasks = [t for t in tasks if t.get("is_active", 1) == 1]
+
+            # Convert datetime to string
+            for t in tasks:
+                if isinstance(t.get("created_at"), datetime):
+                    t["created_at"] = t["created_at"].isoformat()
+
+            return {"status": 1, "message": "Success", "payload": {"tasks": tasks}}
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="GET_TASKS_FAILED",
+                resource_type="weekly_tasks",
+                resource_id=None,
+                success=False,
+                error_message=str(e),
+                metadata={"query_params": dict(request.args)},
+            )
+            return {
+                "status": 0,
+                "message": "Failed to fetch tasks",
+                "error": str(e),
+            }, 500
+
+
+class DeleteWeeklyTask(Resource):
+    @auth_required(isOptional=True)
+    def post(self, uid, user):
+        data = request.get_json(silent=True)
+
+        if not data or not data.get("id"):
+            AuditLogger.log(
+                user_id=uid,
+                action="TASK_DELETE_FAILED",
+                resource_type="weekly_tasks",
+                resource_id=None,
+                success=False,
+                error_message="Missing task ID for deletion",
+                metadata={"raw_request": str(request.data)},
+            )
+            return {"status": 0, "message": "Missing task ID", "payload": {}}, 400
+
+        task_id = data.get("id")
+
+        try:
+            # Mark task as deleted (soft delete)
+            DBHelper.update_one(
+                table_name="weekly_tasks",
+                filters={"id": task_id, "user_id": uid},
+                updates={"is_active": 0, "updated_at": datetime.utcnow()},
+            )
+
+            AuditLogger.log(
+                user_id=uid,
+                action="TASK_DELETED",
+                resource_type="weekly_tasks",
+                resource_id=task_id,
+                success=True,
+                metadata={"task_id": task_id, "deleted_by": user.get("user_name")},
+            )
+
+            return {"status": 1, "message": f"Task '{task_id}' deleted successfully", "payload": {}}
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="TASK_DELETE_FAILED",
+                resource_type="weekly_tasks",
+                resource_id=task_id,
+                success=False,
+                error_message="Failed to delete task",
+                metadata={"input": data, "error": str(e)},
+            )
+            return {"status": 0, "message": f"Failed to delete task: {str(e)}", "payload": {}}, 500

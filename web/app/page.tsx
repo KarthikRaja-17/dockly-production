@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { ROUTES } from "./routes";
 import DocklyLogin from "./docklyIn";
 import { adminUser } from "./comman";
+import { Analytics } from "@vercel/analytics/react"; // 👈 import
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export default function Home() {
   const router = useRouter();
@@ -25,5 +27,11 @@ export default function Home() {
     }
   }, []);
 
-  return <DocklyLogin />;
+  return (
+    <>
+      <DocklyLogin />
+      <Analytics /> {/* 👈 works, but only for this page */}
+      <SpeedInsights />
+    </>
+  );
 }

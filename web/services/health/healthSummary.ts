@@ -1,3 +1,4 @@
+// Enhanced healthSummary.ts - Updated to match new backend architecture
 import {
   getHealthSummaryInfo,
   addHealthSummaryInfo,
@@ -14,6 +15,7 @@ import {
   addFamilyMedicalHistory,
   updateFamilyMedicalHistory,
   deleteFamilyMedicalHistory,
+  getFamilyMembersForHealth,
 } from "../apiConfig";
 
 // ==================== INTERFACES ====================
@@ -87,19 +89,48 @@ export interface UserConditionResponse {
   updatedAt: string;
 }
 
-// Family Medical History Interfaces
+// ==================== NEW: FAMILY MEMBER INTERFACES ====================
+
+// Family member interface for health context (dropdown selection)
+export interface FamilyMemberForHealth {
+  user_id: string;
+  name: string;
+  relationship: string;
+  email: string;
+}
+
+// Enhanced family members API response
+export interface FamilyMembersForHealthResponse {
+  familyMembers: FamilyMemberForHealth[];
+  count: number;
+  hasMembers: boolean;
+}
+
+// ==================== ENHANCED FAMILY MEDICAL HISTORY INTERFACES ====================
+
+// Enhanced Family Medical History Interfaces with permissions
 export interface FamilyMedicalHistoryData {
   id?: number;
-  familyMemberRelation: string;
+  familyMemberUserId?: string;
+  familyMemberName?: string;
+  familyMemberRelation?: string;
   conditionName: string;
   ageOfOnset?: number;
   status?: string;
   notes?: string;
   editing?: boolean;
+  
+  // NEW: Permission fields from backend
+  canEdit?: boolean;
+  canDelete?: boolean;
+  addedBy?: string;
 }
 
+// Enhanced backend response structure
 export interface FamilyMedicalHistoryResponse {
   id: number;
+  familyMemberUserId: string;
+  familyMemberName: string;
   familyMemberRelation: string;
   conditionName: string;
   ageOfOnset: number;
@@ -107,6 +138,30 @@ export interface FamilyMedicalHistoryResponse {
   notes: string;
   createdAt: string;
   updatedAt: string;
+  addedBy: string;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+// Enhanced API response with stats and family members
+export interface FamilyMedicalHistoryApiResponse {
+  familyHistory: FamilyMedicalHistoryResponse[];
+  familyMembers: FamilyMemberForHealth[];
+  stats: {
+    totalRecords: number;
+    editableRecords: number;
+    readOnlyRecords: number;
+    familyMembersCount: number;
+  };
+}
+
+// Stats interface for family medical history
+export interface FamilyMedicalHistoryStats {
+  totalRecords: number;
+  editableRecords: number;
+  readOnlyRecords: number;
+  membersWithHistory: number;
+  familyMembersCount: number;
 }
 
 // ==================== HEALTH SUMMARY INFO SERVICES ====================
@@ -250,16 +305,41 @@ export function getConditionStatusColor(status: string): string {
   return statusColors[status as keyof typeof statusColors] || statusColors.active;
 }
 
-// ==================== FAMILY MEDICAL HISTORY SERVICES ====================
+// ==================== ENHANCED FAMILY MEMBERS SERVICES ====================
 
-// Get all family medical history for the user
+// NEW: Get family members for health context
+export async function fetchFamilyMembersForHealth() {
+  return getFamilyMembersForHealth({});
+}
+
+// Transform family members response
+export function transformFamilyMemberForHealth(
+  member: any
+): FamilyMemberForHealth {
+  return {
+    user_id: member.user_id,
+    name: member.name,
+    relationship: member.relationship,
+    email: member.email,
+  };
+}
+
+// ==================== ENHANCED FAMILY MEDICAL HISTORY SERVICES ====================
+
+// Get all family medical history for the user with enhanced permissions
 export async function fetchFamilyMedicalHistory() {
   return getFamilyMedicalHistory({});
 }
 
 // Add a new family medical history entry
 export async function createFamilyMedicalHistory(historyData: FamilyMedicalHistoryData) {
-  return addFamilyMedicalHistory(historyData);
+  return addFamilyMedicalHistory({
+    familyMemberUserId: historyData.familyMemberUserId,
+    conditionName: historyData.conditionName,
+    ageOfOnset: historyData.ageOfOnset,
+    status: historyData.status,
+    notes: historyData.notes,
+  });
 }
 
 // Update an existing family medical history entry
@@ -267,7 +347,14 @@ export async function editFamilyMedicalHistory(
   id: number,
   historyData: FamilyMedicalHistoryData
 ) {
-  return updateFamilyMedicalHistory(id, { ...historyData, editing: true });
+  return updateFamilyMedicalHistory(id, {
+    familyMemberUserId: historyData.familyMemberUserId,
+    conditionName: historyData.conditionName,
+    ageOfOnset: historyData.ageOfOnset,
+    status: historyData.status,
+    notes: historyData.notes,
+    editing: true
+  });
 }
 
 // Delete a family medical history entry
@@ -275,23 +362,58 @@ export async function removeFamilyMedicalHistory(id: number) {
   return deleteFamilyMedicalHistory(id);
 }
 
-// Transform backend response to frontend format for family history
+// Enhanced transform function for family medical history with permissions
 export function transformFamilyMedicalHistoryData(
   history: FamilyMedicalHistoryResponse
 ): FamilyMedicalHistoryData {
   return {
     id: history.id,
+    familyMemberUserId: history.familyMemberUserId,
+    familyMemberName: history.familyMemberName,
     familyMemberRelation: history.familyMemberRelation,
     conditionName: history.conditionName,
     ageOfOnset: history.ageOfOnset,
     status: history.status,
     notes: history.notes,
+    canEdit: history.canEdit,
+    canDelete: history.canDelete,
+    addedBy: history.addedBy,
   };
+}
+
+// ==================== NEW: PERMISSION HELPER FUNCTIONS ====================
+
+// Check if user can edit family medical history record
+export function canEditFamilyMedicalHistory(history: FamilyMedicalHistoryData): boolean {
+  return history.canEdit === true;
+}
+
+// Check if user can delete family medical history record
+export function canDeleteFamilyMedicalHistory(history: FamilyMedicalHistoryData): boolean {
+  return history.canDelete === true;
+}
+
+// Check if family medical history record is read-only
+export function isFamilyMedicalHistoryReadOnly(history: FamilyMedicalHistoryData): boolean {
+  return history.canEdit === false;
+}
+
+// Get permission status display text
+export function getFamilyMedicalHistoryPermissionText(history: FamilyMedicalHistoryData): string {
+  if (history.addedBy === 'me') {
+    return 'Added by you';
+  }
+  return `Added by ${history.addedBy}`;
+}
+
+// Get permission icon for family medical history
+export function getFamilyMedicalHistoryPermissionIcon(history: FamilyMedicalHistoryData): 'lock' | 'unlock' {
+  return history.canEdit ? 'unlock' : 'lock';
 }
 
 // ==================== UTILITY FUNCTIONS ====================
 
-// Common family relations for dropdown options
+// Common family relations for dropdown options (DEPRECATED - now using actual family members)
 export const FAMILY_RELATIONS = [
   'Father',
   'Mother',
@@ -333,3 +455,84 @@ export const SEVERITY_LEVELS = [
   'severe',
   'critical'
 ];
+
+// ==================== NEW: VALIDATION FUNCTIONS ====================
+
+// Validate family member selection for new medical history
+export function validateFamilyMedicalHistoryData(
+  historyData: FamilyMedicalHistoryData,
+  familyMembers: FamilyMemberForHealth[]
+): string[] {
+  const errors: string[] = [];
+
+  if (!historyData.familyMemberUserId) {
+    errors.push('Please select a family member');
+  } else {
+    const memberExists = familyMembers.some(
+      member => member.user_id === historyData.familyMemberUserId
+    );
+    if (!memberExists) {
+      errors.push('Selected family member is not valid');
+    }
+  }
+
+  if (!historyData.conditionName || historyData.conditionName.trim() === '') {
+    errors.push('Please enter a medical condition');
+  }
+
+  return errors;
+}
+
+// Check if family members are available for medical history
+export function hasFamilyMembersForHistory(familyMembers: FamilyMemberForHealth[]): boolean {
+  return familyMembers && familyMembers.length > 0;
+}
+
+// Get family member name by user ID
+export function getFamilyMemberNameById(
+  userId: string,
+  familyMembers: FamilyMemberForHealth[]
+): string {
+  const member = familyMembers.find(m => m.user_id === userId);
+  return member?.name || 'Unknown Member';
+}
+
+// Get family member relationship by user ID  
+export function getFamilyMemberRelationshipById(
+  userId: string,
+  familyMembers: FamilyMemberForHealth[]
+): string {
+  const member = familyMembers.find(m => m.user_id === userId);
+  return member?.relationship || 'Unknown';
+}
+
+// ==================== NEW: FAMILY MEDICAL HISTORY STATS HELPERS ====================
+
+// Calculate family medical history stats
+export function calculateFamilyMedicalHistoryStats(
+  familyHistory: FamilyMedicalHistoryData[],
+  familyMembers: FamilyMemberForHealth[]
+): FamilyMedicalHistoryStats {
+  const totalRecords = familyHistory.length;
+  const editableRecords = familyHistory.filter(h => h.canEdit === true).length;
+  const readOnlyRecords = familyHistory.filter(h => h.canEdit === false).length;
+  const membersWithHistory = new Set(
+    familyHistory.map(h => h.familyMemberUserId).filter(Boolean)
+  ).size;
+
+  return {
+    totalRecords,
+    editableRecords,
+    readOnlyRecords,
+    membersWithHistory,
+    familyMembersCount: familyMembers.length,
+  };
+}
+
+// Check if family medical history has meaningful data
+export function hasMeaningfulFamilyMedicalHistory(
+  familyHistory: FamilyMedicalHistoryData[],
+  familyMembers: FamilyMemberForHealth[]
+): boolean {
+  return familyHistory.length > 0 && familyMembers.length > 0;
+}

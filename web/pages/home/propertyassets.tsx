@@ -5,7 +5,7 @@ import { PlusOutlined, DownOutlined, HomeOutlined, CarOutlined, AppstoreOutlined
 import PropertyInformation from './PropertyInformation';
 import VehicleDetails from './vehicledetails';
 import OtherAssets from './otherassets';
-import { PRIMARY_COLOR } from '../../app/comman';
+import { CustomButton, PRIMARY_COLOR } from '../../app/comman';
 
 const { TabPane } = Tabs;
 
@@ -122,24 +122,10 @@ const PropertySection: React.FC<PropertySectionProps> = ({ hasAdvancedFeatures =
         </h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <Dropdown overlay={addMenu} trigger={['click']} placement="bottomRight">
-            <Button
-              type="primary"
-              style={{
-                backgroundColor: PRIMARY_COLOR,
-                borderColor: PRIMARY_COLOR,
-                color: '#fff',
-                borderRadius: '6px',
-                height: '32px',
-                padding: '0 8px',
-                width: '30px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '2px',
-                justifyContent: 'center',
-              }}
-              size="small"
-              icon={<PlusOutlined />}
-            />
+           <CustomButton
+             label="Add Property" 
+             onClick={handleAddProperty}// Tooltip text
+          />
           </Dropdown>
         </div>
       </div>

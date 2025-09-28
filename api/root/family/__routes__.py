@@ -89,3 +89,19 @@ family_api.add_resource(AddActivity, "/add/activity")
 family_api.add_resource(GetActivities, "/get/activities")
 family_api.add_resource(UpdateActivity, "/update/activity")
 family_api.add_resource(DeleteActivity, "/delete/activity")
+
+
+# Meal routes
+family_api.add_resource(AddOrUpdateMeal, "/add/meal")
+family_api.add_resource(GetMeals, "/get/meals")
+family_api.add_resource(DeleteMeal, "/delete/meal")
+
+# Chore routes
+family_api.add_resource(AddOrUpdateChore, "/add/chore")
+family_api.add_resource(GetChores, "/get/chores")
+family_api.add_resource(DeleteChore, "/delete/chore")
+
+# Task routes
+family_api.add_resource(AddOrUpdateTask, "/add/weekly-task")
+family_api.add_resource(GetWeeklyTasks, "/get/weekly-tasks")
+family_api.add_resource(DeleteWeeklyTask, "/delete/weekly-task")

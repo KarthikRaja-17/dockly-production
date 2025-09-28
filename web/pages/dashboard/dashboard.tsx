@@ -1251,7 +1251,7 @@ function App() {
               >
                 {formatDate(currentTime)}
               </Text>
-            </div>
+            </div> */}
             <div
               className="widgets-container"
               style={{
@@ -1320,7 +1320,7 @@ function App() {
                       Actions & Notifications
                     </Title>
                   </div>
-                  <div style={{ maxHeight: "220px", overflowY: "auto" }}>
+                  <div>
                     <List
                       dataSource={[...notifications, ...sharedNotifications, ...getStartedNotifications]}
                       loading={loadingNotifications}

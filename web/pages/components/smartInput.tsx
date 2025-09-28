@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Input, Button, Tag, message, Checkbox, Typography } from 'antd';
 import { ArrowRightOutlined, ChromeOutlined, EditOutlined } from '@ant-design/icons';
-import { addSmartNotes, fetchNoteSuggestions } from '../../services/planner';
+import { addSmartNotes } from '../../services/planner';
 import { PRIMARY_COLOR } from '../../app/comman';
 const { Text } = Typography;
 interface SmartInputBoxProps {

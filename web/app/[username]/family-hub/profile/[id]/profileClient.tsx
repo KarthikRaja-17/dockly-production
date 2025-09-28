@@ -42,8 +42,7 @@ interface ProfileClientProps {
 }
 
 interface SchoolActivitiesProps {
-  isEditing: boolean;          // ✅ add this line
-  // any other props you need
+  isEditing: boolean;
 }
 
 const ProfileClient: React.FC<ProfileClientProps> = ({ memberId }) => {
@@ -53,7 +52,6 @@ const ProfileClient: React.FC<ProfileClientProps> = ({ memberId }) => {
   const [localUserName, setLocalUserName] = useState<string | null>(null);
   const [documentRecords, setDocumentRecords] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     const fetchResolvedUserId = async () => {
@@ -181,6 +179,7 @@ const ProfileClient: React.FC<ProfileClientProps> = ({ memberId }) => {
 
   return (
     <div style={{ width: "100%" }}>
+      {/* Header Card */}
       <Card
         style={{
           background: "linear-gradient(135deg, #3355ff, #8b5cf6)",
@@ -242,60 +241,40 @@ const ProfileClient: React.FC<ProfileClientProps> = ({ memberId }) => {
                 .join(" • ")}
             </Text>
           </div>
-          <Button
-            type={isEditing ? "primary" : "default"}
-            icon={<EditOutlined />}
-            onClick={() => setIsEditing(!isEditing)}
-            style={{
-              backgroundColor: isEditing
-                ? "rgba(255, 255, 255, 0.2)"
-                : "rgba(255, 255, 255, 0.1)",
-              borderColor: "rgba(255, 255, 255, 0.3)",
-              color: "white",
-            }}
-          >
-            {isEditing ? "Done" : "Edit"}
-          </Button>
         </div>
       </Card>
 
+      {/* Full Width Personal Information Section */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24}>
+          {resolvedUserId && (
+            <PersonalInfoSection
+              memberId={resolvedUserId}
+              onDocumentUploaded={handleDocumentUploaded}
+              fullWidth={true}
+            />
+          )}
+        </Col>
+      </Row>
+
+      {/* Medical Info and Right Sidebar */}
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={14}>
-          <div
-            style={{
-              maxHeight: "100%",
-              maxWidth: "100%",
-              overflowY: "auto",
-              padding: "8px",
-              border: "1px solid #f0f0f0",
-              borderRadius: "8px",
-              backgroundColor: "#ffffffff",
-            }}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {resolvedUserId && (
-                <PersonalInfoSection
-                  memberId={resolvedUserId}
-                  isEditing={isEditing}
-                  onDocumentUploaded={handleDocumentUploaded}
-                />
-              )}
-              {resolvedUserId && (
-                <MedicalInfoPage
-                  memberId={resolvedUserId}
-                  isEditing={isEditing}
-                />
-              )}
-            </div>
-          </div>
+          {resolvedUserId && <MedicalInfoPage memberId={resolvedUserId} />}
         </Col>
 
         <Col xs={24} lg={10}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {resolvedUserId && (
+              <AssetsDevicesSection memberId={resolvedUserId} />
+            )}
+            <SchoolActivities />
+
+            {/* Documents & Records moved below Schools */}
             <Card
               title={
                 <span>
-                  <FileTextOutlined style={{ marginRight: 8 }} /> 
+                  <FileTextOutlined style={{ marginRight: 8 }} />
                   Documents & Records
                 </span>
               }
@@ -402,11 +381,6 @@ const ProfileClient: React.FC<ProfileClientProps> = ({ memberId }) => {
                 )}
               </div>
             </Card>
-
-            {resolvedUserId && (
-              <AssetsDevicesSection memberId={resolvedUserId} />
-            )}
-            <SchoolActivities/>
           </div>
         </Col>
       </Row>

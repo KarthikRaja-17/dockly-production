@@ -101,8 +101,8 @@ const RecentTransactions = ({
     if (!user_id || !session?.token) {
       return false;
     }
-    let retries = 8;
-    let delay = 4000;
+    let retries = 4;
+    let delay = 40;
     try {
       setSaveLoading(true);
       while (retries > 0) {

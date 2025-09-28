@@ -418,9 +418,10 @@ export const CustomButton: React.FC<CommonButtonProps> = ({
   label,
   onClick,
   type = "primary",
-  size = "small",
+  // size = "small",
   style,
 }) => {
+  const size = "small"
   return (
     <Tooltip title={label} placement="top">
       <Button
@@ -432,9 +433,9 @@ export const CustomButton: React.FC<CommonButtonProps> = ({
           backgroundColor: COLORS.accent,
           borderColor: COLORS.accent,
           borderRadius: "6px",
-          height: size === "small" ? "28px" : size === "middle" ? "36px" : "44px",
+          height: size === "small" ? "26px" : size === "middle" ? "34px" : "40px",
           fontWeight: 600,
-          fontSize: size === "small" ? "12px" : "14px",
+          fontSize: size === "small" ? "10px" : "12px",
           fontFamily: FONT_FAMILY,
           ...style,
         }}

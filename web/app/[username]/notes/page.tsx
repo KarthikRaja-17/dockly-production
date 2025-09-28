@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import React, { useEffect, useState, useRef } from "react";
 import {
   Button,
@@ -66,12 +66,12 @@ import {
   updateNoteCategory,
   deleteNoteCategory,
   deleteNote,
-  shareNote,
   getUsersFamilyMembers,
 } from "../../../services/family";
 import DocklyLoader from "../../../utils/docklyLoader";
 import { responsive, getCurrentBreakpoint } from "../../../utils/responsive";
-import { PRIMARY_COLOR } from "../../comman";
+import { CustomButton, PRIMARY_COLOR } from "../../comman";
+import ShareModal  from "../../../pages/components/ShareModal";
 
 const FONT_FAMILY =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
@@ -155,14 +155,14 @@ const hubOptions = [
   },
   {
     value: "FINANCE",
-    label: "Finance", 
+    label: "Finance",
     color: "#13c2c2",
     icon: <DollarOutlined style={{ fontSize: "12px" }} />,
   },
   {
     value: "PLANNER",
     label: "Planner",
-    color: "#9254de", 
+    color: "#9254de",
     icon: <CalendarOutlined style={{ fontSize: "12px" }} />,
   },
   {
@@ -172,7 +172,7 @@ const hubOptions = [
     icon: <HeartOutlined style={{ fontSize: "12px" }} />,
   },
   {
-    value: "HOME", 
+    value: "HOME",
     label: "Home",
     color: "#fa8c16",
     icon: <HomeOutlined style={{ fontSize: "12px" }} />,
@@ -186,19 +186,23 @@ const hubOptions = [
 ];
 
 const getHubDisplayName = (hub: string): string => {
-  const hubOption = hubOptions.find(h => h.value === hub);
+  const hubOption = hubOptions.find((h) => h.value === hub);
   return hubOption?.label || hub;
 };
 
 const getHubIcon = (hub: string, size: number = 14) => {
-  const hubOption = hubOptions.find(h => h.value === hub);
-  return hubOption ? React.cloneElement(hubOption.icon, {
-    style: { fontSize: size, color: "#fff" }
-  }) : <SettingOutlined style={{ fontSize: size, color: "#fff" }} />;
+  const hubOption = hubOptions.find((h) => h.value === hub);
+  return hubOption ? (
+    React.cloneElement(hubOption.icon, {
+      style: { fontSize: size, color: "#fff" },
+    })
+  ) : (
+    <SettingOutlined style={{ fontSize: size, color: "#fff" }} />
+  );
 };
 
 const getHubColor = (hub: string): string => {
-  const hubOption = hubOptions.find(h => h.value === hub);
+  const hubOption = hubOptions.find((h) => h.value === hub);
   return hubOption?.color || "#722ed1";
 };
 
@@ -206,27 +210,33 @@ const getHubColor = (hub: string): string => {
 const getHubsDisplay = (hubs: string[] | undefined) => {
   if (!hubs || hubs.length === 0) {
     const defaultHub = hubOptions.find((h) => h.value === "FAMILY");
-    return defaultHub ? [{
-      label: defaultHub.label,
-      color: defaultHub.color,
-      icon: defaultHub.icon,
-      value: defaultHub.value,
-    }] : [];
+    return defaultHub
+      ? [
+          {
+            label: defaultHub.label,
+            color: defaultHub.color,
+            icon: defaultHub.icon,
+            value: defaultHub.value,
+          },
+        ]
+      : [];
   }
 
   return hubs.map((hub) => {
     const hubOption = hubOptions.find((h) => h.value === hub);
-    return hubOption ? {
-      label: hubOption.label,
-      color: hubOption.color,
-      icon: hubOption.icon,  
-      value: hubOption.value,
-    } : {
-      label: "Utilities",
-      color: "#722ed1",
-      icon: <SettingOutlined style={{ fontSize: "12px" }} />,
-      value: "NONE",
-    };
+    return hubOption
+      ? {
+          label: hubOption.label,
+          color: hubOption.color,
+          icon: hubOption.icon,
+          value: hubOption.value,
+        }
+      : {
+          label: "Utilities",
+          color: "#722ed1",
+          icon: <SettingOutlined style={{ fontSize: "12px" }} />,
+          value: "NONE",
+        };
   });
 };
 
@@ -272,95 +282,106 @@ const countWords = (text: string): number => {
 
 const stripHtml = (html: string): string => {
   if (!html) return "";
-  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 };
 
 // Enhanced function to count lines in HTML content with proper list handling
 const countHtmlLines = (html: string, containerWidth: number = 200): number => {
   if (!html) return 0;
-  
+
   // Create a temporary div to measure content
-  const tempDiv = document.createElement('div');
+  const tempDiv = document.createElement("div");
   tempDiv.innerHTML = html;
-  tempDiv.style.position = 'absolute';
-  tempDiv.style.visibility = 'hidden';
+  tempDiv.style.position = "absolute";
+  tempDiv.style.visibility = "hidden";
   tempDiv.style.width = `${containerWidth}px`;
-  tempDiv.style.fontSize = '12px';
-  tempDiv.style.lineHeight = '1.5';
+  tempDiv.style.fontSize = "12px";
+  tempDiv.style.lineHeight = "1.5";
   tempDiv.style.fontFamily = FONT_FAMILY;
-  tempDiv.style.wordBreak = 'break-all'; // Changed to break-all for aggressive breaking
-  tempDiv.style.overflowWrap = 'break-word';
-  tempDiv.style.whiteSpace = 'normal';
-  
+  tempDiv.style.wordBreak = "break-all"; // Changed to break-all for aggressive breaking
+  tempDiv.style.overflowWrap = "break-word";
+  tempDiv.style.whiteSpace = "normal";
+
   document.body.appendChild(tempDiv);
   const height = tempDiv.offsetHeight;
   document.body.removeChild(tempDiv);
-  
+
   // Approximate line height is 18px (12px font * 1.5 line-height)
   const lineHeight = 18;
   return Math.ceil(height / lineHeight);
 };
 
 // Enhanced HTML truncation for grid view - show limited lines with proper truncation
-const truncateHtmlToLines = (html: string, maxLines: number = 3, containerWidth: number = 200): { content: string, truncated: boolean } => {
+const truncateHtmlToLines = (
+  html: string,
+  maxLines: number = 3,
+  containerWidth: number = 200
+): { content: string; truncated: boolean } => {
   if (!html) return { content: "", truncated: false };
-  
+
   // If content is short enough, return as is
   if (countHtmlLines(html, containerWidth) <= maxLines) {
     return { content: html, truncated: false };
   }
-  
+
   // Create a temporary container to work with
-  const tempDiv = document.createElement('div');
+  const tempDiv = document.createElement("div");
   tempDiv.innerHTML = html;
-  tempDiv.style.position = 'absolute';
-  tempDiv.style.visibility = 'hidden';
+  tempDiv.style.position = "absolute";
+  tempDiv.style.visibility = "hidden";
   tempDiv.style.width = `${containerWidth}px`;
-  tempDiv.style.fontSize = '12px';
-  tempDiv.style.lineHeight = '1.5';
+  tempDiv.style.fontSize = "12px";
+  tempDiv.style.lineHeight = "1.5";
   tempDiv.style.fontFamily = FONT_FAMILY;
-  tempDiv.style.wordBreak = 'break-all'; // Changed to break-all for aggressive breaking
-  tempDiv.style.overflowWrap = 'break-word';
-  tempDiv.style.whiteSpace = 'normal';
-  
+  tempDiv.style.wordBreak = "break-all"; // Changed to break-all for aggressive breaking
+  tempDiv.style.overflowWrap = "break-word";
+  tempDiv.style.whiteSpace = "normal";
+
   document.body.appendChild(tempDiv);
-  
+
   const lineHeight = 18;
   const maxHeight = maxLines * lineHeight;
-  
+
   // Function to truncate while preserving HTML structure
-  const truncateElement = (element: HTMLElement, remainingHeight: number): { element: HTMLElement, truncated: boolean } => {
+  const truncateElement = (
+    element: HTMLElement,
+    remainingHeight: number
+  ): { element: HTMLElement; truncated: boolean } => {
     const clone = element.cloneNode(false) as HTMLElement;
     let currentHeight = 0;
     let truncated = false;
-    
+
     for (let i = 0; i < element.childNodes.length; i++) {
       const child = element.childNodes[i];
-      
+
       if (child.nodeType === Node.TEXT_NODE) {
         // Handle text nodes
-        const textContent = child.textContent || '';
-        const tempSpan = document.createElement('span');
+        const textContent = child.textContent || "";
+        const tempSpan = document.createElement("span");
         tempSpan.textContent = textContent;
         tempSpan.style.cssText = getComputedStyle(element).cssText;
         tempDiv.appendChild(tempSpan);
-        
+
         const textHeight = tempSpan.offsetHeight;
         tempDiv.removeChild(tempSpan);
-        
+
         if (currentHeight + textHeight <= remainingHeight) {
           clone.appendChild(child.cloneNode(true));
           currentHeight += textHeight;
         } else {
           // Try to fit partial text
           const words = textContent.split(/\s+/);
-          let partialText = '';
-          
+          let partialText = "";
+
           for (let wordIndex = 0; wordIndex < words.length; wordIndex++) {
-            const testText = partialText + (partialText ? ' ' : '') + words[wordIndex];
+            const testText =
+              partialText + (partialText ? " " : "") + words[wordIndex];
             tempSpan.textContent = testText;
             tempDiv.appendChild(tempSpan);
-            
+
             if (tempSpan.offsetHeight + currentHeight <= remainingHeight) {
               partialText = testText;
             } else {
@@ -368,7 +389,7 @@ const truncateHtmlToLines = (html: string, maxLines: number = 3, containerWidth:
             }
             tempDiv.removeChild(tempSpan);
           }
-          
+
           if (partialText) {
             clone.appendChild(document.createTextNode(partialText));
           }
@@ -379,19 +400,19 @@ const truncateHtmlToLines = (html: string, maxLines: number = 3, containerWidth:
         // Handle element nodes (including lists)
         const childElement = child as HTMLElement;
         const childClone = document.createElement(childElement.tagName);
-        
+
         // Copy attributes (important for lists to maintain numbering)
-        Array.from(childElement.attributes).forEach(attr => {
+        Array.from(childElement.attributes).forEach((attr) => {
           childClone.setAttribute(attr.name, attr.value);
         });
-        
+
         // For list items, preserve the structure
-        if (childElement.tagName === 'LI') {
+        if (childElement.tagName === "LI") {
           const tempLi = childElement.cloneNode(true) as HTMLElement;
           tempDiv.appendChild(tempLi);
           const liHeight = tempLi.offsetHeight;
           tempDiv.removeChild(tempLi);
-          
+
           if (currentHeight + liHeight <= remainingHeight) {
             clone.appendChild(childElement.cloneNode(true));
             currentHeight += liHeight;
@@ -401,19 +422,22 @@ const truncateHtmlToLines = (html: string, maxLines: number = 3, containerWidth:
           }
         } else {
           // Recursively handle other elements
-          const result = truncateElement(childElement, remainingHeight - currentHeight);
+          const result = truncateElement(
+            childElement,
+            remainingHeight - currentHeight
+          );
           if (result.element.childNodes.length > 0) {
             clone.appendChild(result.element);
-            
+
             // Measure the added element
-            const measureDiv = document.createElement('div');
+            const measureDiv = document.createElement("div");
             measureDiv.appendChild(result.element.cloneNode(true));
             measureDiv.style.cssText = tempDiv.style.cssText;
             tempDiv.appendChild(measureDiv);
             currentHeight += measureDiv.offsetHeight;
             tempDiv.removeChild(measureDiv);
           }
-          
+
           if (result.truncated) {
             truncated = true;
             break;
@@ -421,16 +445,16 @@ const truncateHtmlToLines = (html: string, maxLines: number = 3, containerWidth:
         }
       }
     }
-    
+
     return { element: clone, truncated };
   };
-  
+
   const result = truncateElement(tempDiv, maxHeight);
   document.body.removeChild(tempDiv);
-  
-  return { 
+
+  return {
     content: result.element.innerHTML,
-    truncated: result.truncated
+    truncated: result.truncated,
   };
 };
 
@@ -460,8 +484,10 @@ const renderHtmlContent = (
   // For grid view - handle both truncated and expanded states
   if (isGridView) {
     // Check if content needs truncation
-    const needsTruncation = maxLines ? countHtmlLines(html, containerWidth) > maxLines : false;
-    
+    const needsTruncation = maxLines
+      ? countHtmlLines(html, containerWidth) > maxLines
+      : false;
+
     // If no truncation needed, show full content
     if (!needsTruncation) {
       return (
@@ -529,7 +555,7 @@ const renderHtmlContent = (
   if (maxLines && showToggle) {
     const lineCount = countHtmlLines(html, containerWidth);
     needsTruncation = lineCount > maxLines;
-    
+
     if (needsTruncation && !isExpanded) {
       const result = truncateHtmlToLines(html, maxLines, containerWidth);
       content = result.content;
@@ -624,15 +650,15 @@ const RichTextEditor = ({
   // Check active formatting states
   const updateActiveFormats = () => {
     const formats = new Set<string>();
-    
+
     try {
-      if (document.queryCommandState('bold')) formats.add('bold');
-      if (document.queryCommandState('insertUnorderedList')) formats.add('ul');
-      if (document.queryCommandState('insertOrderedList')) formats.add('ol');
+      if (document.queryCommandState("bold")) formats.add("bold");
+      if (document.queryCommandState("insertUnorderedList")) formats.add("ul");
+      if (document.queryCommandState("insertOrderedList")) formats.add("ol");
     } catch (e) {
       // Silently handle any errors
     }
-    
+
     setActiveFormats(formats);
   };
 
@@ -702,9 +728,9 @@ const RichTextEditor = ({
           style={{
             minWidth: 28,
             height: 24,
-            backgroundColor: activeFormats.has('bold') ? '#1890ff' : undefined,
-            color: activeFormats.has('bold') ? '#fff' : undefined,
-            borderColor: activeFormats.has('bold') ? '#1890ff' : undefined,
+            backgroundColor: activeFormats.has("bold") ? "#1890ff" : undefined,
+            color: activeFormats.has("bold") ? "#fff" : undefined,
+            borderColor: activeFormats.has("bold") ? "#1890ff" : undefined,
           }}
         />
         <Button
@@ -714,9 +740,9 @@ const RichTextEditor = ({
           style={{
             minWidth: 28,
             height: 24,
-            backgroundColor: activeFormats.has('ul') ? '#1890ff' : undefined,
-            color: activeFormats.has('ul') ? '#fff' : undefined,
-            borderColor: activeFormats.has('ul') ? '#1890ff' : undefined,
+            backgroundColor: activeFormats.has("ul") ? "#1890ff" : undefined,
+            color: activeFormats.has("ul") ? "#fff" : undefined,
+            borderColor: activeFormats.has("ul") ? "#1890ff" : undefined,
           }}
         />
         <Button
@@ -726,9 +752,9 @@ const RichTextEditor = ({
           style={{
             minWidth: 28,
             height: 24,
-            backgroundColor: activeFormats.has('ol') ? '#1890ff' : undefined,
-            color: activeFormats.has('ol') ? '#fff' : undefined,
-            borderColor: activeFormats.has('ol') ? '#1890ff' : undefined,
+            backgroundColor: activeFormats.has("ol") ? "#1890ff" : undefined,
+            color: activeFormats.has("ol") ? "#fff" : undefined,
+            borderColor: activeFormats.has("ol") ? "#1890ff" : undefined,
           }}
         />
         <Divider type="vertical" style={{ height: "24px", margin: "0 2px" }} />
@@ -799,7 +825,7 @@ const IntegratedNotes = () => {
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1200
   );
-  
+
   // Add loading state for operations
   const [operationLoading, setOperationLoading] = useState<boolean>(false);
 
@@ -820,32 +846,24 @@ const IntegratedNotes = () => {
   const [form] = Form.useForm();
   const [totalNotes, setTotalNotes] = useState<number>(0);
 
-  // Share modal states
+  // Share modal states - simplified to use common ShareModal
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [currentShareNote, setCurrentShareNote] = useState<Note | null>(null);
-  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
-  const [emailShareVisible, setEmailShareVisible] = useState(false);
-  const [shareForm] = Form.useForm();
 
   const [familyMembers, setFamilyMembers] = useState([]);
-  
+
   // ✅ Add search term state for share modal - SAME AS BOOKMARKS
   const [shareSearchTerm, setShareSearchTerm] = useState("");
 
   // State for expanded descriptions (only for table view now)
-  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
-  
-  // State for expanded grid descriptions
-  const [expandedGridDescriptions, setExpandedGridDescriptions] = useState<Set<number>>(new Set());
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(
+    new Set()
+  );
 
-  // ✅ Filter family members based on search term AND excluding pending/me - SAME LOGIC AS BOOKMARKS
-  const filteredFamilyMembers = familyMembers
-    .filter((member: any) => member.relationship !== "me")
-    .filter((member: any) => member.status?.toLowerCase() !== "pending") // ✅ Added pending filter
-    .filter((member: any) => member.email && member.email.trim()) // Keep email filter for IntegratedNotes
-    .filter((member: any) =>
-      member.name.toLowerCase().includes(shareSearchTerm.toLowerCase())
-    );
+  // State for expanded grid descriptions
+  const [expandedGridDescriptions, setExpandedGridDescriptions] = useState<
+    Set<number>
+  >(new Set());
 
   // Responsive handler
   useEffect(() => {
@@ -1114,7 +1132,11 @@ const IntegratedNotes = () => {
   const handleSaveEdit = async (noteId: number, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    if (!tempNote || !tempNote.title.trim() || !stripHtml(tempNote.description).trim()) {
+    if (
+      !tempNote ||
+      !tempNote.title.trim() ||
+      !stripHtml(tempNote.description).trim()
+    ) {
       message.error("Please fill in all fields");
       return;
     }
@@ -1221,109 +1243,11 @@ const IntegratedNotes = () => {
     }
   };
 
+  // Simplified share handler using common ShareModal
   const handleShareNote = (note: Note, e: React.MouseEvent) => {
     e.stopPropagation();
     setCurrentShareNote(note);
-    setSelectedMemberIds([]);
-    setEmailShareVisible(false);
     setShareModalVisible(true);
-    shareForm.resetFields();
-  };
-
-  const handleShareToMembers = async () => {
-    if (!currentShareNote || selectedMemberIds.length === 0) {
-      message.warning("Please select family members to share with");
-      return;
-    }
-
-    // ✅ Apply same filtering logic when selecting members for sharing
-    const selectedMembers = filteredFamilyMembers.filter((member: any) =>
-      selectedMemberIds.includes(member.id)
-    );
-
-    const emails = selectedMembers
-      .map((member: any) => member.email)
-      .filter((email: string) => !!email);
-
-    if (emails.length === 0) {
-      message.warning("Selected family members don't have email addresses");
-      return;
-    }
-
-    try {
-      setOperationLoading(true);
-
-      // Improved error handling for sharing
-      const sharePromises = emails.map(async (email: string) => {
-        try {
-          return await shareNote({
-            email,
-            note: {
-              title: currentShareNote.title,
-              description: currentShareNote.description,
-              hub: currentShareNote.hub,
-              created_at: currentShareNote.created_at,
-            },
-            tagged_members: emails,
-          });
-        } catch (error) {
-          console.error(`Failed to share with ${email}:`, error);
-          throw error;
-        }
-      });
-
-      await Promise.all(sharePromises);
-
-      const memberNames = selectedMembers
-        .filter((m: any) => m.email)
-        .map((m: any) => m.name)
-        .join(", ");
-      message.success(`Note shared with ${memberNames}!`);
-      setShareModalVisible(false);
-      setCurrentShareNote(null);
-      setSelectedMemberIds([]);
-      setEmailShareVisible(false);
-    } catch (err) {
-      console.error("Error sharing note:", err);
-      message.error("Failed to share note. Please check your connection and try again.");
-    } finally {
-      setOperationLoading(false);
-    }
-  };
-
-  const handleEmailShare = async () => {
-    try {
-      const values = await shareForm.validateFields();
-
-      if (!currentShareNote) {
-        message.error("No note selected for sharing");
-        return;
-      }
-
-      setOperationLoading(true);
-
-      const res = await shareNote({
-        email: values.email,
-        note: {
-          title: currentShareNote.title,
-          description: currentShareNote.description,
-          hub: currentShareNote.hub,
-          created_at: currentShareNote.created_at,
-        },
-      });
-
-      message.success("Note shared via email!");
-      setShareModalVisible(false);
-      shareForm.resetFields();
-      setCurrentShareNote(null);
-      setSelectedMemberIds([]);
-      setEmailShareVisible(false);
-    } catch (err) {
-      console.error("Error sharing note:", err);
-      message.error("Failed to share note via email. Please check your connection and try again.");
-    } finally {
-      setOperationLoading(false);
-    }
   };
 
   const getNoteActionMenu = (note: Note) => {
@@ -1541,7 +1465,7 @@ const IntegratedNotes = () => {
 
   // Function to toggle expanded state for descriptions (only for table view now)
   const toggleDescriptionExpansion = (noteId: number) => {
-    setExpandedDescriptions(prev => {
+    setExpandedDescriptions((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(noteId)) {
         newSet.delete(noteId);
@@ -1554,7 +1478,7 @@ const IntegratedNotes = () => {
 
   // Function to toggle expanded state for grid descriptions
   const toggleGridDescriptionExpansion = (noteId: number) => {
-    setExpandedGridDescriptions(prev => {
+    setExpandedGridDescriptions((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(noteId)) {
         newSet.delete(noteId);
@@ -1699,13 +1623,20 @@ const IntegratedNotes = () => {
       );
     }
 
-    // Multiple hubs - show first hub + count  
+    // Multiple hubs - show first hub + count
     const firstHub = hubsToDisplay[0];
     const remainingCount = hubsToDisplay.length - 1;
     const hubNames = hubsToDisplay.map((hub) => hub.label).join(", ");
 
     return (
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "4px",
+          alignItems: "center",
+        }}
+      >
         <Tooltip title={hubNames}>
           <div
             style={{
@@ -1932,10 +1863,10 @@ const IntegratedNotes = () => {
               </div>
             );
           }
-          
+
           const containerWidth = responsive("mobile") ? 150 : 200;
           const isExpanded = expandedDescriptions.has(record.id);
-          
+
           return (
             <div
               style={{
@@ -2190,16 +2121,16 @@ const IntegratedNotes = () => {
           white-space: normal !important;
           hyphens: auto !important;
         }
-        .html-content-grid b, 
+        .html-content-grid b,
         .html-content-grid strong,
-        .html-content-table b, 
+        .html-content-table b,
         .html-content-table strong {
           font-weight: 700 !important;
           color: #1a1a1a !important;
         }
-        .html-content-grid ol, 
+        .html-content-grid ol,
         .html-content-grid ul,
-        .html-content-table ol, 
+        .html-content-table ol,
         .html-content-table ul {
           margin: 8px 0 !important;
           padding-left: 16px !important;
@@ -2358,8 +2289,9 @@ const IntegratedNotes = () => {
                     setViewMode(viewMode === "grid" ? "table" : "grid")
                   }
                   style={{
-                    height: 40,
-                    width: 40,
+                    height: 26,
+                    borderRadius: 8,
+                    // width: 30,
                     border: "1px solid #e5e7eb",
                     fontFamily: FONT_FAMILY,
                     display: "flex",
@@ -2376,7 +2308,7 @@ const IntegratedNotes = () => {
                   loading={refreshing}
                   style={{
                     borderRadius: 8,
-                    height: 40,
+                    height: 26,
                     border: "1px solid #e5e7eb",
                     fontFamily: FONT_FAMILY,
                     display: "flex",
@@ -2386,20 +2318,9 @@ const IntegratedNotes = () => {
                 />
               </Tooltip>
               <Tooltip title="Add note">
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
+                <CustomButton
+                  label="Add Note" // tooltip text
                   onClick={() => showModal()}
-                  style={{
-                    borderRadius: 8,
-                    height: 40,
-                    background: PRIMARY_COLOR,
-                    borderColor: PRIMARY_COLOR,
-                    fontFamily: FONT_FAMILY,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
                 />
               </Tooltip>
             </div>
@@ -2408,7 +2329,7 @@ const IntegratedNotes = () => {
 
         {/* Loading State */}
         {loading && <DocklyLoader />}
-        
+
         {/* Operation Loading - Replace overlay with DocklyLoader */}
         {operationLoading && <DocklyLoader />}
 
@@ -2624,26 +2545,29 @@ const IntegratedNotes = () => {
                         <div
                           style={{ position: "absolute", top: 12, right: 12 }}
                         >
-                          <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              showModal(category.category_id);
+                          <CustomButton
+                            label="Add Note" // tooltip text
+                            onClick={() => {
+                              // Stop propagation manually using event from React's synthetic event system
+                              // This function is now parameterless to match CommonButtonProps
+                              // We'll use a refactor: wrap the call in a setTimeout to allow event bubbling to finish
+                              setTimeout(() => {
+                                showModal(category.category_id);
+                              }, 0);
                             }}
-                            style={{
-                              borderRadius: 6,
-                              background: PRIMARY_COLOR,
-                              borderColor: PRIMARY_COLOR,
-                              fontSize: 11,
-                              height: 28,
-                              width: 28,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              padding: 0,
-                            }}
+                            // style={{
+                            //   borderRadius: 6,
+                            //   background: PRIMARY_COLOR,
+                            //   borderColor: PRIMARY_COLOR,
+                            //   fontSize: 11,
+                            //   height: 28,
+                            //   width: 28,
+                            //   display: "flex",
+                            //   alignItems: "center",
+                            //   justifyContent: "center",
+                            //   padding: 0,
+                            //   color: "#fff",
+                            // }}
                           />
                         </div>
                       </div>
@@ -2692,7 +2616,8 @@ const IntegratedNotes = () => {
                             }}
                           >
                             {category.items.map((note) => {
-                              const isGridExpanded = expandedGridDescriptions.has(note.id!);
+                              const isGridExpanded =
+                                expandedGridDescriptions.has(note.id!);
                               return (
                                 <div
                                   key={note.id}
@@ -2708,7 +2633,9 @@ const IntegratedNotes = () => {
                                     border: `1px solid #e5e7eb`,
                                     fontFamily: FONT_FAMILY,
                                   }}
-                                  onDoubleClick={(e) => handleStartEdit(note, e)}
+                                  onDoubleClick={(e) =>
+                                    handleStartEdit(note, e)
+                                  }
                                 >
                                   {editingNoteId === note.id ? (
                                     <div onClick={(e) => e.stopPropagation()}>
@@ -2740,8 +2667,9 @@ const IntegratedNotes = () => {
                                           style={{
                                             fontSize: 9,
                                             color:
-                                              countWords(tempNote?.title || "") >
-                                              20
+                                              countWords(
+                                                tempNote?.title || ""
+                                              ) > 20
                                                 ? "#ff4d4f"
                                                 : "#8c8c8c",
                                             marginTop: 2,
@@ -2795,7 +2723,9 @@ const IntegratedNotes = () => {
                                           loading={operationLoading}
                                           disabled={
                                             !tempNote?.title.trim() ||
-                                            !stripHtml(tempNote?.description || "").trim() ||
+                                            !stripHtml(
+                                              tempNote?.description || ""
+                                            ).trim() ||
                                             countWords(tempNote?.title || "") >
                                               20 ||
                                             countWords(
@@ -2821,7 +2751,9 @@ const IntegratedNotes = () => {
                                           marginBottom: 6,
                                         }}
                                       >
-                                        <div style={{ flex: 1, paddingRight: 8 }}>
+                                        <div
+                                          style={{ flex: 1, paddingRight: 8 }}
+                                        >
                                           <div
                                             style={{
                                               fontWeight: 600,
@@ -2853,14 +2785,26 @@ const IntegratedNotes = () => {
                                               overflowY: "visible",
                                             }}
                                           >
-                                            {renderHtmlContent(note.description, {
-                                              maxLines: isGridExpanded ? undefined : 2,
-                                              containerWidth: responsive("mobile") ? 200 : 250,
-                                              isExpanded: isGridExpanded,
-                                              onToggleExpand: () => toggleGridDescriptionExpansion(note.id!),
-                                              showToggle: true,
-                                              isGridView: true,
-                                            })}
+                                            {renderHtmlContent(
+                                              note.description,
+                                              {
+                                                maxLines: isGridExpanded
+                                                  ? undefined
+                                                  : 2,
+                                                containerWidth: responsive(
+                                                  "mobile"
+                                                )
+                                                  ? 200
+                                                  : 250,
+                                                isExpanded: isGridExpanded,
+                                                onToggleExpand: () =>
+                                                  toggleGridDescriptionExpansion(
+                                                    note.id!
+                                                  ),
+                                                showToggle: true,
+                                                isGridView: true,
+                                              }
+                                            )}
                                           </div>
                                         </div>
 
@@ -2882,7 +2826,9 @@ const IntegratedNotes = () => {
                                               type="text"
                                               icon={<MoreOutlined />}
                                               size="small"
-                                              onClick={(e) => e.stopPropagation()}
+                                              onClick={(e) =>
+                                                e.stopPropagation()
+                                              }
                                               style={{
                                                 width: 20,
                                                 height: 20,
@@ -3114,56 +3060,59 @@ const IntegratedNotes = () => {
         )}
 
         {/* Empty State - Enhanced */}
-        {!loading && !operationLoading && filteredCategories.length === 0 && viewMode === "grid" && (
-          <div style={{ textAlign: "center", padding: 40 }}>
-            {searchTerm ? (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={
-                  <span
-                    style={{
-                      fontSize: isMobile() ? "16px" : "19px",
-                      color: "#999",
-                      fontFamily: FONT_FAMILY,
-                    }}
-                  >
-                    No results found. Try adjusting your search.
-                  </span>
-                }
-              />
-            ) : (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={
-                  <span
-                    style={{
-                      fontSize: isMobile() ? "16px" : "19px",
-                      color: "#999",
-                      fontFamily: FONT_FAMILY,
-                    }}
-                  >
-                    No Notes yet. Add your first Note to get started!
-                  </span>
-                }
-              >
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={() => showModal()}
-                  style={{
-                    fontFamily: FONT_FAMILY,
-                    borderRadius: 8,
-                    height: 40,
-                    fontSize: 14,
-                    marginTop: 16,
-                  }}
+        {!loading &&
+          !operationLoading &&
+          filteredCategories.length === 0 &&
+          viewMode === "grid" && (
+            <div style={{ textAlign: "center", padding: 40 }}>
+              {searchTerm ? (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={
+                    <span
+                      style={{
+                        fontSize: isMobile() ? "16px" : "19px",
+                        color: "#999",
+                        fontFamily: FONT_FAMILY,
+                      }}
+                    >
+                      No results found. Try adjusting your search.
+                    </span>
+                  }
+                />
+              ) : (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={
+                    <span
+                      style={{
+                        fontSize: isMobile() ? "16px" : "19px",
+                        color: "#999",
+                        fontFamily: FONT_FAMILY,
+                      }}
+                    >
+                      No Notes yet. Add your first Note to get started!
+                    </span>
+                  }
                 >
-                  Create First Note
-                </Button>
-              </Empty>
-            )}
-          </div>
-        )}
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={() => showModal()}
+                    style={{
+                      fontFamily: FONT_FAMILY,
+                      borderRadius: 8,
+                      height: 40,
+                      fontSize: 14,
+                      marginTop: 16,
+                    }}
+                  >
+                    Create First Note
+                  </Button>
+                </Empty>
+              )}
+            </div>
+          )}
 
         {/* Add Note Modal - Fixed with proper category auto-population and form labels */}
         <Modal
@@ -3198,9 +3147,15 @@ const IntegratedNotes = () => {
                 </div>
                 <span style={{ fontSize: 15, fontWeight: 600 }}>
                   Add New Note
-                  {selectedCategoryId && categories.find(cat => cat.category_id === selectedCategoryId) && 
-                    ` to ${categories.find(cat => cat.category_id === selectedCategoryId)?.title}`
-                  }
+                  {selectedCategoryId &&
+                    categories.find(
+                      (cat) => cat.category_id === selectedCategoryId
+                    ) &&
+                    ` to ${
+                      categories.find(
+                        (cat) => cat.category_id === selectedCategoryId
+                      )?.title
+                    }`}
                 </span>
               </div>
             </div>
@@ -3256,7 +3211,7 @@ const IntegratedNotes = () => {
                       fontFamily: FONT_FAMILY,
                     }}
                   >
-                    📂 Category 
+                    📂 Category
                   </Text>
                 }
                 required
@@ -3337,7 +3292,8 @@ const IntegratedNotes = () => {
                               <span style={{ fontSize: 14 }}>
                                 {
                                   suggestedCategories.find(
-                                    (cat) => cat.value === selectedCategoryOption
+                                    (cat) =>
+                                      cat.value === selectedCategoryOption
                                   )?.icon
                                 }
                               </span>
@@ -3388,7 +3344,11 @@ const IntegratedNotes = () => {
                   }}
                 >
                   <span style={{ fontSize: 14 }}>
-                    {categories.find(cat => cat.category_id === selectedCategoryId)?.icon}
+                    {
+                      categories.find(
+                        (cat) => cat.category_id === selectedCategoryId
+                      )?.icon
+                    }
                   </span>
                   <span
                     style={{
@@ -3398,7 +3358,11 @@ const IntegratedNotes = () => {
                       color: "#15803d",
                     }}
                   >
-                    {categories.find(cat => cat.category_id === selectedCategoryId)?.title}
+                    {
+                      categories.find(
+                        (cat) => cat.category_id === selectedCategoryId
+                      )?.title
+                    }
                   </span>
                   <Button
                     type="text"
@@ -3431,7 +3395,7 @@ const IntegratedNotes = () => {
                     fontFamily: FONT_FAMILY,
                   }}
                 >
-                  📝 Title 
+                  📝 Title
                 </Text>
               }
               rules={[
@@ -3491,7 +3455,7 @@ const IntegratedNotes = () => {
                     fontFamily: FONT_FAMILY,
                   }}
                 >
-                  📄 Description 
+                  📄 Description
                 </Text>
               }
               rules={[
@@ -3541,7 +3505,7 @@ const IntegratedNotes = () => {
                     fontFamily: FONT_FAMILY,
                   }}
                 >
-                  🎯 Select Hubs 
+                  🎯 Select Hubs
                 </Text>
               }
               rules={[
@@ -3556,7 +3520,9 @@ const IntegratedNotes = () => {
                 onChange={setSelectedHubs}
                 options={hubOptions.map((hub) => ({
                   label: (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    >
                       <div
                         style={{
                           width: 16,
@@ -3612,466 +3578,26 @@ const IntegratedNotes = () => {
           </Form>
         </Modal>
 
-        {/* Share Modal - Enhanced with consistent filtering */}
-        <Modal
-          title={null}
-          open={shareModalVisible}
-          onCancel={() => {
-            setShareModalVisible(false);
-            setCurrentShareNote(null);
-            setSelectedMemberIds([]);
-            setEmailShareVisible(false);
-            shareForm.resetFields();
-            setShareSearchTerm(""); // ✅ Reset search term
-          }}
-          footer={null}
-          centered
-          width={responsive("mobile") ? "95%" : 520}
-          destroyOnHidden
-          style={{
-            fontFamily: FONT_FAMILY,
-          }}
-          styles={{
-            body: {
-              padding: "0px",
-              background: "#ffffff",
-              borderRadius: "16px",
-              overflow: "hidden",
-            },
-            header: {
-              padding: "0px",
-              marginBottom: "0px",
-              border: "none",
-            },
-            mask: {
-              backdropFilter: "blur(8px)",
-              backgroundColor: "rgba(0, 0, 0, 0.5)",
-            },
-            content: {
-              borderRadius: "16px",
-              overflow: "hidden",
-              boxShadow: "0 25px 50px rgba(0, 0, 0, 0.15)",
-              border: "1px solid #e5e7eb",
-            },
-          }}
-        >
-          {currentShareNote && (
-            <div>
-              {/* Header with Search */}
-              <div
-                style={{
-                  padding: "20px 20px 16px",
-                  borderBottom: "1px solid #e5e7eb",
-                  background: "#ffffff",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: "16px",
-                  }}
-                >
-                  <div
-                    style={{
-                      background: "#f3f4f6",
-                      borderRadius: "50%",
-                      padding: "10px",
-                      marginRight: "12px",
-                    }}
-                  >
-                    <ShareAltOutlined
-                      style={{
-                        color: "#374151",
-                        fontSize: "18px",
-                      }}
-                    />
-                  </div>
-                  <Text
-                    style={{
-                      fontSize: "18px",
-                      fontWeight: 600,
-                      color: "#1f2937",
-                      fontFamily: FONT_FAMILY,
-                    }}
-                  >
-                    Share Note
-                  </Text>
-                </div>
-
-                <Input
-                  placeholder="Search family members..."
-                  prefix={<SearchOutlined style={{ color: "#9ca3af" }} />}
-                  value={shareSearchTerm}
-                  onChange={(e) => setShareSearchTerm(e.target.value)}
-                  style={{
-                    background: "#f9fafb",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                    color: "#374151",
-                    fontFamily: FONT_FAMILY,
-                    height: "36px",
-                  }}
-                />
-              </div>
-
-              {/* Family Members Grid - Filter out members without email */}
-              <div style={{ padding: "16px 20px" }}>
-                <div
-                  style={{
-                    maxHeight: "280px",
-                    overflowY: "auto",
-                    marginBottom: "20px",
-                    scrollbarWidth: "none",
-                    msOverflowStyle: "none",
-                  }}
-                  className="notes-scrollable"
-                >
-                  {/* ✅ Updated to use filteredFamilyMembers which now includes pending filter */}
-                  {filteredFamilyMembers.length > 0 ? (
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: responsive("mobile")
-                          ? "repeat(3, 1fr)"
-                          : "repeat(4, 1fr)",
-                        gap: "10px",
-                      }}
-                    >
-                      {/* ✅ Use filteredFamilyMembers instead of filtering inline */}
-                      {filteredFamilyMembers.map((member: any) => (
-                        <div
-                          key={member.id}
-                          onClick={() => {
-                            setSelectedMemberIds((prev) =>
-                              prev.includes(member.id)
-                                ? prev.filter((id) => id !== member.id)
-                                : [...prev, member.id]
-                            );
-                          }}
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            cursor: "pointer",
-                            padding: responsive("mobile")
-                              ? "8px 4px"
-                              : "12px 8px",
-                            borderRadius: "12px",
-                            transition: "all 0.3s ease",
-                            background: selectedMemberIds.includes(member.id)
-                              ? "#f0f9ff"
-                              : "transparent",
-                            border: selectedMemberIds.includes(member.id)
-                              ? "2px solid #3b82f6"
-                              : "2px solid transparent",
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!selectedMemberIds.includes(member.id)) {
-                              e.currentTarget.style.background = "#f9fafb";
-                              e.currentTarget.style.transform = "scale(1.02)";
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!selectedMemberIds.includes(member.id)) {
-                              e.currentTarget.style.background =
-                                "transparent";
-                              e.currentTarget.style.transform = "scale(1)";
-                            }
-                          }}
-                        >
-                          <div
-                            style={{
-                              position: "relative",
-                              marginBottom: "8px",
-                            }}
-                          >
-                            <Avatar
-                              size={responsive("mobile") ? 45 : 60}
-                              style={{
-                                background: selectedMemberIds.includes(
-                                  member.id
-                                )
-                                  ? "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
-                                  : "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)",
-                                fontSize: responsive("mobile")
-                                  ? "18px"
-                                  : "24px",
-                                fontWeight: "600",
-                                border: selectedMemberIds.includes(member.id)
-                                  ? "3px solid #3b82f6"
-                                  : "3px solid #e5e7eb",
-                                boxShadow: selectedMemberIds.includes(
-                                  member.id
-                                )
-                                  ? "0 4px 20px rgba(59, 130, 246, 0.3)"
-                                  : "0 2px 8px rgba(0, 0, 0, 0.1)",
-                                transition: "all 0.3s ease",
-                                color: "#ffffff",
-                              }}
-                              icon={<UserOutlined />}
-                            >
-                              {member.name?.charAt(0)?.toUpperCase() || "U"}
-                            </Avatar>
-                            {selectedMemberIds.includes(member.id) && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  bottom: "-2px",
-                                  right: "-2px",
-                                  width: responsive("mobile")
-                                    ? "16px"
-                                    : "20px",
-                                  height: responsive("mobile")
-                                    ? "16px"
-                                    : "20px",
-                                  background: "#10b981",
-                                  borderRadius: "50%",
-                                  border: "2px solid #ffffff",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  boxShadow:
-                                    "0 2px 8px rgba(16, 185, 129, 0.4)",
-                                }}
-                              >
-                                <CheckCircleOutlined
-                                  style={{
-                                    fontSize: responsive("mobile")
-                                      ? "8px"
-                                      : "10px",
-                                    color: "#fff",
-                                  }}
-                                />
-                              </div>
-                            )}
-                          </div>
-                          <Text
-                            style={{
-                              color: "#374151",
-                              fontSize: responsive("mobile")
-                                ? "11px"
-                                : "13px",
-                              fontWeight: selectedMemberIds.includes(
-                                member.id
-                              )
-                                ? 600
-                                : 500,
-                              fontFamily: FONT_FAMILY,
-                              textAlign: "center",
-                              lineHeight: "1.2",
-                              maxWidth: responsive("mobile")
-                                ? "60px"
-                                : "80px",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {member.name}
-                          </Text>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        textAlign: "center",
-                        padding: "40px 20px",
-                        color: "#6b7280",
-                        fontFamily: FONT_FAMILY,
-                      }}
-                    >
-                      <TeamOutlined
-                        style={{
-                          fontSize: "40px",
-                          marginBottom: "12px",
-                        }}
-                      />
-                      <div style={{ fontSize: "15px", fontWeight: 500 }}>
-                        {/* ✅ Updated empty state messages to match BookmarkHub */}
-                        {shareSearchTerm ? "No members found" : "No family members with email addresses"}
-                      </div>
-                      <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "4px" }}>
-                        {shareSearchTerm 
-                          ? "Try adjusting your search terms" 
-                          : "Add family members with email addresses to share notes."}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Enhanced Share Button */}
-                {selectedMemberIds.length > 0 && (
-                  <Button
-                    type="primary"
-                    block
-                    size="large"
-                    onClick={handleShareToMembers}
-                    loading={operationLoading}
-                    style={{
-                      borderRadius: "12px",
-                      height: "44px",
-                      fontSize: "15px",
-                      fontWeight: 600,
-                      fontFamily: FONT_FAMILY,
-                      marginBottom: "20px",
-                      background: "#1365e9ff",
-                      border: "none",
-                      boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
-                      transition: "all 0.3s ease",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-1px)";
-                      e.currentTarget.style.boxShadow =
-                        "0 6px 16px rgba(59, 130, 246, 0.4)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow =
-                        "0 4px 12px rgba(59, 130, 246, 0.3)";
-                    }}
-                  >
-                    Share with {selectedMemberIds.length} member
-                    {selectedMemberIds.length > 1 ? "s" : ""}
-                  </Button>
-                )}
-
-                {/* Enhanced Email Share Section */}
-                <div
-                  style={{
-                    borderTop: "1px solid #e5e7eb",
-                    paddingTop: "20px",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      marginBottom: "12px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        background: "#f3f4f6",
-                        borderRadius: "50%",
-                        padding: "6px",
-                        marginRight: "10px",
-                      }}
-                    >
-                      <MailOutlined
-                        style={{
-                          color: "#374151",
-                          fontSize: "14px",
-                        }}
-                      />
-                    </div>
-                    <Text
-                      style={{
-                        color: "#374151",
-                        fontSize: "15px",
-                        fontWeight: 600,
-                        fontFamily: FONT_FAMILY,
-                      }}
-                    >
-                      Or share via email
-                    </Text>
-                  </div>
-
-                  <Form form={shareForm} onFinish={handleEmailShare}>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "10px",
-                        alignItems: "flex-start",
-                        flexDirection: responsive("mobile") ? "column" : "row",
-                      }}
-                    >
-                      <Form.Item
-                        name="email"
-                        rules={[
-                          {
-                            required: true,
-                            message: "Please enter an email address",
-                          },
-                          {
-                            type: "email",
-                            message: "Please enter a valid email address",
-                          },
-                        ]}
-                        style={{
-                          flex: 1,
-                          marginBottom: 0,
-                          width: responsive("mobile") ? "100%" : "auto",
-                        }}
-                      >
-                        <Input
-                          placeholder="Enter email address"
-                          style={{
-                            background: "#f9fafb",
-                            border: "1px solid #e5e7eb",
-                            borderRadius: "8px",
-                            color: "#374151",
-                            fontFamily: FONT_FAMILY,
-                            height: "40px",
-                            fontSize: "14px",
-                          }}
-                        />
-                      </Form.Item>
-                      <Button
-                        type="primary"
-                        htmlType="submit"
-                        loading={operationLoading}
-                        style={{
-                          height: "40px",
-                          minWidth: "100px",
-                          fontFamily: FONT_FAMILY,
-                          borderRadius: "8px",
-                          fontWeight: 600,
-                          background: "#10b981",
-                          border: "none",
-                          boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
-                          fontSize: "14px",
-                          width: responsive("mobile") ? "100%" : "auto",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = "translateY(-1px)";
-                          e.currentTarget.style.boxShadow =
-                            "0 4px 12px rgba(16, 185, 129, 0.4)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = "translateY(0)";
-                          e.currentTarget.style.boxShadow =
-                            "0 2px 8px rgba(16, 185, 129, 0.3)";
-                        }}
-                      >
-                        Send
-                      </Button>
-                    </div>
-                  </Form>
-
-                  <div
-                    style={{
-                      marginTop: "12px",
-                      fontSize: "12px",
-                      color: "#6b7280",
-                      fontFamily: FONT_FAMILY,
-                      textAlign: "center",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "6px",
-                    }}
-                  >
-                    <MailOutlined style={{ fontSize: "11px" }} />
-                    <span>Email will be sent with note details</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </Modal>
+        {/* ShareModal Component */}
+        {currentShareNote && (
+          <ShareModal
+            isVisible={shareModalVisible}
+            onClose={() => {
+              setShareModalVisible(false);
+              setCurrentShareNote(null);
+            }}
+            title="Share Note"
+            item={currentShareNote}
+            itemType="note"
+            familyMembers={familyMembers}
+            loading={operationLoading}
+            currentHubId="1a2b3c4d-1111-2222-3333-abcdef123744" // Notes hub ID
+            onShareSuccess={(message) => {
+              // Optional: handle success callback
+              console.log('Share success:', message);
+            }}
+          />
+        )}
       </div>
     </div>
   );

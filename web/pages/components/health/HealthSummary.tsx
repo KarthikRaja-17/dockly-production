@@ -1,6 +1,6 @@
-// pages/components/health/HealthSummary.tsx - Simplified with useFitbit Hook
+// Enhanced HealthSummary.tsx - UPDATED to use centralized tracker props instead of internal hooks
 import React from 'react';
-import { Spin, Button, Tag, Typography, Dropdown, Menu } from 'antd';
+import { Spin, Button, Typography, Dropdown, Menu, Badge, Tooltip } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
@@ -10,20 +10,34 @@ import {
   LinkOutlined,
   DisconnectOutlined,
   ReloadOutlined,
-  EyeOutlined
+  EyeOutlined,
+  TeamOutlined,
+  LockOutlined,
+  UnlockOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons';
-import { colors, shadows } from '../../../services/health/types';
+
+// Import enhanced types and services
+import { colors, shadows, FamilyMemberForHealth } from '../../../services/health/types';
 import {
   HealthSummaryInfoData,
   UserAllergyData,
   UserConditionData,
   FamilyMedicalHistoryData,
+  FamilyMedicalHistoryStats,
   getAllergySeverityColor,
   getAllergySeverityTextColor,
-  getConditionStatusColor
+  getConditionStatusColor,
+  canEditFamilyMedicalHistory,
+  canDeleteFamilyMedicalHistory,
+  getFamilyMedicalHistoryPermissionText,
+  getFamilyMemberNameById,
+  getFamilyMemberRelationshipById,
 } from '../../../services/health/healthSummary';
-// FITBIT INTEGRATION - Use the centralized hook
-import { useFitbit } from '../../../hooks/useFitbit';
+
+// NEW: Import centralized tracker hook return types
+import { FitbitHookReturn } from '../../../hooks/useFitbit';
+import { GarminHookReturn } from '../../../hooks/useGarmin';
 
 const { Text } = Typography;
 
@@ -39,6 +53,17 @@ const SPACING = {
   xxl: 36,
 };
 
+// Default vitals data for when no tracker is connected or during SSR
+const getDefaultVitalsData = () => [
+  { label: 'Weight', value: '--', meta: 'Connect tracker for data' },
+  { label: 'Blood Pressure', value: '--', meta: 'Manual entry required' },
+  { label: 'Heart Rate', value: '--', meta: 'Connect tracker for data' },
+  { label: 'BMI', value: '--', meta: 'Connect tracker for data' },
+  { label: 'Sleep Score', value: '--', meta: 'Connect tracker for data' },
+  { label: 'Activity Level', value: '--', meta: 'Connect tracker for data' }
+];
+
+// UPDATED: Enhanced component props with centralized tracker props - MADE OPTIONAL
 interface HealthSummaryProps {
   isMobile: boolean;
   userId: string;
@@ -54,7 +79,7 @@ interface HealthSummaryProps {
   onAddAllergy: () => void;
   onEditAllergy: (allergy: UserAllergyData) => void;
   onViewAllergy: (allergy: UserAllergyData) => void;
-  onDeleteAllergy: (id: number) => void;
+  onDeleteAllergy: (id: number) => Promise<void>;
 
   // Conditions props
   conditions: UserConditionData[];
@@ -62,18 +87,27 @@ interface HealthSummaryProps {
   onAddCondition: () => void;
   onViewCondition: (condition: UserConditionData) => void;
   onEditCondition: (condition: UserConditionData) => void;
-  onDeleteCondition: (id: number) => void;
+  onDeleteCondition: (id: number) => Promise<void>;
 
-  // Family history props
+  // Family history props with permissions and family member support
   familyHistory: FamilyMedicalHistoryData[];
+  familyMembers: FamilyMemberForHealth[];
+  familyHistoryStats?: FamilyMedicalHistoryStats;
   familyHistoryLoading: boolean;
-  onAddFamilyHistory: () => void;
+  onAddFamilyHistory: (familyMembers: FamilyMemberForHealth[]) => void;
   onViewFamilyHistory: (history: FamilyMedicalHistoryData) => void;
-  onEditFamilyHistory: (history: FamilyMedicalHistoryData) => void;
-  onDeleteFamilyHistory: (id: number) => void;
+  onEditFamilyHistory: (history: FamilyMedicalHistoryData, familyMembers: FamilyMemberForHealth[]) => void;
+  onDeleteFamilyHistory: (id: number) => Promise<void>;
 
-  // Fitbit callback prop
+  // Health tracker callback props (kept for compatibility)
   onFitbitConnected?: () => void;
+  onGarminConnected?: () => void;
+
+  // NEW: Centralized tracker state and actions props - MADE OPTIONAL
+  fitbitState?: FitbitHookReturn;
+  fitbitActions?: FitbitHookReturn['actions'];
+  garminState?: GarminHookReturn;
+  garminActions?: GarminHookReturn['actions'];
 }
 
 const HealthSummary: React.FC<HealthSummaryProps> = ({
@@ -96,22 +130,94 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
   onEditCondition,
   onDeleteCondition,
   familyHistory = [],
+  familyMembers = [],
+  familyHistoryStats,
   familyHistoryLoading,
   onAddFamilyHistory,
   onViewFamilyHistory,
   onEditFamilyHistory,
   onDeleteFamilyHistory,
-  onFitbitConnected
+  onFitbitConnected,
+  onGarminConnected,
+  // NEW: Receive centralized tracker props with defaults
+  fitbitState,
+  fitbitActions,
+  garminState,
+  garminActions
 }) => {
-  // FITBIT INTEGRATION - Use centralized hook with all logic
-  const fitbit = useFitbit({
-    userId,
-    username,
-    onConnected: onFitbitConnected,
-    autoCheck: true
-  });
+  // SAFETY: Add null checks and provide defaults for SSR/build compatibility
+  const safeFitbitState = fitbitState || {
+    isConnected: false,
+    isLoading: false,
+    isConnecting: false,
+    isCheckingConnection: false,
+    isSyncing: false,
+    polling: false,
+    error: null
+  };
 
-  const vitalsData = fitbit.actions.getVitalsData();
+  const safeGarminState = garminState || {
+    isConnected: false,
+    isLoading: false,
+    isConnecting: false,
+    isCheckingConnection: false,
+    isSyncing: false,
+    polling: false,
+    error: null
+  };
+
+  // Safe actions with no-op fallbacks
+  const safeFitbitActions = fitbitActions || {
+    connect: () => console.warn('Fitbit actions not available'),
+    disconnect: () => Promise.resolve(),
+    syncData: () => Promise.resolve(),
+    refreshConnection: () => Promise.resolve(),
+    getVitalsData: () => getDefaultVitalsData()
+  };
+
+  const safeGarminActions = garminActions || {
+    connect: () => console.warn('Garmin actions not available'),
+    disconnect: () => Promise.resolve(),
+    syncData: () => Promise.resolve(),
+    refreshConnection: () => Promise.resolve(),
+    getVitalsData: () => getDefaultVitalsData()
+  };
+
+  // UPDATED: Use safe tracker state instead of potentially undefined props
+  // MUTUAL EXCLUSIVITY - Determine which tracker to prioritize
+  const hasAnyConnection = safeFitbitState.isConnected || safeGarminState.isConnected;
+  const activeTracker = safeFitbitState.isConnected ? 'fitbit' : safeGarminState.isConnected ? 'garmin' : null;
+
+  // Get vitals data from the active tracker
+  const vitalsData = activeTracker === 'fitbit'
+    ? safeFitbitActions.getVitalsData()
+    : activeTracker === 'garmin'
+      ? safeGarminActions.getVitalsData()
+      : getDefaultVitalsData(); // fallback
+
+  // ENHANCED: Calculate family medical history stats if not provided
+  const calculatedStats = familyHistoryStats || {
+    totalRecords: familyHistory.length,
+    editableRecords: familyHistory.filter(h => h.canEdit === true).length,
+    readOnlyRecords: familyHistory.filter(h => h.canEdit === false).length,
+    membersWithHistory: new Set(familyHistory.map(h => h.familyMemberUserId).filter(Boolean)).size,
+    familyMembersCount: familyMembers.length,
+  };
+
+  // UPDATED: Handle mutual disconnection when connecting a different tracker
+  const handleConnectFitbit = async () => {
+    if (safeGarminState.isConnected && garminActions) {
+      await safeGarminActions.disconnect();
+    }
+    safeFitbitActions.connect();
+  };
+
+  const handleConnectGarmin = async () => {
+    if (safeFitbitState.isConnected && fitbitActions) {
+      await safeFitbitActions.disconnect();
+    }
+    safeGarminActions.connect();
+  };
 
   const handleAllergyClick = (allergy: UserAllergyData): void => {
     onEditAllergy(allergy);
@@ -121,8 +227,22 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
     onEditCondition(condition);
   };
 
+  // Family history click handler with permission checking
   const handleFamilyHistoryClick = (history: FamilyMedicalHistoryData): void => {
-    onEditFamilyHistory(history);
+    if (canEditFamilyMedicalHistory(history)) {
+      onEditFamilyHistory(history, familyMembers);
+    } else {
+      // For read-only records, just show view
+      onViewFamilyHistory(history);
+    }
+  };
+
+  // Add family history with family member validation
+  const handleAddFamilyHistory = (): void => {
+    if (familyMembers.length === 0) {
+      return; // Button should be disabled, but double-check
+    }
+    onAddFamilyHistory(familyMembers);
   };
 
   return (
@@ -137,13 +257,16 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
       transition: 'box-shadow 0.3s',
       fontFamily: FONT_FAMILY
     }}>
+      {/* Header */}
       <div style={{
         padding: SPACING.lg,
         borderBottom: `1px solid ${colors.border}`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        background: 'linear-gradient(to bottom, #ffffff, #fafbfc)'
+        background: 'linear-gradient(to bottom, #ffffff, #fafbfc)',
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: isMobile ? SPACING.md : 0
       }}>
         <div style={{
           fontSize: isMobile ? '1rem' : '1.125rem',
@@ -164,22 +287,40 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
             📊
           </div>
           <span>Health Summary</span>
+          {/* Family history stats badge */}
+          {calculatedStats.totalRecords > 0 && (
+            <Tooltip title={`${calculatedStats.totalRecords} family medical records (${calculatedStats.editableRecords} editable, ${calculatedStats.readOnlyRecords} read-only)`}>
+              <Badge
+                count={calculatedStats.totalRecords}
+                style={{ backgroundColor: colors.healthPrimary }}
+              />
+            </Tooltip>
+          )}
+          {/* Family members indicator */}
+          {familyMembers.length > 0 && (
+            <Tooltip title={`${familyMembers.length} family members connected`}>
+              <TeamOutlined style={{ fontSize: '0.875rem', color: colors.healthPrimary }} />
+            </Tooltip>
+          )}
         </div>
 
-        {/* FITBIT INTEGRATION - Simplified Controls using hook state */}
+        {/* UPDATED: HEALTH TRACKERS INTEGRATION - Use safe state */}
         <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
-          {(fitbit.isCheckingConnection || fitbit.isConnecting || fitbit.polling) && (
-            <Spin size="small" />
-          )}
+          {/* Loading indicator */}
+          {((safeFitbitState.isCheckingConnection || safeFitbitState.isConnecting || safeFitbitState.polling) ||
+            (safeGarminState.isCheckingConnection || safeGarminState.isConnecting || safeGarminState.polling)) && (
+              <Spin size="small" />
+            )}
 
-          {fitbit.isConnected ? (
+          {/* Fitbit Controls */}
+          {safeFitbitState.isConnected && (
             <>
               <Button
                 type="text"
                 size="small"
-                icon={<SyncOutlined spin={fitbit.isSyncing} />}
-                onClick={fitbit.actions.syncData}
-                disabled={fitbit.isSyncing}
+                icon={<SyncOutlined spin={safeFitbitState.isSyncing} />}
+                onClick={safeFitbitActions.syncData}
+                disabled={safeFitbitState.isSyncing}
                 title="Sync Fitbit Data"
               />
               <Dropdown
@@ -188,18 +329,18 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
                     <Menu.Item
                       key="sync"
                       icon={<SyncOutlined />}
-                      onClick={fitbit.actions.syncData}
-                      disabled={fitbit.isSyncing}
+                      onClick={safeFitbitActions.syncData}
+                      disabled={safeFitbitState.isSyncing}
                     >
                       Sync Data
                     </Menu.Item>
                     <Menu.Item
                       key="disconnect"
                       icon={<DisconnectOutlined />}
-                      onClick={fitbit.actions.disconnect}
+                      onClick={safeFitbitActions.disconnect}
                       danger
                     >
-                      Disconnect
+                      Disconnect Fitbit
                     </Menu.Item>
                   </Menu>
                 }
@@ -229,29 +370,113 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
                 </div>
               </Dropdown>
             </>
-          ) : (
+          )}
+
+          {/* Garmin Controls */}
+          {safeGarminState.isConnected && (
+            <>
+              <Button
+                type="text"
+                size="small"
+                icon={<SyncOutlined spin={safeGarminState.isSyncing} />}
+                onClick={safeGarminActions.syncData}
+                disabled={safeGarminState.isSyncing}
+                title="Sync Garmin Data"
+              />
+              <Dropdown
+                overlay={
+                  <Menu>
+                    <Menu.Item
+                      key="sync"
+                      icon={<SyncOutlined />}
+                      onClick={safeGarminActions.syncData}
+                      disabled={safeGarminState.isSyncing}
+                    >
+                      Sync Data
+                    </Menu.Item>
+                    <Menu.Item
+                      key="disconnect"
+                      icon={<DisconnectOutlined />}
+                      onClick={safeGarminActions.disconnect}
+                      danger
+                    >
+                      Disconnect Garmin
+                    </Menu.Item>
+                  </Menu>
+                }
+                trigger={['click']}
+                placement="bottomRight"
+              >
+                <div style={{
+                  fontSize: '0.75rem',
+                  color: '#0288d1',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  fontFamily: FONT_FAMILY
+                }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(2, 136, 209, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}>
+                  Garmin Connected
+                  <MoreOutlined style={{ fontSize: '12px' }} />
+                </div>
+              </Dropdown>
+            </>
+          )}
+
+          {/* Connection Options */}
+          {!hasAnyConnection && (
             <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
               <Button
                 type="primary"
                 size="small"
                 icon={<LinkOutlined />}
-                onClick={fitbit.actions.connect}
-                loading={fitbit.isConnecting || fitbit.polling}
-                disabled={fitbit.isConnecting || fitbit.polling || fitbit.isCheckingConnection}
+                onClick={handleConnectFitbit}
+                loading={safeFitbitState.isConnecting || safeFitbitState.polling}
+                disabled={safeFitbitState.isConnecting || safeFitbitState.polling || safeFitbitState.isCheckingConnection ||
+                  safeGarminState.isConnecting || safeGarminState.polling || safeGarminState.isCheckingConnection}
                 style={{
                   backgroundColor: colors.healthPrimary,
                   borderColor: colors.healthPrimary
                 }}
               >
-                {fitbit.polling ? 'Checking...' : fitbit.isConnecting ? 'Opening...' : 'Connect Fitbit'}
+                {safeFitbitState.polling ? 'Checking...' : safeFitbitState.isConnecting ? 'Opening...' : 'Connect Fitbit'}
               </Button>
-              {!fitbit.polling && (
+
+              <Button
+                type="default"
+                size="small"
+                icon={<LinkOutlined />}
+                onClick={handleConnectGarmin}
+                loading={safeGarminState.isConnecting || safeGarminState.polling}
+                disabled={safeGarminState.isConnecting || safeGarminState.polling || safeGarminState.isCheckingConnection ||
+                  safeFitbitState.isConnecting || safeFitbitState.polling || safeFitbitState.isCheckingConnection}
+                style={{
+                  borderColor: '#0288d1',
+                  color: '#0288d1'
+                }}
+              >
+                {safeGarminState.polling ? 'Checking...' : safeGarminState.isConnecting ? 'Opening...' : 'Connect Garmin'}
+              </Button>
+
+              {!safeFitbitState.polling && !safeGarminState.polling && (
                 <Button
                   type="text"
                   size="small"
                   icon={<ReloadOutlined />}
-                  onClick={fitbit.actions.refreshConnection}
-                  disabled={fitbit.isCheckingConnection}
+                  onClick={() => {
+                    safeFitbitActions.refreshConnection();
+                    safeGarminActions.refreshConnection();
+                  }}
+                  disabled={safeFitbitState.isCheckingConnection || safeGarminState.isCheckingConnection}
                   title="Refresh Connection Status"
                 />
               )}
@@ -265,47 +490,70 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
         overflowY: 'auto',
         padding: SPACING.lg
       }}>
-        {/* FITBIT INTEGRATION - Connection Notice */}
-        {!fitbit.isConnected && !fitbit.isCheckingConnection && !fitbit.isConnecting && (
-          <div style={{
-            background: 'linear-gradient(to right, #fef3c7, #fde68a)',
-            border: '1px solid #f59e0b',
-            borderRadius: '8px',
-            padding: SPACING.md,
-            marginBottom: SPACING.xl,
-            textAlign: 'center'
-          }}>
-            <div style={{ fontWeight: '600', marginBottom: SPACING.sm, color: '#92400e', fontFamily: FONT_FAMILY }}>
-              Connect Fitbit for Real-Time Health Data
+        {/* UPDATED: Connection Notice - use safe state */}
+        {!hasAnyConnection && !safeFitbitState.isCheckingConnection && !safeFitbitState.isConnecting &&
+          !safeGarminState.isCheckingConnection && !safeGarminState.isConnecting && (
+            <div style={{
+              background: 'linear-gradient(to right, #fef3c7, #fde68a)',
+              border: '1px solid #f59e0b',
+              borderRadius: '8px',
+              padding: SPACING.md,
+              marginBottom: SPACING.xl,
+              textAlign: 'center',
+              display: 'flex',
+              justifyContent: "center",
+              alignItems: 'center',
+              flexDirection: 'column',
+            }}>
+              <div style={{ fontWeight: '600', marginBottom: SPACING.sm, color: '#92400e', fontFamily: FONT_FAMILY, textAlign: "center" }}>
+                Connect Your Health Tracker for Real-Time Data
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#92400e', marginBottom: SPACING.md, fontFamily: FONT_FAMILY, textAlign: "center" }}>
+                Choose your preferred tracker to automatically sync steps, heart rate, sleep, weight, and more health metrics.
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: SPACING.md, flexWrap: 'wrap' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <Button
+                    type="primary"
+                    icon={<LinkOutlined />}
+                    onClick={handleConnectFitbit}
+                    loading={safeFitbitState.isConnecting}
+                    disabled={safeFitbitState.isConnecting || safeFitbitState.isCheckingConnection}
+                    style={{
+                      backgroundColor: colors.healthPrimary,
+                      borderColor: colors.healthPrimary,
+                      marginBottom: SPACING.xs
+                    }}
+                  >
+                    {safeFitbitState.isConnecting ? 'Opening...' : 'Connect Fitbit'}
+                  </Button>
+                  <div style={{ fontSize: '0.75rem', color: '#92400e', fontFamily: FONT_FAMILY }}>
+                    Steps, Heart Rate, Sleep, Weight
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'center' }}>
+                  <Button
+                    type="default"
+                    icon={<LinkOutlined />}
+                    onClick={handleConnectGarmin}
+                    loading={safeGarminState.isConnecting}
+                    disabled={safeGarminState.isConnecting || safeGarminState.isCheckingConnection}
+                    style={{
+                      borderColor: '#0288d1',
+                      color: '#0288d1',
+                      marginBottom: SPACING.xs
+                    }}
+                  >
+                    {safeGarminState.isConnecting ? 'Opening...' : 'Connect Garmin'}
+                  </Button>
+                  <div style={{ fontSize: '0.75rem', color: '#92400e', fontFamily: FONT_FAMILY }}>
+                    Steps, Heart Rate, Sleep, Stress, Body Battery
+                  </div>
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: '0.875rem', color: '#92400e', marginBottom: SPACING.md, fontFamily: FONT_FAMILY }}>
-              Get automatic tracking of steps, heart rate, sleep, weight, and more health metrics.
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: SPACING.sm }}>
-              <Button
-                type="primary"
-                icon={<LinkOutlined />}
-                onClick={fitbit.actions.connect}
-                loading={fitbit.isConnecting}
-                disabled={fitbit.isConnecting || fitbit.isCheckingConnection}
-                style={{
-                  backgroundColor: colors.healthPrimary,
-                  borderColor: colors.healthPrimary
-                }}
-              >
-                {fitbit.isConnecting ? 'Opening...' : 'Connect Fitbit Account'}
-              </Button>
-              <Button
-                type="default"
-                icon={<ReloadOutlined />}
-                onClick={fitbit.actions.refreshConnection}
-                disabled={fitbit.isCheckingConnection}
-              >
-                Refresh Status
-              </Button>
-            </div>
-          </div>
-        )}
+          )}
 
         {/* Current Vitals */}
         <div style={{
@@ -327,7 +575,7 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
             }}
               onMouseEnter={(e) => {
                 if (vital.value !== '--') {
-                  e.currentTarget.style.borderColor = colors.healthPrimary;
+                  e.currentTarget.style.borderColor = activeTracker === 'fitbit' ? colors.healthPrimary : '#0288d1';
                   e.currentTarget.style.boxShadow = '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)';
                   e.currentTarget.style.transform = 'translateY(-1px)';
                 }
@@ -349,7 +597,7 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
               <div style={{
                 fontSize: '1.25rem',
                 fontWeight: '600',
-                color: vital.value === '--' ? colors.textMuted : colors.healthPrimary,
+                color: vital.value === '--' ? colors.textMuted : (activeTracker === 'fitbit' ? colors.healthPrimary : '#0288d1'),
                 marginBottom: '0.25rem',
                 fontFamily: FONT_FAMILY
               }}>
@@ -835,7 +1083,7 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
           </div>
         </div>
 
-        {/* Family Medical History */}
+        {/* Family Medical History with Permission System */}
         <div style={{ marginBottom: SPACING.md }}>
           <div style={{
             fontWeight: '600',
@@ -847,18 +1095,56 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
             justifyContent: 'space-between',
             fontFamily: FONT_FAMILY
           }}>
-            <span>Family Medical History</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
+              <span>Family Medical History</span>
+              <TeamOutlined style={{ fontSize: '0.875rem', color: colors.healthPrimary }} />
+              {familyMembers.length > 0 && (
+                <Tooltip title={`${familyMembers.length} family members available`}>
+                  <Badge
+                    count={familyMembers.length}
+                    style={{ backgroundColor: colors.textMuted }}
+                  />
+                </Tooltip>
+              )}
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
               {familyHistoryLoading && <Spin size="small" />}
-              <Button
-                type="text"
-                size="small"
-                icon={<PlusOutlined />}
-                onClick={onAddFamilyHistory}
-              />
+              <Tooltip title={
+                familyMembers.length === 0
+                  ? "Add family members first"
+                  : "Add family medical history"
+              }>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<PlusOutlined />}
+                  onClick={handleAddFamilyHistory}
+                  disabled={familyMembers.length === 0}
+                />
+              </Tooltip>
             </div>
           </div>
 
+          {/* Family Members Status */}
+          {familyMembers.length === 0 && (
+            <div style={{
+              padding: SPACING.md,
+              background: 'linear-gradient(to right, #fef3c7, #fde68a)',
+              border: '1px solid #f59e0b',
+              borderRadius: '8px',
+              marginBottom: SPACING.md,
+              textAlign: 'center'
+            }}>
+              <div style={{ fontWeight: '600', marginBottom: SPACING.xs, color: '#92400e', fontFamily: FONT_FAMILY }}>
+                No Family Members Added
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#92400e', fontFamily: FONT_FAMILY }}>
+                Add family members first to track their medical history
+              </div>
+            </div>
+          )}
+
+          {/* Family Medical History Records with Permission System */}
           <div style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>
             {familyHistory.length > 0 ? (
               familyHistory.map((history) => (
@@ -873,51 +1159,158 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
                     borderRadius: '8px',
                     backgroundColor: colors.background,
                     border: `1px solid ${colors.border}`,
-                    cursor: 'pointer',
+                    cursor: canEditFamilyMedicalHistory(history) ? 'pointer' : 'default',
                     transition: 'all 0.2s',
-                    fontFamily: FONT_FAMILY
+                    fontFamily: FONT_FAMILY,
+                    position: 'relative',
+                    opacity: history.canEdit === false ? 0.85 : 1
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = colors.healthPrimary;
-                    e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)';
-                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    if (canEditFamilyMedicalHistory(history)) {
+                      e.currentTarget.style.borderColor = colors.healthPrimary;
+                      e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor = colors.border;
                     e.currentTarget.style.boxShadow = 'none';
                     e.currentTarget.style.transform = 'translateY(0)';
                   }}
+                  onClick={() => handleFamilyHistoryClick(history)}
                 >
                   <div style={{ flex: 1 }}>
-                    <strong>{history.familyMemberRelation}:</strong> {history.conditionName}
-                    {history.ageOfOnset && ` (age ${history.ageOfOnset})`}
-                    {history.status && `, ${history.status}`}
+                    {/* Permission indicator */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: SPACING.xs,
+                      marginBottom: SPACING.xs
+                    }}>
+                      <Tooltip title={
+                        history.canEdit
+                          ? "You can edit and delete this record"
+                          : "This record is read-only (added by another family member)"
+                      }>
+                        {history.canEdit ? (
+                          <UnlockOutlined
+                            style={{
+                              fontSize: '0.75rem',
+                              color: colors.healthPrimary
+                            }}
+                          />
+                        ) : (
+                          <LockOutlined
+                            style={{
+                              fontSize: '0.75rem',
+                              color: colors.textMuted
+                            }}
+                          />
+                        )}
+                      </Tooltip>
+                      <Text style={{
+                        fontSize: '0.75rem',
+                        color: colors.textMuted,
+                        fontFamily: FONT_FAMILY
+                      }}>
+                        {getFamilyMedicalHistoryPermissionText(history)}
+                      </Text>
+                      {history.canEdit === false && (
+                        <Tooltip title="Read-only record">
+                          <InfoCircleOutlined style={{ fontSize: '0.75rem', color: colors.textMuted }} />
+                        </Tooltip>
+                      )}
+                    </div>
+
+                    {/* Medical History Content with proper family member names */}
+                    <div style={{ fontWeight: '500' }}>
+                      <strong>
+                        {history.familyMemberName ||
+                          getFamilyMemberNameById(history.familyMemberUserId || '', familyMembers) ||
+                          'Unknown Member'}
+                      </strong>
+                      {(history.familyMemberRelation ||
+                        getFamilyMemberRelationshipById(history.familyMemberUserId || '', familyMembers)) && (
+                          <span style={{ color: colors.textMuted, fontWeight: 'normal' }}>
+                            {' '}({history.familyMemberRelation ||
+                              getFamilyMemberRelationshipById(history.familyMemberUserId || '', familyMembers)})
+                          </span>
+                        )}
+                      : {history.conditionName}
+                    </div>
+
+                    {/* Additional Details */}
+                    <div style={{
+                      fontSize: '0.8125rem',
+                      color: colors.textMuted,
+                      marginTop: SPACING.xs
+                    }}>
+                      {history.ageOfOnset && `Age of onset: ${history.ageOfOnset}`}
+                      {history.ageOfOnset && history.status && ' • '}
+                      {history.status && `Status: ${history.status}`}
+                    </div>
+
+                    {/* Notes Preview */}
+                    {history.notes && (
+                      <div style={{
+                        fontSize: '0.8125rem',
+                        color: colors.textMuted,
+                        marginTop: SPACING.xs,
+                        fontStyle: 'italic'
+                      }}>
+                        Notes: {history.notes.length > 50 ? `${history.notes.substring(0, 50)}...` : history.notes}
+                      </div>
+                    )}
                   </div>
+
+                  {/* Action Dropdown with Permission Checking */}
                   <Dropdown
                     overlay={
                       <Menu>
                         <Menu.Item
                           key="view"
                           icon={<EyeOutlined />}
-                          onClick={() => onViewFamilyHistory(history)}
+                          onClick={(e) => {
+                            e.domEvent.stopPropagation();
+                            onViewFamilyHistory(history);
+                          }}
                         >
-                          View
+                          View Details
                         </Menu.Item>
-                        <Menu.Item
-                          key="edit"
-                          icon={<EditOutlined />}
-                          onClick={() => handleFamilyHistoryClick(history)}
-                        >
-                          Edit
-                        </Menu.Item>
-                        <Menu.Item
-                          key="delete"
-                          icon={<DeleteOutlined />}
-                          onClick={() => onDeleteFamilyHistory(history.id!)}
-                          danger
-                        >
-                          Delete
-                        </Menu.Item>
+                        {canEditFamilyMedicalHistory(history) && (
+                          <Menu.Item
+                            key="edit"
+                            icon={<EditOutlined />}
+                            onClick={(e) => {
+                              e.domEvent.stopPropagation();
+                              handleFamilyHistoryClick(history);
+                            }}
+                          >
+                            Edit
+                          </Menu.Item>
+                        )}
+                        {canDeleteFamilyMedicalHistory(history) && (
+                          <Menu.Item
+                            key="delete"
+                            icon={<DeleteOutlined />}
+                            onClick={(e) => {
+                              e.domEvent.stopPropagation();
+                              onDeleteFamilyHistory(history.id!);
+                            }}
+                            danger
+                          >
+                            Delete
+                          </Menu.Item>
+                        )}
+                        {!canEditFamilyMedicalHistory(history) && !canDeleteFamilyMedicalHistory(history) && (
+                          <Menu.Item
+                            key="readonly"
+                            icon={<InfoCircleOutlined />}
+                            disabled
+                          >
+                            Read-only record
+                          </Menu.Item>
+                        )}
                       </Menu>
                     }
                     trigger={['click']}
@@ -943,10 +1336,43 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
               ))
             ) : (
               <Text style={{ color: colors.textMuted, fontFamily: FONT_FAMILY }}>
-                No family medical history recorded.
+                {familyMembers.length > 0
+                  ? "No family medical history recorded yet."
+                  : "Add family members first to track their medical history."
+                }
               </Text>
             )}
           </div>
+
+          {/* ENHANCED: Family Medical History Stats */}
+          {/* {calculatedStats.totalRecords > 0 && (
+            <div style={{
+              marginTop: SPACING.md,
+              padding: SPACING.sm,
+              background: colors.healthLight,
+              borderRadius: '6px',
+              fontSize: '0.75rem',
+              color: colors.textMuted,
+              fontFamily: FONT_FAMILY
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: SPACING.sm }}>
+                <Tooltip title="Total medical records">
+                  <span>📊 Total: {calculatedStats.totalRecords}</span>
+                </Tooltip>
+                <Tooltip title="Family members with medical history">
+                  <span>👥 Members: {calculatedStats.membersWithHistory}</span>
+                </Tooltip>
+                <Tooltip title="Records you can edit">
+                  <span>✏️ Editable: {calculatedStats.editableRecords}</span>
+                </Tooltip>
+                {calculatedStats.readOnlyRecords > 0 && (
+                  <Tooltip title="Read-only records added by others">
+                    <span>🔒 Read-only: {calculatedStats.readOnlyRecords}</span>
+                  </Tooltip>
+                )}
+              </div>
+            </div>
+          )} */}
         </div>
       </div>
     </div>

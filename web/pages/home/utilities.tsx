@@ -1,9 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Card, Tabs, Button, Modal, Typography, Form, Input, InputNumber, Select, message, Popconfirm, Spin } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Card, Tabs, Button, Modal, Typography, Input, Select, message, Popconfirm, Spin, Alert } from 'antd';
+import { Home, DollarSign, Link, FileText } from 'lucide-react';
 import { addUtility, getUtilities, updateUtility, deleteUtility, Utility } from '../../services/home';
-import { PRIMARY_COLOR } from '../../app/comman';
+import { CustomButton, PRIMARY_COLOR } from '../../app/comman';
 
 const { TabPane } = Tabs;
 const { Text } = Typography;
@@ -14,7 +15,14 @@ interface UtilitiesSectionProps {
 }
 
 const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = true }) => {
-  const [form] = Form.useForm();
+  const [formData, setFormData] = useState({
+    type: '',
+    category: '',
+    accountNumber: '',
+    monthlyCost: '',
+    providerUrl: '',
+  });
+  const [customType, setCustomType] = useState('');
   const [utilities, setUtilities] = useState<Utility[]>([]);
   const [isFormModalVisible, setIsFormModalVisible] = useState(false);
   const [selectedUtility, setSelectedUtility] = useState<Utility | null>(null);
@@ -22,24 +30,25 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('Core');
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [errorMessage, setErrorMessage] = useState('');
 
   const predefinedUtilities = [
-    { category: 'Core', name: 'Gas', icon: 'G', desc: 'Gas utility service' },
-    { category: 'Core', name: 'Electricity', icon: 'E', desc: 'Electricity utility service' },
-    { category: 'Core', name: 'Water', icon: 'W', desc: 'Water utility service' },
-    { category: 'Core', name: 'Trash / Waste', icon: 'T', desc: 'Trash and waste management' },
-    { category: 'Core', name: 'Internet', icon: 'I', desc: 'Internet service provider' },
-    { category: 'Home Services', name: 'Lawn Care', icon: 'L', desc: 'Lawn maintenance service' },
-    { category: 'Home Services', name: 'Pest Control', icon: 'P', desc: 'Pest control service' },
-    { category: 'Home Services', name: 'Security System', icon: 'S', desc: 'Home security service' },
-    { category: 'Home Services', name: 'HVAC Service', icon: 'H', desc: 'Heating and cooling service' },
-    { category: 'Home Services', name: 'Cleaning Service', icon: 'C', desc: 'House cleaning service' },
-    { category: 'Home Services', name: 'Snow Removal', icon: 'W', desc: 'Snow removal service' },
-    { category: 'Home Services', name: 'Pool Maintenance', icon: 'P', desc: 'Pool maintenance service' },
-    { category: 'Home Services', name: 'Smart Home', icon: 'S', desc: 'Smart home system management' },
-    { category: 'Entertainment', name: 'TV Provider', icon: 'T', desc: 'Television service provider' },
-    { category: 'Entertainment', name: 'Streaming Services', icon: 'S', desc: 'Streaming media services' },
-    { category: 'Entertainment', name: 'Home Phone', icon: 'P', desc: 'Home phone service' },
+    { category: 'Core', name: 'Gas', icon: '🔥', desc: 'Gas utility service' },
+    { category: 'Core', name: 'Electricity', icon: '⚡', desc: 'Electricity utility service' },
+    { category: 'Core', name: 'Water', icon: '💧', desc: 'Water utility service' },
+    { category: 'Core', name: 'Trash / Waste', icon: '🗑️', desc: 'Trash and waste management' },
+    { category: 'Core', name: 'Internet', icon: '🌐', desc: 'Internet service provider' },
+    { category: 'Home Services', name: 'Lawn Care', icon: '🌱', desc: 'Lawn maintenance service' },
+    { category: 'Home Services', name: 'Pest Control', icon: '🐜', desc: 'Pest control service' },
+    { category: 'Home Services', name: 'Security System', icon: '🔒', desc: 'Home security service' },
+    { category: 'Home Services', name: 'HVAC Service', icon: '❄️', desc: 'Heating and cooling service' },
+    { category: 'Home Services', name: 'Cleaning Service', icon: '🧹', desc: 'House cleaning service' },
+    { category: 'Home Services', name: 'Snow Removal', icon: '❄️', desc: 'Snow removal service' },
+    { category: 'Home Services', name: 'Pool Maintenance', icon: '🏊', desc: 'Pool maintenance service' },
+    { category: 'Home Services', name: 'Smart Home', icon: '🏠', desc: 'Smart home system management' },
+    { category: 'Entertainment', name: 'TV Provider', icon: '📺', desc: 'Television service provider' },
+    { category: 'Entertainment', name: 'Streaming Services', icon: '🎥', desc: 'Streaming media services' },
+    { category: 'Entertainment', name: 'Home Phone', icon: '☎️', desc: 'Home phone service' },
   ];
 
   const categories = {
@@ -50,6 +59,13 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
 
   const categoryOrder = Object.keys(categories);
 
+  const gradientColors = [
+    'linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%)',
+    'linear-gradient(135deg, #fefcbf 0%, #fef3c7 100%)',
+    'linear-gradient(135deg, #d1fae5 0%, #c7f0e0 100%)',
+    'linear-gradient(135deg, #fed7e2 0%, #fce7f3 100%)',
+  ];
+
   const sectionCardStyle: React.CSSProperties = {
     background: '#ffffff',
     borderRadius: '0.75rem',
@@ -59,7 +75,6 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
     height: '500px',
     display: 'flex',
     flexDirection: 'column',
-    // margin: '0.75rem', // Added margin for gap around the card
   };
 
   const sectionHeaderStyle: React.CSSProperties = {
@@ -90,7 +105,7 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
   };
 
   const utilitiesContentStyle: React.CSSProperties = {
-    padding: '1.5rem', // Increased padding for internal spacing
+    padding: '1.5rem',
     maxHeight: '340px',
     overflowY: 'auto',
     flex: 1,
@@ -101,9 +116,49 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
     borderRadius: '4px',
     padding: '20px',
     textAlign: 'center',
-    margin: '1.5rem', // Increased margin for better spacing
+    margin: '1.5rem',
     backgroundColor: '#fafafa',
     marginTop: '1.5rem',
+  };
+
+  const placeholderCardStyle: React.CSSProperties = {
+    background: '#e2e8f0',
+    borderRadius: '0.5rem',
+    padding: '1.25rem',
+    marginBottom: '1rem',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    position: 'relative',
+    border: '1px dashed #6b7280',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+  };
+
+  const placeholderIconStyle: React.CSSProperties = {
+    fontSize: '2rem',
+    color: '#6b7280',
+  };
+
+  const placeholderNameStyle: React.CSSProperties = {
+    fontWeight: 600,
+    fontSize: '1rem',
+    color: '#6b7280',
+  };
+
+  const placeholderDescStyle: React.CSSProperties = {
+    fontSize: '0.8125rem',
+    color: '#9ca3af',
+  };
+
+  const arrowStyle: React.CSSProperties = {
+    position: 'absolute',
+    right: '1rem',
+    color: '#6b7280',
+    opacity: 0,
+    transition: 'opacity 0.2s',
+    pointerEvents: 'none',
+    fontSize: '16px',
   };
 
   const toggleExpand = (id: string) => {
@@ -122,19 +177,20 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
     predefined: typeof predefinedUtilities[0];
     utility?: Utility;
     expanded: boolean;
-  }> = ({ predefined, utility, expanded }) => {
+    gradientIndex?: number;
+  }> = ({ predefined, utility, expanded, gradientIndex = 0 }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [localLoading, setLocalLoading] = useState(false);
 
     const utilityCardStyle: React.CSSProperties = {
-      background: utility ? 'linear-gradient(135deg, #dbeafe, #e0e7ff)' : '#f9fafb',
+      background: utility ? gradientColors[gradientIndex % gradientColors.length] : '#e2e8f0',
       borderRadius: '0.5rem',
-      padding: '1.25rem', // Adjusted padding for internal spacing
-      marginBottom: '1rem', // Added gap between cards
+      padding: '1.25rem',
+      marginBottom: '1rem',
       cursor: 'pointer',
       transition: 'all 0.2s',
       position: 'relative',
-      border: utility ? '1px solid #e2e8f0' : '1px dashed #d1d5db',
+      border: utility ? '1px solid #e2e8f0' : '1px dashed #6b7280',
     };
 
     const utilityProviderStyle: React.CSSProperties = {
@@ -142,21 +198,21 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
       marginBottom: '0.75rem',
       display: 'flex',
       alignItems: 'center',
-      gap: '0.75rem', // Increased gap for better spacing
+      gap: '0.75rem',
       fontSize: '0.9375rem',
     };
 
     const coverageGridStyle: React.CSSProperties = {
       display: 'grid',
       gridTemplateColumns: 'repeat(2, 1fr)',
-      gap: '0.75rem', // Increased gap for grid items
+      gap: '0.75rem',
       fontSize: '0.8125rem',
     };
 
     const coverageItemStyle: React.CSSProperties = {
       display: 'flex',
       justifyContent: 'space-between',
-      padding: '0.25rem 0', // Added padding for vertical spacing
+      padding: '0.25rem 0',
     };
 
     const coverageLabelStyle: React.CSSProperties = {
@@ -170,12 +226,12 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
     const descStyle: React.CSSProperties = {
       fontSize: '0.8125rem',
       color: '#64748b',
-      marginTop: '0.5rem', // Adjusted for spacing
+      marginTop: '0.5rem',
     };
 
     const detailItemStyle: React.CSSProperties = {
       fontSize: '0.875rem',
-      marginBottom: '0.5rem', // Added gap between detail items
+      marginBottom: '0.5rem',
     };
 
     const detailLabelStyle: React.CSSProperties = {
@@ -194,7 +250,7 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
     const propertyItemDetailsStyle: React.CSSProperties = {
       display: 'grid',
       gridTemplateColumns: 'repeat(2, 1fr)',
-      gap: '1rem', // Increased gap for details
+      gap: '1rem',
       marginTop: '1.25rem',
       paddingTop: '1.25rem',
       borderTop: '1px solid #e2e8f0',
@@ -202,7 +258,7 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
 
     const actionButtonsStyle: React.CSSProperties = {
       display: 'flex',
-      gap: '12px', // Increased gap for buttons
+      gap: '12px',
       marginTop: '1.25rem',
       justifyContent: 'flex-end',
     };
@@ -211,13 +267,14 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
       e.stopPropagation();
       setFormMode('edit');
       setSelectedUtility(utility!);
-      form.setFieldsValue({
+      setFormData({
         type: utility!.type,
         category: utility!.category,
         accountNumber: utility!.accountNumber,
-        monthlyCost: utility!.monthlyCost,
+        monthlyCost: utility!.monthlyCost.toString(),
         providerUrl: utility!.providerUrl,
       });
+      setCustomType(utility!.type);
       setIsFormModalVisible(true);
     };
 
@@ -240,8 +297,15 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
         toggleExpand(predefined.name);
       } else {
         setFormMode('add');
-        form.resetFields();
-        form.setFieldsValue({ category: predefined.category, type: predefined.name });
+        setFormData({
+          type: predefined.name,
+          category: predefined.category,
+          accountNumber: '',
+          monthlyCost: '',
+          providerUrl: '',
+        });
+        setCustomType(predefined.name);
+        setSelectedUtility(null);
         setIsFormModalVisible(true);
       }
     };
@@ -306,8 +370,12 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
               <Popconfirm
                 title="Are you sure to delete this utility?"
                 onConfirm={handleDelete}
-                okText="Yes"
+                okText="Yes, Delete"
                 cancelText="No"
+                okButtonProps={{
+                  danger: true,
+                  style: { backgroundColor: '#ff0207ff', borderColor: '#ff0207ff' },
+                }}
               >
                 <Button
                   type="primary"
@@ -340,6 +408,26 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
     );
   };
 
+  const PlaceholderCard: React.FC<{ onAdd: () => void }> = ({ onAdd }) => {
+    const [isHovered, setIsHovered] = useState(false);
+
+    return (
+      <div
+        style={placeholderCardStyle}
+        onClick={onAdd}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        {/* <div style={placeholderIconStyle}><PlusOutlined /></div> */}
+        <div>
+          <div style={placeholderNameStyle}>Add Another Utility</div>
+          <div style={placeholderDescStyle}>Add a new utility to your services</div>
+        </div>
+        <div style={{ ...arrowStyle, opacity: isHovered ? 1 : 0 }}><PlusOutlined /></div>
+      </div>
+    );
+  };
+
   const fetchUtilities = async () => {
     try {
       setLoading(true);
@@ -347,7 +435,7 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
       if (response.status === 1 && Array.isArray(response.payload.utilities)) {
         const fetchedUtilities = response.payload.utilities
           .filter((util: any) => util.is_active === 1)
-          .map((util: any) => ({
+          .map((util: any, index: number) => ({
             id: util.id || util.utid || '',
             type: util.type || util.name || 'Unknown',
             accountNumber: util.accountNumber || util.account_number || 'N/A',
@@ -357,12 +445,11 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
             created_at: util.created_at || '',
             updated_at: util.updated_at || '',
             is_active: util.is_active ?? 1,
-            // Add required Utility fields with default values if missing
             amount: util.amount ?? 0,
             details: util.details ?? '',
             name: util.name ?? util.type ?? 'Unknown',
             logo: util.logo ?? '',
-            backgroundColor: util.backgroundColor ?? '#ffffff',
+            backgroundColor: gradientColors[index % gradientColors.length],
           }));
         setUtilities(fetchedUtilities);
       } else {
@@ -382,20 +469,36 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
 
   const handleAdd = () => {
     setFormMode('add');
-    form.resetFields();
-    form.setFieldsValue({ category: activeTab });
+    setFormData({
+      type: '',
+      category: activeTab,
+      accountNumber: '',
+      monthlyCost: '',
+      providerUrl: '',
+    });
+    setCustomType('');
     setSelectedUtility(null);
+    setErrorMessage('');
     setIsFormModalVisible(true);
   };
 
-  const handleFormSubmit = async (values: any) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMessage('');
     try {
+      if (!formData.category || !customType || !formData.accountNumber || !formData.monthlyCost || !formData.providerUrl) {
+        setErrorMessage('Please fill in all required fields.');
+        setLoading(false);
+        return;
+      }
+
       const payload = {
-        type: values.type,
-        account_number: values.accountNumber,
-        monthly_cost: values.monthlyCost,
-        provider_url: values.providerUrl,
-        category: values.category,
+        type: customType,
+        account_number: formData.accountNumber,
+        monthly_cost: parseFloat(formData.monthlyCost),
+        provider_url: formData.providerUrl,
+        category: formData.category,
         is_active: 1,
       };
 
@@ -407,27 +510,45 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
         message.success('Utility updated successfully');
       }
       setIsFormModalVisible(false);
-      form.resetFields();
+      setFormData({
+        type: '',
+        category: '',
+        accountNumber: '',
+        monthlyCost: '',
+        providerUrl: '',
+      });
+      setCustomType('');
       setSelectedUtility(null);
       fetchUtilities();
     } catch (error: any) {
       console.error('Save error:', error);
-      message.error(`Failed to ${formMode} utility: ${error.message}`);
+      setErrorMessage(`Failed to ${formMode} utility: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleModalCancel = () => {
     setIsFormModalVisible(false);
-    form.resetFields();
+    setFormData({
+      type: '',
+      category: '',
+      accountNumber: '',
+      monthlyCost: '',
+      providerUrl: '',
+    });
+    setCustomType('');
     setSelectedUtility(null);
+    setErrorMessage('');
   };
 
   const renderUtilities = (category: string) => {
     const catPre = predefinedUtilities.filter(p => p.category === category);
-    if (catPre.length === 0) return null;
+    const catUtilities = utilities.filter(u => u.category === category);
+    if (catPre.length === 0 && catUtilities.length === 0) return null;
     return (
       <div style={utilitiesContentStyle}>
-        {catPre.map((p) => {
+        {catPre.map((p, index) => {
           const util = utilities.find(u => u.category === category && u.type === p.name);
           return (
             <UtilitySubCard
@@ -435,16 +556,22 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
               predefined={p}
               utility={util}
               expanded={expandedItems.has(p.name)}
+              gradientIndex={index}
             />
           );
         })}
-        {catPre.every(p => utilities.some(u => u.category === category && u.type === p.name)) && (
-          <div style={noDataStyle}>
-            <div style={{ fontSize: '24px', color: '#bfbfbf' }}>+</div>
-            <div style={{ marginTop: '0.5rem', color: '#8c8c8c' }}>Add New Utility</div>
-            <div style={{ color: '#bfbfbf' }}>{category} utility description...</div>
-          </div>
-        )}
+        {catUtilities
+          .filter(u => !predefinedUtilities.some(p => p.category === category && p.name === u.type))
+          .map((util, index) => (
+            <UtilitySubCard
+              key={util.id}
+              predefined={{ category: util.category, name: util.type, icon: '⚙️', desc: 'Custom utility' }}
+              utility={util}
+              expanded={expandedItems.has(util.type)}
+              gradientIndex={catPre.length + index}
+            />
+          ))}
+        <PlaceholderCard onAdd={handleAdd} />
       </div>
     );
   };
@@ -457,25 +584,24 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
             <div style={sectionIconStyle}>⚡</div>
             <span>Utilities & Home Services</span>
           </h2>
-          <Button
-            type="primary"
-            style={{
-              backgroundColor: PRIMARY_COLOR,
-              borderColor: PRIMARY_COLOR,
-              color: '#fff',
-              borderRadius: '6px',
-              height: '32px',
-              padding: '0 8px',
-              width: '30px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '2px',
-              justifyContent: 'center',
-            }}
-            size="small"
-            icon={<PlusOutlined />}
+          <CustomButton
+            label="Add Utility"
+            // icon={<PlusOutlined />}
             onClick={handleAdd}
-          />
+            // style={{
+            //   backgroundColor: PRIMARY_COLOR,
+            //   borderColor: PRIMARY_COLOR,
+            //   color: '#fff',
+            //   borderRadius: '6px',
+            //   height: '32px',
+            //   padding: '0 8px',
+            //   width: '30px',
+            //   display: 'flex',
+            //   alignItems: 'center',
+            //   gap: '2px',
+            //   justifyContent: 'center',
+            // }}
+            />
         </div>
         <div style={utilitiesContentStyle}>
           <div style={{ padding: '2rem', textAlign: 'center' }}>
@@ -494,32 +620,31 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
             <div style={sectionIconStyle}>⚡</div>
             <span>Utilities & Home Services</span>
           </h2>
-          <Button
-            type="primary"
-            style={{
-              backgroundColor: PRIMARY_COLOR,
-              borderColor: PRIMARY_COLOR,
-              color: '#fff',
-              borderRadius: '6px',
-              height: '32px',
-              padding: '0 8px',
-              width: '30px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '2px',
-              justifyContent: 'center',
-            }}
-            size="small"
-            icon={<PlusOutlined />}
+         <CustomButton
+            label="Add Utility"
+            // icon={<PlusOutlined />}
             onClick={handleAdd}
-          />
+            // style={{
+            //   backgroundColor: PRIMARY_COLOR,
+            //   borderColor: PRIMARY_COLOR,
+            //   color: '#fff',
+            //   borderRadius: '6px',
+            //   height: '32px',
+            //   padding: '0 8px',
+            //   width: '30px',
+            //   display: 'flex',
+            //   alignItems: 'center',
+            //   gap: '2px',
+            //   justifyContent: 'center',
+            // }
+            />
         </div>
         <Tabs
           activeKey={activeTab}
           onChange={setActiveTab}
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: '0.5rem' }} // Added margin for tab spacing
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: '0.5rem' }}
           tabBarStyle={{
-            padding: '1rem 1.5rem 0', // Adjusted padding for tab bar
+            padding: '1rem 1.5rem 0',
             background: '#ffffff',
             margin: 0,
           }}
@@ -537,76 +662,278 @@ const UtilitiesSection: React.FC<UtilitiesSectionProps> = ({ hasTabNavigation = 
       </Card>
 
       <Modal
-        title={formMode === 'add' ? 'Add Utility' : 'Edit Utility'}
+        title={
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '8px 0',
+              borderBottom: '1px solid #f0f0f0',
+              paddingBottom: '16px',
+              marginBottom: '8px',
+            }}
+          >
+            <div
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '12px',
+                background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, #096dd9 100%)`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: `0 4px 12px ${PRIMARY_COLOR}30`,
+              }}
+            >
+              <Home style={{ fontSize: '20px', color: 'white' }} />
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 600,
+                  color: '#1a202c',
+                  lineHeight: 1.2,
+                  marginBottom: '2px',
+                }}
+              >
+                {formMode === 'add' ? 'Add New Utility' : 'Edit Utility'}
+              </div>
+              <div
+                style={{
+                  fontSize: '13px',
+                  color: '#64748b',
+                  fontWeight: 400,
+                }}
+              >
+                {formMode === 'add' ? 'Add a new utility to your services' : 'Update utility information'}
+              </div>
+            </div>
+          </div>
+        }
         open={isFormModalVisible}
         onCancel={handleModalCancel}
         footer={null}
-        style={{ padding: '1rem' }} // Added padding for modal
+        width={700}
+        style={{ top: 20 }}
+        bodyStyle={{
+          padding: '24px',
+          maxHeight: '70vh',
+          overflowY: 'auto',
+          background: '#fafbfc',
+        }}
+        maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.6)'}}
       >
-        <Form
-          form={form}
-          onFinish={handleFormSubmit}
-          layout="vertical"
-          style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }} // Increased padding and gap
-        >
-          <Form.Item
-            name="category"
-            label="Category"
-            rules={[{ required: true, message: 'Please select a category' }]}
-          >
-            <Select placeholder="Select a category">
-              {categoryOrder.map((cat) => (
-                <Option key={cat} value={cat}>
-                  {categories[cat as keyof typeof categories].title}
+        <form onSubmit={handleFormSubmit}>
+          <div style={{ marginBottom: '20px' }}>
+            <label
+              style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#374151',
+                marginBottom: '8px',
+                display: 'block',
+              }}
+            >
+              Category
+            </label>
+            <Select
+              size="large"
+              value={formData.category}
+              onChange={(value) => {
+                setFormData((prev) => ({ ...prev, category: value, type: '' }));
+                setCustomType('');
+              }}
+              placeholder="Select category"
+              style={{
+                width: '100%',
+                borderRadius: '10px',
+                fontSize: '15px',
+                height: '48px',
+              }}
+              dropdownStyle={{
+                borderRadius: '12px',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+              }}
+            >
+              {categoryOrder.map((category) => (
+                <Option key={category} value={category}>
+                  {categories[category as keyof typeof categories].title}
                 </Option>
               ))}
             </Select>
-          </Form.Item>
-          <Form.Item
-            name="type"
-            label="Utility Name"
-            rules={[{ required: true, message: 'Please select or enter the utility name' }]}
-          >
-            <Select
-              placeholder="Select or enter utility name"
-              showSearch
-              allowClear
-              options={predefinedUtilities
-                .filter(p => p.category === form.getFieldValue('category') || !form.getFieldValue('category'))
-                .filter(p => !utilities.some(u => u.type === p.name && u.category === p.category))
-                .map(p => ({ value: p.name, label: p.name }))}
-              filterOption={(input, option) =>
-                option?.label?.toString().toLowerCase().includes(input.toLowerCase()) || false
-              }
+          </div>
+          <div style={{ marginBottom: '20px' }}>
+            <label
+              style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#374151',
+                marginBottom: '8px',
+                display: 'block',
+              }}
+            >
+              Utility Type
+            </label>
+            <Input
+              size="large"
+              value={customType}
+              onChange={(e) => setCustomType(e.target.value)}
+              placeholder="Enter utility type"
+              style={{
+                borderRadius: '10px',
+                border: '2px solid #e2e8f0',
+                fontSize: '15px',
+                height: '48px',
+                background: 'white',
+                transition: 'all 0.2s ease',
+              }}
             />
-          </Form.Item>
-          <Form.Item
-            name="accountNumber"
-            label="Account Number"
-            rules={[{ required: true, message: 'Please enter the account number' }]}
-          >
-            <Input placeholder="e.g., 123456789" />
-          </Form.Item>
-          <Form.Item
-            name="monthlyCost"
-            label="Monthly Cost ($)"
-            rules={[{ required: true, message: 'Please enter the monthly cost' }]}
-          >
-            <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="providerUrl"
-            label="Provider URL"
-            rules={[{ required: true, message: 'Please enter the provider URL' }, { type: 'url', message: 'Please enter a valid URL' }]}
-          >
-            <Input placeholder="e.g., https://provider.com" />
-          </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" style={{ width: '100%', marginTop: '0.5rem' }}>
-              {formMode === 'add' ? 'Add Utility' : 'Update Utility'}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', marginBottom: '20px' }}>
+            <div>
+              <label
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: '#374151',
+                  marginBottom: '8px',
+                  display: 'block',
+                }}
+              >
+                Account Number
+              </label>
+              <Input
+                size="large"
+                value={formData.accountNumber}
+                onChange={(e) => setFormData((prev) => ({ ...prev, accountNumber: e.target.value }))}
+                placeholder="Enter account number"
+                style={{
+                  borderRadius: '10px',
+                  border: '2px solid #e2e8f0',
+                  fontSize: '15px',
+                  height: '48px',
+                  background: 'white',
+                  transition: 'all 0.2s ease',
+                }}
+                prefix={<FileText size={16} color="#64748b" />}
+              />
+            </div>
+            <div>
+              <label
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: '#374151',
+                  marginBottom: '8px',
+                  display: 'block',
+                }}
+              >
+                Monthly Cost
+              </label>
+              <Input
+                size="large"
+                type="number"
+                value={formData.monthlyCost}
+                onChange={(e) => setFormData((prev) => ({ ...prev, monthlyCost: e.target.value }))}
+                placeholder="Enter monthly cost"
+                prefix={<DollarSign size={16} color="#64748b" />}
+                style={{
+                  borderRadius: '10px',
+                  border: '2px solid #e2e8f0',
+                  fontSize: '15px',
+                  height: '48px',
+                  background: 'white',
+                  transition: 'all 0.2s ease',
+                }}
+              />
+            </div>
+            <div>
+              <label
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: '#374151',
+                  marginBottom: '8px',
+                  display: 'block',
+                }}
+              >
+                Provider URL
+              </label>
+              <Input
+                size="large"
+                value={formData.providerUrl}
+                onChange={(e) => setFormData((prev) => ({ ...prev, providerUrl: e.target.value }))}
+                placeholder="Enter provider URL"
+                prefix={<Link size={16} color="#64748b" />}
+                style={{
+                  borderRadius: '10px',
+                  border: '2px solid #e2e8f0',
+                  fontSize: '15px',
+                  height: '48px',
+                  background: 'white',
+                  transition: 'all 0.2s ease',
+                }}
+              />
+            </div>
+          </div>
+          {errorMessage && (
+            <Alert
+              message="Error"
+              description={errorMessage}
+              type="error"
+              showIcon
+              closable
+              onClose={() => setErrorMessage('')}
+              style={{ marginBottom: '16px', borderRadius: '8px' }}
+            />
+          )}
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+            <Button
+              size="large"
+              onClick={handleModalCancel}
+              style={{
+                borderRadius: '10px',
+                height: '48px',
+                padding: '0 24px',
+                fontSize: '15px',
+                fontWeight: 500,
+                border: '2px solid #e2e8f0',
+                color: '#64748b',
+              }}
+            >
+              Cancel
             </Button>
-          </Form.Item>
-        </Form>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={loading}
+              size="large"
+              style={{
+                borderRadius: '10px',
+                fontSize: '15px',
+                fontWeight: 600,
+                background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, #096dd9 100%)`,
+                border: 'none',
+                boxShadow: `0 4px 12px ${PRIMARY_COLOR}30`,
+                height: '48px',
+                padding: '0 32px',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = `0 6px 16px ${PRIMARY_COLOR}40`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = `0 4px 12px ${PRIMARY_COLOR}30`;
+              }}
+            >
+              {loading ? 'Saving...' : formMode === 'add' ? 'Add Utility' : 'Update Utility'}
+            </Button>
+          </div>
+        </form>
       </Modal>
     </>
   );

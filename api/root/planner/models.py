@@ -6,9 +6,7 @@ import smtplib
 from flask import request
 from flask_restful import Resource
 from datetime import datetime
-
-
-# from root.google.models import SCOPE
+from root.helpers.logs import AuditLogger
 from .outlook import (
     create_outlook_calendar_event,
     fetch_outlook_calendar_events,
@@ -16,7 +14,7 @@ from .outlook import (
 )
 from root.db.dbHelper import DBHelper
 from root.common import GoalStatus, Priority, Status
-from root.utilis import uniqueId
+from root.utilis import create_calendar_event, uniqueId, update_calendar_event
 from root.auth.auth import auth_required
 from google.oauth2.credentials import Credentials
 from root.config import (
@@ -36,7 +34,6 @@ from root.utilis import extract_datetime
 from google.auth.transport.requests import Request
 import requests
 
-# Light colors for better account differentiation
 light_colors = [
     "#FDA098",
     "#C0DDF5",
@@ -49,339 +46,6 @@ light_colors = [
     "#F8AFAF",
     "#5C6BC0",
 ]
-
-
-# New comprehensive endpoint for all planner data
-# class GetPlannerDataComprehensive(Resource):
-#     @auth_required(isOptional=True)
-#     def get(self, uid, user):
-#         # Get filter parameters
-#         show_dockly = request.args.get("show_dockly", "true").lower() == "true"
-#         filtered_emails = request.args.getlist("filtered_emails[]")
-
-#         # Initialize response data
-#         response_data = {
-#             "goals": [],
-#             "todos": [],
-#             "events": [],
-#             "notes": [],
-#             "connected_accounts": [],
-#             "person_colors": {},
-#             "filters": {
-#                 "show_dockly": show_dockly,
-#                 "filtered_emails": filtered_emails,
-#             },
-#         }
-
-#         try:
-#             # Fetch all data in parallel queries for better performance
-#             query_results = DBHelper.find_multi(
-#                 {
-#                     "weekly_goals": {
-#                         "filters": {"user_id": uid, "status": Status.ACTIVE.value},
-#                         "select_fields": [
-#                             "id",
-#                             "goal",
-#                             "date",
-#                             "time",
-#                             "priority",
-#                             "goal_status",
-#                             "status",
-#                             "google_calendar_id",
-#                             "outlook_calendar_id",
-#                             "synced_to_google",
-#                             "synced_to_outlook",
-#                         ],
-#                     },
-#                     "weekly_todos": {
-#                         "filters": {"user_id": uid},
-#                         "select_fields": [
-#                             "id",
-#                             "text",
-#                             "date",
-#                             "time",
-#                             "completed",
-#                             "priority",
-#                             "goal_id",
-#                             "google_calendar_id",
-#                             "outlook_calendar_id",
-#                             "synced_to_google",
-#                             "synced_to_outlook",
-#                         ],
-#                     },
-#                     "events": {
-#                         "filters": {"user_id": uid, "is_active": 1},
-#                         "select_fields": [
-#                             "id",
-#                             "title",
-#                             "date",
-#                             "google_calendar_id",
-#                             "outlook_calendar_id",
-#                             "synced_to_google",
-#                             "synced_to_outlook",
-#                         ],
-#                     },
-#                     "connected_accounts": {
-#                         "filters": {"user_id": uid, "is_active": Status.ACTIVE.value},
-#                         "select_fields": [
-#                             "access_token",
-#                             "refresh_token",
-#                             "email",
-#                             "provider",
-#                             "user_object",
-#                         ],
-#                     },
-#                 }
-#             )
-
-#             # Process goals
-#             if show_dockly:
-#                 response_data["goals"] = query_results.get("weekly_goals", [])
-
-#             # Process todos
-#             if show_dockly:
-#                 response_data["todos"] = query_results.get("weekly_todos", [])
-
-#             # Process connected accounts and events
-#             connected_accounts_data = query_results.get("connected_accounts", [])
-
-#             # Add Dockly as virtual account if enabled
-#             if show_dockly:
-#                 dockly_account = {
-#                     "provider": "dockly",
-#                     "email": user.get("email", "dockly@user.com"),
-#                     "color": "#0033FF",
-#                     "userName": user.get("user_name", "Dockly User"),
-#                     "displayName": user.get("user_name", "Dockly User"),
-#                 }
-#                 response_data["connected_accounts"].append(dockly_account)
-
-#             # Process Google and Outlook accounts
-#             all_events = []
-#             if connected_accounts_data:
-#                 for i, cred_data in enumerate(connected_accounts_data):
-#                     provider = cred_data.get("provider", "google").lower()
-#                     email = cred_data.get("email")
-#                     color = light_colors[i % len(light_colors)]
-
-#                     try:
-#                         user_object_data = json.loads(
-#                             cred_data.get("user_object", "{}")
-#                         )
-#                     except:
-#                         user_object_data = {}
-
-#                     # Add to connected accounts
-#                     account_info = {
-#                         "provider": provider,
-#                         "email": email,
-#                         "color": color,
-#                         "userName": user_object_data.get("name", email.split("@")[0]),
-#                         "displayName": user_object_data.get(
-#                             "name", email.split("@")[0]
-#                         ),
-#                     }
-#                     response_data["connected_accounts"].append(account_info)
-
-#                     # Set up person colors
-#                     response_data["person_colors"][account_info["userName"]] = {
-#                         "color": color,
-#                         "email": email,
-#                     }
-
-#                     # Fetch calendar events based on provider
-#                     try:
-#                         if provider == "google":
-#                             google_events = (
-#                                 self._fetch_google_calendar_events_for_account(
-#                                     cred_data
-#                                 )
-#                             )
-#                             for event in google_events:
-#                                 event["source_email"] = email
-#                                 event["account_color"] = color
-#                                 event["provider"] = provider
-#                             all_events.extend(google_events)
-
-#                         elif provider == "outlook":
-#                             outlook_events = (
-#                                 self._fetch_outlook_calendar_events_for_account(
-#                                     cred_data, color, email
-#                                 )
-#                             )
-#                             all_events.extend(outlook_events)
-
-#                     except Exception as e:
-#                         print(f"Error fetching {provider} events for {email}: {e}")
-
-#             # Process Dockly events if enabled
-#             if show_dockly:
-#                 dockly_events = []
-
-#                 # Add goals as events
-#                 for goal in response_data["goals"]:
-#                     dockly_events.append(
-#                         {
-#                             "id": f"goal_{goal.get('id')}",
-#                             "summary": goal.get("goal"),
-#                             "date": self._format_date(goal.get("date")),
-#                             "time": goal.get("time"),
-#                             "type": "goal",
-#                             "source": "dockly",
-#                             "source_email": user.get("email", "dockly@user.com"),
-#                             "provider": "dockly",
-#                             "account_color": "#0033FF",
-#                             "priority": self._get_priority_text(goal.get("priority")),
-#                             "status": self._get_goal_status_text(
-#                                 goal.get("goal_status")
-#                             ),
-#                             "synced_to_google": goal.get("synced_to_google", False),
-#                             "synced_to_outlook": goal.get("synced_to_outlook", False),
-#                         }
-#                     )
-
-#                 # Add todos as events
-#                 for todo in response_data["todos"]:
-#                     dockly_events.append(
-#                         {
-#                             "id": f"todo_{todo.get('id')}",
-#                             "summary": todo.get("text"),
-#                             "date": self._format_date(todo.get("date")),
-#                             "time": todo.get("time"),
-#                             "type": "todo",
-#                             "source": "dockly",
-#                             "source_email": user.get("email", "dockly@user.com"),
-#                             "provider": "dockly",
-#                             "account_color": "#0033FF",
-#                             "priority": todo.get("priority", "medium"),
-#                             "completed": todo.get("completed", False),
-#                             "synced_to_google": todo.get("synced_to_google", False),
-#                             "synced_to_outlook": todo.get("synced_to_outlook", False),
-#                         }
-#                     )
-
-#                 # Add manual events
-#                 for event in query_results.get("events", []):
-#                     dockly_events.append(
-#                         {
-#                             "id": f"event_{event.get('id')}",
-#                             "summary": event.get("title"),
-#                             "date": self._format_date(event.get("date")),
-#                             "time": event.get("time") or "12:00 PM",
-#                             "type": "event",
-#                             "source": "dockly",
-#                             "source_email": user.get("email", "dockly@user.com"),
-#                             "provider": "dockly",
-#                             "account_color": "#0033FF",
-#                             "synced_to_google": event.get("synced_to_google", False),
-#                             "synced_to_outlook": event.get("synced_to_outlook", False),
-#                         }
-#                     )
-
-#                 all_events.extend(dockly_events)
-
-#             # Filter events by email if specified
-#             if filtered_emails:
-#                 all_events = [
-#                     e for e in all_events if e.get("source_email") in filtered_emails
-#                 ]
-
-#             response_data["events"] = all_events
-
-#             return {
-#                 "status": 1,
-#                 "message": "Planner data fetched successfully",
-#                 "payload": response_data,
-#             }
-
-#         except Exception as e:
-#             print(f"Error in GetPlannerDataComprehensive: {e}")
-#             return {
-#                 "status": 0,
-#                 "message": "Failed to fetch planner data",
-#                 "payload": response_data,
-#                 "error": str(e),
-#             }
-
-#     def _fetch_outlook_calendar_events_for_account(self, cred_data, color, email):
-#         """Fetch Outlook Calendar events for a specific account"""
-#         try:
-#             access_token = cred_data.get("access_token")
-
-#             # Fetch raw Outlook events
-#             raw_events = fetch_outlook_calendar_events(access_token)
-
-#             # Transform to unified format
-#             transformed_events = []
-#             for event in raw_events:
-#                 transformed = transform_outlook_event(event, color, email)
-#                 if transformed:
-#                     transformed_events.append(transformed)
-
-#             return transformed_events
-
-#         except Exception as e:
-#             print(f"Error fetching Outlook Calendar events: {e}")
-#             return []
-
-#     def _fetch_google_calendar_events_for_account(self, cred_data):
-#         """Fetch Google Calendar events for a specific account"""
-#         try:
-#             creds = Credentials(
-#                 token=cred_data["access_token"],
-#                 refresh_token=cred_data["refresh_token"],
-#                 token_uri=uri,
-#                 client_id=CLIENT_ID,
-#                 client_secret=CLIENT_SECRET,
-#                 scopes=SCOPE.split(),
-#             )
-
-#             service = build("calendar", "v3", credentials=creds)
-
-#             # Get events from the past week to future
-#             time_min = (datetime.utcnow() - timedelta(days=7)).isoformat() + "Z"
-
-#             events_result = (
-#                 service.events()
-#                 .list(
-#                     calendarId="primary",
-#                     timeMin=time_min,
-#                     maxResults=100,
-#                     singleEvents=True,
-#                     orderBy="startTime",
-#                 )
-#                 .execute()
-#             )
-
-#             return events_result.get("items", [])
-
-#         except Exception as e:
-#             print(f"Error fetching Google Calendar events: {e}")
-#             return []
-
-#     # Keep all other helper methods unchanged
-#     def _format_date(self, date_obj):
-#         """Helper method to format date objects"""
-#         if isinstance(date_obj, (datetime, date)):
-#             return date_obj.strftime("%Y-%m-%d")
-#         elif isinstance(date_obj, str):
-#             try:
-#                 parsed_date = datetime.strptime(date_obj, "%Y-%m-%d")
-#                 return parsed_date.strftime("%Y-%m-%d")
-#             except:
-#                 return date_obj
-#         return str(date_obj) if date_obj else ""
-
-#     def _get_goal_status_text(self, status_value):
-#         """Convert goal status enum to text"""
-#         status_map = {0: "Yet to Start", 1: "In Progress", 2: "Completed"}
-#         return status_map.get(status_value, "Yet to Start")
-
-#     def _get_priority_text(self, priority_value):
-#         """Convert priority enum to text"""
-#         priority_map = {0: "low", 1: "medium", 2: "high"}
-#         return priority_map.get(priority_value, "low")
-
 
 class GetPlannerDataComprehensive(Resource):
     @auth_required(isOptional=True)
@@ -503,23 +167,6 @@ class GetPlannerDataComprehensive(Resource):
                     array_field="tagged_ids",
                     filters={"is_active": 1},
                 )
-
-                # Fetch smart notes for all family users
-                all_notes = []
-                for user_id in all_user_ids:
-                    user_notes = DBHelper.find_all(
-                        table_name="smartnotes",
-                        filters={"user_id": user_id},
-                        select_fields=[
-                            "id",
-                            "user_id",
-                            "note",
-                            "timing",
-                            "members",
-                            "created_at",
-                        ],
-                    )
-                    all_notes.extend(user_notes)
 
             # Put into query_results format for later logic
             query_results["goals"] = goals
@@ -717,7 +364,6 @@ class GetPlannerDataComprehensive(Resource):
                 "payload": response_data,
                 "error": str(e),
             }
-
     # helper to generate Dockly events from goals/todos/notes/events
     def _dockly_events_from_data(self, data, family_members, user_details):
         all_events = []
@@ -1016,21 +662,18 @@ class GetPlannerDataComprehensive(Resource):
         except Exception as e:
             print(f"Error fetching family members (multi-group): {e}")
             return []
-        
-        
-        
+
     from datetime import datetime
 
-def _serialize_datetime(self, dt):
-    """Safely serialize datetime objects to ISO format strings"""
-    if dt is None:
-        return None
-    if isinstance(dt, datetime):
-        return dt.isoformat()
-    if isinstance(dt, str):
-        return dt  # Already a string
-    return str(dt)
-
+    def _serialize_datetime(self, dt):
+        """Safely serialize datetime objects to ISO format strings"""
+        if dt is None:
+            return None
+        if isinstance(dt, datetime):
+            return dt.isoformat()
+        if isinstance(dt, str):
+            return dt  # Already a string
+        return str(dt)
 
     def _get_users_details(self, user_ids):
         """Get user details for multiple users"""
@@ -1148,7 +791,7 @@ def _serialize_datetime(self, dt):
         priority_map = {0: "low", 1: "medium", 2: "high"}
         return priority_map.get(priority_value, "low")
 
-    def _normalize_time(self, time_str, fallback="09:00:00"):
+    def _normalize_time(self, time_str, fallback=None):
         if not time_str:
             return fallback
         try:
@@ -1156,1015 +799,793 @@ def _serialize_datetime(self, dt):
             return parsed.strftime("%H:%M:%S")
         except:
             try:
-                parsed = datetime.strptime(time_str.strip(), "%H:%M")
+                parsed = datetime.strptime(time_str.strip(), "%H:%M:%S")
                 return parsed.strftime("%H:%M:%S")
             except:
-                return fallback
+                try:
+                    parsed = datetime.strptime(time_str.strip(), "%H:%M")
+                    return parsed.strftime("%H:%M:%S")
+                except:
+                    return fallback
 
-
-# Keep all existing classes unchanged
 class AddWeeklyGoals(Resource):
     @auth_required(isOptional=True)
     def post(self, uid, user):
-        data = request.get_json(silent=True)
-        id = uniqueId(digit=15, isNum=True)
-        backup = data.get("backup", [])
-        sync_to_google = data.get("sync_to_google", True)
-        sync_to_outlook = data.get("sync_to_outlook", True)
+        data = request.get_json(silent=True) or {}
+        goal_id = uniqueId(digit=15, isNum=True)
 
-        # Use provided date or compute current week's Saturday
-        goal_date = data.get("date")
-        if not goal_date:
-            today = datetime.today()
-            weekday = today.weekday()  # Monday = 0
-            days_until_saturday = (5 - weekday) if weekday <= 5 else 0
-            weekend_date = today + timedelta(days=days_until_saturday)
-            goal_date = weekend_date.strftime("%Y-%m-%d")
+        try:
+            # Extract flags
+            sync_to_google = data.get("sync_to_google", True)
+            sync_to_outlook = data.get("sync_to_outlook", True)
 
-        goal_time = data.get("time", datetime.now().strftime("%I:%M %p"))
+            # Compute goal date (default: current week's Saturday)
+            goal_date = data.get("date")
+            if not goal_date:
+                today = datetime.today()
+                days_until_saturday = (5 - today.weekday()) % 7  # always 0–6 range
+                goal_date = (today + timedelta(days=days_until_saturday)).strftime("%Y-%m-%d")
 
-        goal = {
-            "id": id,
-            "user_id": uid,
-            "goal": data.get("goal", ""),
-            "date": goal_date,
-            "time": goal_time,
-            "priority": Priority.LOW.value,
-            "goal_status": GoalStatus.YET_TO_START.value,
-            "status": Status.ACTIVE.value,
-            "google_calendar_id": None,
-            "outlook_calendar_id": None,
-            "synced_to_google": False,
-            "synced_to_outlook": False,
-        }
+            # Default time = now
+            goal_time = data.get("time", datetime.now().strftime("%I:%M %p"))
 
-        # Sync to calendars if enabled
-        start_dt = datetime.strptime(goal_date, "%Y-%m-%d")
-        end_dt = start_dt + timedelta(days=1)
+            # Build goal object
+            goal = {
+                "id": goal_id,
+                "user_id": uid,
+                "goal": data.get("goal", ""),
+                "date": goal_date,
+                "time": goal_time,
+                "priority": Priority.LOW.value,
+                "goal_status": GoalStatus.YET_TO_START.value,
+                "status": Status.ACTIVE.value,
+                "google_calendar_id": None,
+                "outlook_calendar_id": None,
+                "synced_to_google": False,
+                "synced_to_outlook": False,
+            }
 
-        # Sync to Google Calendar
-        if sync_to_google:
-            try:
-                google_event_id = create_calendar_event(
-                    uid, data.get("goal", ""), start_dt, end_dt
-                )
-                goal["google_calendar_id"] = google_event_id
-                goal["synced_to_google"] = True
-            except Exception as e:
-                print(f"Failed to sync goal to Google Calendar: {e}")
+            # Calendar sync
+            start_dt = datetime.strptime(goal_date, "%Y-%m-%d")
+            end_dt = start_dt + timedelta(days=1)
 
-        # Sync to Outlook Calendar
-        if sync_to_outlook:
-            try:
-                # Get Outlook account
-                outlook_account = DBHelper.find_one(
-                    "connected_accounts",
-                    filters={"user_id": uid, "provider": "outlook", "is_active": 1},
-                    select_fields=["access_token"],
+            def log_failure(provider, error):
+                AuditLogger.log(
+                    user_id=uid,
+                    action="add_weekly_goal",
+                    resource_type="goal",
+                    resource_id=str(goal_id),
+                    success=False,
+                    error_message=f"Failed to sync goal to {provider} Calendar",
+                    metadata={"input": data, "error": str(error)},
                 )
 
-                if outlook_account:
-                    outlook_event_id = create_outlook_calendar_event(
-                        outlook_account["access_token"],
-                        data.get("goal", ""),
-                        start_dt,
-                        end_dt,
+            # Google Calendar sync
+            if sync_to_google:
+                try:
+                    event_id = create_calendar_event(uid, goal["goal"], start_dt, end_dt)
+                    goal.update({"google_calendar_id": event_id, "synced_to_google": True})
+                except Exception as e:
+                    log_failure("Google", e)
+
+            # Outlook Calendar sync
+            if sync_to_outlook:
+                try:
+                    outlook_account = DBHelper.find_one(
+                        "connected_accounts",
+                        filters={"user_id": uid, "provider": "outlook", "is_active": 1},
+                        select_fields=["access_token"],
                     )
-                    goal["outlook_calendar_id"] = outlook_event_id
-                    goal["synced_to_outlook"] = True
-            except Exception as e:
-                print(f"Failed to sync goal to Outlook Calendar: {e}")
+                    if outlook_account:
+                        event_id = create_outlook_calendar_event(
+                            outlook_account["access_token"], goal["goal"], start_dt, end_dt
+                        )
+                        goal.update({"outlook_calendar_id": event_id, "synced_to_outlook": True})
+                except Exception as e:
+                    log_failure("Outlook", e)
 
-        # Always store in database
-        DBHelper.insert("goals", return_column="id", **goal)
+            # Store in DB
+            DBHelper.insert("goals", return_column="id", **goal)
 
-        return {
-            "status": 1,
-            "message": "Weekly Goal Added Successfully",
-            "payload": goal,
-        }
+            # Success log
+            AuditLogger.log(
+                user_id=uid,
+                action="add_weekly_goal",
+                resource_type="goal",
+                resource_id=str(goal_id),
+                success=True,
+                metadata={"input": data, "goal": goal},
+            )
 
+            return {"status": 1, "message": "Weekly Goal Added Successfully", "payload": goal}
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="add_weekly_goal",
+                resource_type="goal",
+                resource_id=str(goal_id),
+                success=False,
+                error_message="Failed to add weekly goal",
+                metadata={"input": data, "error": str(e)},
+            )
+            return {"status": 0, "message": "Failed to add weekly goal"}
 
 class UpdateWeeklyGoals(Resource):
     @auth_required(isOptional=True)
     def put(self, uid, user):
-        data = request.get_json(silent=True)
+        data = request.get_json(silent=True) or {}
         goal_id = data.get("id")
-        backup = data.get("backup", [])
-        sync_to_google = data.get("sync_to_google", True)
-
-        if not goal_id:
-            return {"status": 0, "message": "Goal ID is required", "payload": {}}
-
-        # Get existing goal to check if it was synced
-        existing_goal = DBHelper.find_one(
-            "goals",
-            filters={"id": goal_id, "user_id": uid},
-            select_fields=["google_calendar_id", "synced_to_google"],
-        )
-
-        updates = {
-            "goal": data.get("goal", ""),
-            "date": data.get("date", ""),
-            "time": data.get("time", ""),
-            "synced_to_google": sync_to_google,
-        }
 
         try:
-            # Prepare all-day datetime range
-            start_dt = datetime.strptime(data.get("date", ""), "%Y-%m-%d")
-            end_dt = start_dt + timedelta(days=1)
-        except ValueError:
-            return {"status": 0, "message": "Invalid date format", "payload": {}}
+            if not goal_id:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="update_weekly_goal",
+                    resource_type="goal",
+                    resource_id="unknown",
+                    success=False,
+                    error_message="Goal ID is required",
+                    metadata={"input": data},
+                )
+                return {"status": 0, "message": "Goal ID is required", "payload": {}}
 
-        # Handle Google Calendar sync for updates
-        if sync_to_google:
+            # Fetch existing goal (for sync checks)
+            existing_goal = DBHelper.find_one(
+                "goals",
+                filters={"id": goal_id, "user_id": uid},
+                select_fields=["google_calendar_id", "synced_to_google"],
+            )
+
+            # Prepare updates
+            updates = {
+                "goal": data.get("goal", ""),
+                "date": data.get("date", ""),
+                "time": data.get("time", ""),
+                "synced_to_google": data.get("sync_to_google", True),
+            }
+
+            # Validate date
             try:
-                if existing_goal and existing_goal.get("google_calendar_id"):
-                    # Update existing Google Calendar event as all-day
-                    update_calendar_event(
-                        uid,
-                        existing_goal["google_calendar_id"],
-                        data.get("goal", ""),
-                        start_dt,
-                        end_dt,
+                start_dt = datetime.strptime(updates["date"], "%Y-%m-%d")
+                end_dt = start_dt + timedelta(days=1)
+            except ValueError:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="update_weekly_goal",
+                    resource_type="goal",
+                    resource_id=str(goal_id),
+                    success=False,
+                    error_message="Invalid date format",
+                    metadata={"input": data},
+                )
+                return {"status": 0, "message": "Invalid date format", "payload": {}}
+
+            # --- Google Calendar Sync ---
+            if updates["synced_to_google"]:
+                try:
+                    if existing_goal and existing_goal.get("google_calendar_id"):
+                        # Update existing event
+                        update_calendar_event(
+                            uid,
+                            existing_goal["google_calendar_id"],
+                            updates["goal"],
+                            start_dt,
+                            end_dt,
+                        )
+                    else:
+                        # Create new event
+                        google_event_id = create_calendar_event(
+                            uid, updates["goal"], start_dt, end_dt
+                        )
+                        updates["google_calendar_id"] = google_event_id
+                except Exception as e:
+                    updates["synced_to_google"] = False
+                    AuditLogger.log(
+                        user_id=uid,
+                        action="update_weekly_goal",
+                        resource_type="goal",
+                        resource_id=str(goal_id),
+                        success=False,
+                        error_message="Failed to sync goal update to Google Calendar",
+                        metadata={"input": data, "error": str(e)},
                     )
-                else:
-                    # Create new all-day Google Calendar event
-                    google_event_id = create_calendar_event(
-                        uid, data.get("goal", ""), start_dt, end_dt
-                    )
-                    updates["google_calendar_id"] = google_event_id
-            except Exception as e:
-                print(f"Failed to sync goal update to Google Calendar: {e}")
-                updates["synced_to_google"] = False
 
-        DBHelper.update_one(
-            table_name="goals",
-            filters={"id": goal_id, "user_id": uid},
-            updates=updates,
-        )
+            # --- Save Updates ---
+            DBHelper.update_one(
+                table_name="goals",
+                filters={"id": goal_id, "user_id": uid},
+                updates=updates,
+            )
 
-        return {
-            "status": 1,
-            "message": "Weekly Goal Updated Successfully",
-            "payload": updates,
-        }
+            # --- Success Log ---
+            AuditLogger.log(
+                user_id=uid,
+                action="update_weekly_goal",
+                resource_type="goal",
+                resource_id=str(goal_id),
+                success=True,
+                metadata={"input": data, "updates": updates},
+            )
 
+            return {
+                "status": 1,
+                "message": "Weekly Goal Updated Successfully",
+                "payload": updates,
+            }
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="update_weekly_goal",
+                resource_type="goal",
+                resource_id=str(goal_id) if goal_id else "unknown",
+                success=False,
+                error_message="Failed to update weekly goal",
+                metadata={"input": data, "error": str(e)},
+            )
+            return {"status": 0, "message": "Failed to update weekly goal"}
 
 class AddWeeklyTodos(Resource):
     @auth_required(isOptional=True)
     def post(self, uid, user):
-        data = request.get_json(silent=True)
-        id = uniqueId(digit=15, isNum=True)
-        backup = data.get("backup", [])
-        sync_to_google = data.get("sync_to_google", True)
-        sync_to_outlook = data.get("sync_to_outlook", True)
+        data = request.get_json(silent=True) or {}
+        todo_id = uniqueId(digit=15, isNum=True)
 
-        # Use provided date or compute current week's Saturday
-        todo_date = data.get("date")
-        if not todo_date:
-            today = datetime.today()
-            weekday = today.weekday()
-            days_until_saturday = (5 - weekday) if weekday <= 5 else 0
-            weekend_date = today + timedelta(days=days_until_saturday)
-            todo_date = weekend_date.strftime("%Y-%m-%d")
+        try:
+            # Flags
+            sync_to_google = data.get("sync_to_google", True)
+            sync_to_outlook = data.get("sync_to_outlook", True)
 
-        todo_time = data.get("time", datetime.now().strftime("%I:%M %p"))
+            # Compute todo date (default: current week's Saturday)
+            todo_date = data.get("date")
+            if not todo_date:
+                today = datetime.today()
+                days_until_saturday = (5 - today.weekday()) % 7
+                todo_date = (today + timedelta(days=days_until_saturday)).strftime("%Y-%m-%d")
 
-        todo = {
-            "id": id,
-            "user_id": uid,
-            "text": data.get("text", ""),
-            "date": todo_date,
-            "time": todo_time,
-            "priority": data.get("priority", "medium"),
-            "completed": False,
-            "goal_id": data.get("goal_id", None),
-            "google_calendar_id": None,
-            "outlook_calendar_id": None,
-            "synced_to_google": False,
-            "synced_to_outlook": False,
-        }
+            todo_time = data.get("time", datetime.now().strftime("%I:%M %p"))
 
-        # Sync to calendars if enabled
-        start_dt = datetime.strptime(todo_date, "%Y-%m-%d")
-        end_dt = start_dt + timedelta(days=1)
+            # Build todo object
+            todo = {
+                "id": todo_id,
+                "user_id": uid,
+                "text": data.get("text", ""),
+                "date": todo_date,
+                "time": todo_time,
+                "priority": data.get("priority", "medium"),
+                "completed": False,
+                "goal_id": data.get("goal_id"),
+                "google_calendar_id": None,
+                "outlook_calendar_id": None,
+                "synced_to_google": False,
+                "synced_to_outlook": False,
+            }
 
-        # Sync to Google Calendar
-        if sync_to_google:
-            try:
-                google_event_id = create_calendar_event(
-                    uid, data.get("text", ""), start_dt, end_dt
-                )
-                todo["google_calendar_id"] = google_event_id
-                todo["synced_to_google"] = True
-            except Exception as e:
-                print(f"Failed to sync todo to Google Calendar: {e}")
+            # Calendar datetime
+            start_dt = datetime.strptime(todo_date, "%Y-%m-%d")
+            end_dt = start_dt + timedelta(days=1)
 
-        # Sync to Outlook Calendar
-        if sync_to_outlook:
-            try:
-                # Get Outlook account
-                outlook_account = DBHelper.find_one(
-                    "connected_accounts",
-                    filters={"user_id": uid, "provider": "outlook", "is_active": 1},
-                    select_fields=["access_token"],
+            def log_failure(provider, error):
+                AuditLogger.log(
+                    user_id=uid,
+                    action="add_weekly_todo",
+                    resource_type="todo",
+                    resource_id=str(todo_id),
+                    success=False,
+                    error_message=f"Failed to sync todo to {provider} Calendar",
+                    metadata={"input": data, "error": str(error)},
                 )
 
-                if outlook_account:
-                    outlook_event_id = create_outlook_calendar_event(
-                        outlook_account["access_token"],
-                        data.get("text", ""),
-                        start_dt,
-                        end_dt,
+            # Google sync
+            if sync_to_google:
+                try:
+                    event_id = create_calendar_event(uid, todo["text"], start_dt, end_dt)
+                    todo.update({"google_calendar_id": event_id, "synced_to_google": True})
+                except Exception as e:
+                    log_failure("Google", e)
+
+            # Outlook sync
+            if sync_to_outlook:
+                try:
+                    outlook_account = DBHelper.find_one(
+                        "connected_accounts",
+                        filters={"user_id": uid, "provider": "outlook", "is_active": 1},
+                        select_fields=["access_token"],
                     )
-                    todo["outlook_calendar_id"] = outlook_event_id
-                    todo["synced_to_outlook"] = True
-            except Exception as e:
-                print(f"Failed to sync todo to Outlook Calendar: {e}")
+                    if outlook_account:
+                        event_id = create_outlook_calendar_event(
+                            outlook_account["access_token"], todo["text"], start_dt, end_dt
+                        )
+                        todo.update({"outlook_calendar_id": event_id, "synced_to_outlook": True})
+                except Exception as e:
+                    log_failure("Outlook", e)
 
-        # Always store in database
-        DBHelper.insert("todos", return_column="id", **todo)
+            # Store in DB
+            DBHelper.insert("todos", return_column="id", **todo)
 
-        return {
-            "status": 1,
-            "message": "Weekly todo Added Successfully",
-            "payload": todo,
-        }
+            # Success log
+            AuditLogger.log(
+                user_id=uid,
+                action="add_weekly_todo",
+                resource_type="todo",
+                resource_id=str(todo_id),
+                success=True,
+                metadata={"input": data, "todo": todo},
+            )
 
+            return {"status": 1, "message": "Weekly Todo Added Successfully", "payload": todo}
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="add_weekly_todo",
+                resource_type="todo",
+                resource_id=str(todo_id),
+                success=False,
+                error_message="Failed to add weekly todo",
+                metadata={"input": data, "error": str(e)},
+            )
+            return {"status": 0, "message": "Failed to add weekly todo"}
 
 class UpdateWeeklyTodos(Resource):
     @auth_required(isOptional=True)
     def put(self, uid, user):
-        data = request.get_json(silent=True)
+        data = request.get_json(silent=True) or {}
         todo_id = data.get("id")
-        backup = data.get("backup", [])
-        sync_to_google = data.get("sync_to_google", True)
-
-        if not todo_id:
-            return {"status": 0, "message": "Todo ID is required", "payload": {}}
-
-        # Get existing todo to check if it was synced
-        existing_todo = DBHelper.find_one(
-            "todos",
-            filters={"id": todo_id, "user_id": uid},
-            select_fields=["google_calendar_id", "synced_to_google"],
-        )
-
-        updates = {
-            "text": data.get("text", ""),
-            "date": data.get("date", ""),
-            "time": data.get("time", ""),
-            "priority": data.get("priority", "medium"),
-            "goal_id": data.get("goal_id", None),
-            "synced_to_google": sync_to_google,
-        }
-
-        if "completed" in data:
-            completed_raw = data.get("completed")
-            updates["completed"] = str(completed_raw).lower() == "true"
 
         try:
-            # Prepare all-day event datetime range
-            start_dt = datetime.strptime(data.get("date", ""), "%Y-%m-%d")
-            end_dt = start_dt + timedelta(days=1)
-        except ValueError:
-            return {"status": 0, "message": "Invalid date format", "payload": {}}
+            if not todo_id:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="update_weekly_todo",
+                    resource_type="todo",
+                    resource_id="unknown",
+                    success=False,
+                    error_message="Todo ID is required",
+                    metadata={"input": data},
+                )
+                return {"status": 0, "message": "Todo ID is required", "payload": {}}
 
-        # Handle Google Calendar sync for updates
-        if sync_to_google:
-            try:
-                if existing_todo and existing_todo.get("google_calendar_id"):
-                    # Update existing Google Calendar event as all-day
-                    update_calendar_event(
-                        uid,
-                        existing_todo["google_calendar_id"],
-                        data.get("text", ""),
-                        start_dt,
-                        end_dt,
-                    )
-                else:
-                    # Create new all-day Google Calendar event
-                    google_event_id = create_calendar_event(
-                        uid, data.get("text", ""), start_dt, end_dt
-                    )
-                    updates["google_calendar_id"] = google_event_id
-            except Exception as e:
-                print(f"Failed to sync todo update to Google Calendar: {e}")
-                updates["synced_to_google"] = False
-
-        DBHelper.update_one(
-            table_name="todos",
-            filters={"id": todo_id, "user_id": uid},
-            updates=updates,
-        )
-
-        return {
-            "status": 1,
-            "message": "Weekly Todo Updated Successfully",
-            "payload": updates,
-        }
-
-
-class GetWeeklyGoals(Resource):
-    @auth_required(isOptional=True)
-    def get(self, uid, user):
-        goals = DBHelper.find_with_or_and_array_match(
-            table_name="goals",
-            select_fields=[
-                "id",
-                "goal",
-                "date",
-                "time",
-                "priority",
-                "goal_status",
-                "status",
-                "google_calendar_id",
-                "synced_to_google",
-            ],
-            uid=uid,
-            array_field="tagged_ids",
-            filters={"status": 1},
-        )
-        return {"status": 1, "payload": goals}
-
-
-class GetWeeklyTodos(Resource):
-    @auth_required(isOptional=True)
-    def get(self, uid, user):
-        todos = DBHelper.find_all(
-            "todos",
-            {"user_id": uid},
-            select_fields=[
-                "id",
-                "text",
-                "date",
-                "time",
-                "completed",
-                "priority",
-                "goal_id",
-                "google_calendar_id",
-                "synced_to_google",
-            ],
-        )
-        return {"status": 1, "payload": todos}
-
-
-def create_calendar_event(user_id, title, start_dt, end_dt=None, attendees=None):
-    user_cred = DBHelper.find_one(
-        "connected_accounts",
-        filters={"user_id": user_id},
-        select_fields=["access_token", "refresh_token", "email"],
-    )
-    if not user_cred:
-        raise Exception("No connected Google account found.")
-
-    creds = Credentials(
-        token=user_cred["access_token"],
-        refresh_token=user_cred["refresh_token"],
-        token_uri=uri,
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
-        scopes=SCOPE.split(),
-    )
-
-    service = build("calendar", "v3", credentials=creds)
-
-    if end_dt is None:
-        end_dt = start_dt + timedelta(hours=1)
-
-    event = {
-        "summary": title,
-        "start": {"dateTime": start_dt.isoformat(), "timeZone": "Asia/Kolkata"},
-        "end": {"dateTime": end_dt.isoformat(), "timeZone": "Asia/Kolkata"},
-        "attendees": attendees or [],
-        "guestsCanModify": True,
-        "guestsCanInviteOthers": True,
-        "guestsCanSeeOtherGuests": True,
-    }
-
-    created_event = service.events().insert(calendarId="primary", body=event).execute()
-    return created_event.get("id")
-
-
-def update_calendar_event(
-    user_id, calendar_event_id, title, start_dt, end_dt=None, attendees=None
-):
-    user_cred = DBHelper.find_one(
-        "connected_accounts",
-        filters={"user_id": user_id},
-        select_fields=["access_token", "refresh_token", "email"],
-    )
-    if not user_cred:
-        raise Exception("No connected Google account found.")
-
-    creds = Credentials(
-        token=user_cred["access_token"],
-        refresh_token=user_cred["refresh_token"],
-        token_uri=uri,
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
-        scopes=SCOPE.split(),
-    )
-
-    service = build("calendar", "v3", credentials=creds)
-
-    if end_dt is None:
-        end_dt = start_dt + timedelta(hours=1)
-
-    existing_event = (
-        service.events().get(calendarId="primary", eventId=calendar_event_id).execute()
-    )
-
-    existing_event["summary"] = title
-    existing_event["start"] = {
-        "dateTime": start_dt.isoformat(),
-        "timeZone": "Asia/Kolkata",
-    }
-    existing_event["end"] = {"dateTime": end_dt.isoformat(), "timeZone": "Asia/Kolkata"}
-    existing_event["attendees"] = attendees or []
-
-    updated_event = (
-        service.events()
-        .update(calendarId="primary", eventId=calendar_event_id, body=existing_event)
-        .execute()
-    )
-
-    return updated_event.get("id")
-
-
-# Enhanced GetPlanner class to properly handle all data types and filtering
-class GetPlanner(Resource):
-    @auth_required(isOptional=True)
-    def get(self, uid, user):
-        # Get filter parameters
-        show_dockly = request.args.get("show_dockly", "true").lower() == "true"
-        show_google = request.args.get("show_google", "true").lower() == "true"
-
-        # Initialize response data
-        all_events = []
-        goals = []
-        todos = []
-        events = []
-
-        # Get local database data if Dockly is enabled
-        if show_dockly:
-            # Get goals from database
-            raw_goals = DBHelper.find_all(
-                "goals",
-                {"user_id": uid, "status": Status.ACTIVE.value},
-                select_fields=[
-                    "id",
-                    "goal",
-                    "date",
-                    "time",
-                    "priority",
-                    "goal_status",
-                    "status",
-                    "google_calendar_id",
-                    "synced_to_google",
-                ],
-            )
-            goals = raw_goals or []
-
-            # Get todos from database
-            raw_todos = DBHelper.find_all(
+            # Fetch existing todo (for sync checks)
+            existing_todo = DBHelper.find_one(
                 "todos",
-                {"user_id": uid},
-                select_fields=[
-                    "id",
-                    "text",
-                    "date",
-                    "time",
-                    "completed",
-                    "priority",
-                    "goal_id",
-                    "google_calendar_id",
-                    "synced_to_google",
-                ],
+                filters={"id": todo_id, "user_id": uid},
+                select_fields=["google_calendar_id", "synced_to_google"],
             )
-            todos = raw_todos or []
 
-            # Get events from database
-            raw_events = DBHelper.find_all(
-                "events",
-                {"user_id": uid, "is_active": 1},
-                select_fields=[
-                    "id",
-                    "title",
-                    "date",
-                    # "time",
-                    "google_calendar_id",
-                    "synced_to_google",
-                ],
-            )
-            events = raw_events or []
+            # Prepare update fields
+            updates = {
+                "text": data.get("text", ""),
+                "date": data.get("date", ""),
+                "time": data.get("time", ""),
+                "priority": data.get("priority", "medium"),
+                "goal_id": data.get("goal_id"),
+                "synced_to_google": data.get("sync_to_google", True),
+            }
 
-            # Transform local data to unified event format
-            for todo in todos:
-                all_events.append(
-                    {
-                        "id": f"todo_{todo.get('id')}",
-                        "summary": todo.get("text"),
-                        "date": self._format_date(todo.get("date")),
-                        "startTime": todo.get("time"),
-                        "endTime": self._add_hour_to_time(todo.get("time")),
-                        "description": f"Todo - Priority: {todo.get('priority', 'medium')}",
-                        "person": "Dockly",
-                        "color": "#0033FF",
-                        "source": "dockly",
-                        "type": "todo",
-                        "priority": todo.get("priority", "medium"),
-                        "completed": todo.get("completed", False),
-                        "synced_to_google": todo.get("synced_to_google", False),
-                        "source_email": user.get("email", "dockly@user.com"),
-                        "provider": "dockly",
-                    }
-                )
+            if "completed" in data:
+                updates["completed"] = str(data.get("completed")).lower() == "true"
 
-            for goal in goals:
-                all_events.append(
-                    {
-                        "id": f"goal_{goal.get('id')}",
-                        "summary": goal.get("goal"),
-                        "date": self._format_date(goal.get("date")),
-                        "startTime": goal.get("time"),
-                        "endTime": self._add_hour_to_time(goal.get("time")),
-                        "description": f"Goal - Status: {self._get_goal_status_text(goal.get('goal_status'))}",
-                        "person": "Dockly",
-                        "color": "#3B82F6",
-                        "source": "dockly",
-                        "type": "goal",
-                        "priority": self._get_priority_text(goal.get("priority")),
-                        "status": self._get_goal_status_text(goal.get("goal_status")),
-                        "synced_to_google": goal.get("synced_to_google", False),
-                        "source_email": user.get("email", "dockly@user.com"),
-                        "provider": "dockly",
-                    }
-                )
-
-            for event in events:
-                all_events.append(
-                    {
-                        "id": f"event_{event.get('id')}",
-                        "summary": event.get("title"),
-                        "date": self._format_date(event.get("date")),
-                        "startTime": event.get("time") or "12:00 PM",
-                        "endTime": self._add_hour_to_time(event.get("time")),
-                        "description": "Event",
-                        "person": "Dockly",
-                        "color": "#F59E0B",
-                        "source": "dockly",
-                        "type": "event",
-                        "synced_to_google": event.get("synced_to_google", False),
-                        "source_email": user.get("email", "dockly@user.com"),
-                        "provider": "dockly",
-                    }
-                )
-
-        # Add Google Calendar events if enabled
-        if show_google:
+            # Validate date
             try:
-                google_events = self._fetch_google_calendar_events(uid)
-                synced_event_ids = set()
+                start_dt = datetime.strptime(updates["date"], "%Y-%m-%d")
+                end_dt = start_dt + timedelta(days=1)
+            except ValueError:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="update_weekly_todo",
+                    resource_type="todo",
+                    resource_id=str(todo_id),
+                    success=False,
+                    error_message="Invalid date format",
+                    metadata={"input": data},
+                )
+                return {"status": 0, "message": "Invalid date format", "payload": {}}
 
-                # Collect all synced Google Calendar IDs from local data
-                if show_dockly:
-                    for item in todos + goals + events:
-                        if item.get("google_calendar_id"):
-                            synced_event_ids.add(item.get("google_calendar_id"))
-
-                for event in google_events:
-                    # Skip events that are already synced from our database
-                    if event.get("id") not in synced_event_ids:
-                        all_events.append(
-                            {
-                                "id": f"google_{event.get('id')}",
-                                "summary": event.get("summary", "No Title"),
-                                "date": self._extract_date_from_google_event(event),
-                                "startTime": self._extract_time_from_google_event(
-                                    event, "start"
-                                ),
-                                "endTime": self._extract_time_from_google_event(
-                                    event, "end"
-                                ),
-                                "description": event.get("description", ""),
-                                "person": event.get("creator", {})
-                                .get("email", "Google User")
-                                .split("@")[0],
-                                "color": event.get("account_color", "#4285F4"),
-                                "source": "google",
-                                "type": "google_event",
-                                "source_email": event.get("source_email"),
-                                "provider": event.get("provider", "google"),
-                            }
+            # --- Google Calendar Sync ---
+            if updates["synced_to_google"]:
+                try:
+                    if existing_todo and existing_todo.get("google_calendar_id"):
+                        update_calendar_event(
+                            uid,
+                            existing_todo["google_calendar_id"],
+                            updates["text"],
+                            start_dt,
+                            end_dt,
                         )
-            except Exception as e:
-                print(f"Error fetching Google Calendar events: {e}")
+                    else:
+                        google_event_id = create_calendar_event(
+                            uid, updates["text"], start_dt, end_dt
+                        )
+                        updates["google_calendar_id"] = google_event_id
+                except Exception as e:
+                    updates["synced_to_google"] = False
+                    AuditLogger.log(
+                        user_id=uid,
+                        action="update_weekly_todo",
+                        resource_type="todo",
+                        resource_id=str(todo_id),
+                        success=False,
+                        error_message="Failed to sync todo update to Google Calendar",
+                        metadata={"input": data, "error": str(e)},
+                    )
 
-        return {
-            "status": 1,
-            "message": "Planner data fetched successfully",
-            "payload": {
-                "goals": goals,
-                "todos": todos,
-                "events": all_events,
-                "filters": {
-                    "show_dockly": show_dockly,
-                    "show_google": show_google,
-                },
-            },
-        }
-
-    def _format_date(self, date_obj):
-        """Helper method to format date objects"""
-        if isinstance(date_obj, (datetime, date)):
-            return date_obj.strftime("%Y-%m-%d")
-        elif isinstance(date_obj, str):
-            try:
-                # Try to parse and reformat if it's a string
-                parsed_date = datetime.strptime(date_obj, "%Y-%m-%d")
-                return parsed_date.strftime("%Y-%m-%d")
-            except:
-                return date_obj
-        return str(date_obj) if date_obj else ""
-
-    def _add_hour_to_time(self, time_str):
-        """Helper method to add an hour to time string"""
-        if not time_str:
-            return "N/A"
-        try:
-            time_obj = datetime.strptime(time_str, "%I:%M %p")
-            new_time = time_obj + timedelta(hours=1)
-            return new_time.strftime("%I:%M %p")
-        except:
-            return "N/A"
-
-    def _get_goal_status_text(self, status_value):
-        """Convert goal status enum to text"""
-        status_map = {0: "Yet to Start", 1: "In Progress", 2: "Completed"}
-        return status_map.get(status_value, "Yet to Start")
-
-    def _get_priority_text(self, priority_value):
-        """Convert priority enum to text"""
-        priority_map = {0: "low", 1: "medium", 2: "high"}
-        return priority_map.get(priority_value, "low")
-
-    def _fetch_google_calendar_events(self, user_id):
-        """Fetch events from Google Calendar"""
-        user_cred = DBHelper.find_one(
-            "connected_accounts",
-            filters={"user_id": user_id, "is_active": Status.ACTIVE.value},
-            select_fields=["access_token", "refresh_token", "email"],
-        )
-
-        if not user_cred:
-            return []
-
-        creds = Credentials(
-            token=user_cred["access_token"],
-            refresh_token=user_cred["refresh_token"],
-            token_uri=uri,
-            client_id=CLIENT_ID,
-            client_secret=CLIENT_SECRET,
-            scopes=SCOPE.split(),
-        )
-
-        service = build("calendar", "v3", credentials=creds)
-
-        # Get events from the past week to future
-        time_min = (datetime.utcnow() - timedelta(days=7)).isoformat() + "Z"
-
-        events_result = (
-            service.events()
-            .list(
-                calendarId="primary",
-                timeMin=time_min,
-                maxResults=100,
-                singleEvents=True,
-                orderBy="startTime",
+            # --- Save Updates ---
+            DBHelper.update_one(
+                table_name="todos",
+                filters={"id": todo_id, "user_id": uid},
+                updates=updates,
             )
-            .execute()
-        )
 
-        events = events_result.get("items", [])
+            # --- Success Log ---
+            AuditLogger.log(
+                user_id=uid,
+                action="update_weekly_todo",
+                resource_type="todo",
+                resource_id=str(todo_id),
+                success=True,
+                metadata={"input": data, "updates": updates},
+            )
 
-        # Add account info to events
-        for event in events:
-            event["source_email"] = user_cred["email"]
-            event["account_color"] = "#4285F4"
-            event["provider"] = "google"
+            return {
+                "status": 1,
+                "message": "Weekly Todo Updated Successfully",
+                "payload": updates,
+            }
 
-        return events
-
-    def _extract_date_from_google_event(self, event):
-        """Extract date from Google Calendar event"""
-        start = event.get("start", {})
-        if "date" in start:
-            return start["date"]
-        elif "dateTime" in start:
-            return start["dateTime"][:10]  # Extract date part
-        return datetime.now().strftime("%Y-%m-%d")
-
-    def _extract_time_from_google_event(self, event, time_type):
-        """Extract time from Google Calendar event"""
-        time_info = event.get(time_type, {})
-        if "dateTime" in time_info:
-            dt = datetime.fromisoformat(time_info["dateTime"].replace("Z", "+00:00"))
-            return dt.strftime("%I:%M %p")
-        return "12:00 PM"  # Default time for all-day events
-
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="update_weekly_todo",
+                resource_type="todo",
+                resource_id=str(todo_id) if todo_id else "unknown",
+                success=False,
+                error_message="Failed to update weekly todo",
+                metadata={"input": data, "error": str(e)},
+            )
+            return {"status": 0, "message": "Failed to update weekly todo"}
 
 # Enhanced GetCalendarEvents to include proper account filtering
 class GetCalendarEvents(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
-        # Get filter parameters
-        show_dockly = request.args.get("show_dockly", "true").lower() == "true"
-        show_google = request.args.get("show_google", "true").lower() == "true"
+        try:
+            # Get filter parameters
+            show_dockly = request.args.get("show_dockly", "true").lower() == "true"
+            show_google = request.args.get("show_google", "true").lower() == "true"
 
-        selectFields = [
-            "access_token",
-            "refresh_token",
-            "email",
-            "provider",
-            "user_object",
-        ]
-        allCreds = DBHelper.find(
-            "connected_accounts",
-            filters={"user_id": uid, "is_active": Status.ACTIVE.value},
-            select_fields=selectFields,
-        )
-
-        merged_events = []
-        connected_accounts = []
-        account_colors = {}
-        usersObjects = []
-        errors = []
-
-        # Add Dockly as a virtual account if enabled
-        if show_dockly:
-            connected_accounts.append(
-                {
-                    "provider": "dockly",
-                    "email": user.get("email", "dockly@user.com"),
-                    "color": "#0033FF",
-                    "userName": user.get("user_name", "Dockly User"),
-                    "displayName": user.get("user_name", "Dockly User"),
-                }
+            selectFields = [
+                "access_token",
+                "refresh_token",
+                "email",
+                "provider",
+                "user_object",
+            ]
+            allCreds = DBHelper.find(
+                "connected_accounts",
+                filters={"user_id": uid, "is_active": Status.ACTIVE.value},
+                select_fields=selectFields,
             )
-            account_colors["dockly:dockly@user.com"] = "#0033FF"
 
-        # Process Google Calendar accounts only if show_google is True
-        if show_google and allCreds:
-            for i, credData in enumerate(allCreds):
-                provider = credData.get("provider", "google").lower()
-                access_token = credData.get("access_token")
-                refresh_token = credData.get("refresh_token")
-                email = credData.get("email")
-                color = light_colors[i % len(light_colors)]
-                userObject = credData.get("user_object")
+            merged_events = []
+            connected_accounts = []
+            account_colors = {}
+            usersObjects = []
+            errors = []
 
-                try:
-                    userObjectData = json.loads(userObject) if userObject else {}
-                except:
-                    userObjectData = {}
+            # Add Dockly as a virtual account if enabled
+            if show_dockly:
+                connected_accounts.append(
+                    {
+                        "provider": "dockly",
+                        "email": user.get("email", "dockly@user.com"),
+                        "color": "#0033FF",
+                        "userName": user.get("user_name", "Dockly User"),
+                        "displayName": user.get("user_name", "Dockly User"),
+                    }
+                )
+                account_colors["dockly:dockly@user.com"] = "#0033FF"
 
-                usersObjects.append(userObjectData)
+            # Process Google Calendar accounts only if show_google is True
+            if show_google and allCreds:
+                for i, credData in enumerate(allCreds):
+                    provider = credData.get("provider", "google").lower()
+                    access_token = credData.get("access_token")
+                    refresh_token = credData.get("refresh_token")
+                    email = credData.get("email")
+                    color = light_colors[i % len(light_colors)]
+                    userObject = credData.get("user_object")
 
-                try:
-                    events = []
-                    if provider == "google":
-                        creds = Credentials(
-                            token=access_token,
-                            refresh_token=refresh_token,
-                            token_uri=uri,
-                            client_id=CLIENT_ID,
-                            client_secret=CLIENT_SECRET,
-                            scopes=SCOPE.split(),
-                        )
+                    try:
+                        userObjectData = json.loads(userObject) if userObject else {}
+                    except:
+                        userObjectData = {}
 
-                        service = build("calendar", "v3", credentials=creds)
+                    usersObjects.append(userObjectData)
 
-                        # Get events from the past week to future
-                        time_min = (
-                            datetime.utcnow() - timedelta(days=7)
-                        ).isoformat() + "Z"
-
-                        events_result = (
-                            service.events()
-                            .list(
-                                calendarId="primary",
-                                timeMin=time_min,
-                                maxResults=100,
-                                singleEvents=True,
-                                orderBy="startTime",
+                    try:
+                        events = []
+                        if provider == "google":
+                            creds = Credentials(
+                                token=access_token,
+                                refresh_token=refresh_token,
+                                token_uri=uri,
+                                client_id=CLIENT_ID,
+                                client_secret=CLIENT_SECRET,
+                                scopes=SCOPE.split(),
                             )
-                            .execute()
+
+                            service = build("calendar", "v3", credentials=creds)
+
+                            # Get events from the past week to future
+                            time_min = (
+                                datetime.utcnow() - timedelta(days=7)
+                            ).isoformat() + "Z"
+
+                            events_result = (
+                                service.events()
+                                .list(
+                                    calendarId="primary",
+                                    timeMin=time_min,
+                                    maxResults=100,
+                                    singleEvents=True,
+                                    orderBy="startTime",
+                                )
+                                .execute()
+                            )
+
+                            events = events_result.get("items", [])
+
+                        # Mark event source
+                        for ev in events:
+                            ev["source_email"] = email
+                            ev["provider"] = provider
+                            ev["account_color"] = color
+
+                        merged_events.extend(events)
+
+                        # Add to connected accounts
+                        connected_accounts.append(
+                            {
+                                "provider": provider,
+                                "email": email,
+                                "color": color,
+                                "userName": userObjectData.get("name", email.split("@")[0]),
+                                "displayName": userObjectData.get(
+                                    "name", email.split("@")[0]
+                                ),
+                            }
                         )
 
-                        events = events_result.get("items", [])
+                        account_colors[f"{provider}:{email}"] = color
 
-                    # Mark event source
-                    for ev in events:
-                        ev["source_email"] = email
-                        ev["provider"] = provider
-                        ev["account_color"] = color
+                    except Exception as e:
+                        print(f"Error fetching events for {email}: {str(e)}")
+                        errors.append(
+                            {"email": email, "provider": provider, "error": str(e)}
+                        )
+                        AuditLogger.log(
+                            user_id=uid,
+                            action="get_calendar_events",
+                            resource_type="calendar_events",
+                            resource_id=email,
+                            success=False,
+                            error_message=f"Failed to fetch events for {email}",
+                            metadata={"email": email, "provider": provider, "error": str(e)},
+                        )
 
-                    merged_events.extend(events)
+            # Sort merged events
+            merged_events.sort(key=lambda e: e.get("start", {}).get("dateTime", ""))
 
-                    # Add to connected accounts
-                    connected_accounts.append(
-                        {
-                            "provider": provider,
-                            "email": email,
-                            "color": color,
-                            "userName": userObjectData.get("name", email.split("@")[0]),
-                            "displayName": userObjectData.get(
-                                "name", email.split("@")[0]
-                            ),
-                        }
-                    )
-
-                    account_colors[f"{provider}:{email}"] = color
-
-                except Exception as e:
-                    print(f"Error fetching events for {email}: {str(e)}")
-                    errors.append(
-                        {"email": email, "provider": provider, "error": str(e)}
-                    )
-
-        # Sort merged events
-        merged_events.sort(key=lambda e: e.get("start", {}).get("dateTime", ""))
-
-        return {
-            "status": 1,
-            "message": "Calendar events fetched successfully",
-            "payload": {
-                "events": merged_events,
-                "connected_accounts": connected_accounts,
-                "account_colors": account_colors,
-                "usersObjects": usersObjects,
-                "errors": errors,
-                "filters": {
-                    "show_dockly": show_dockly,
-                    "show_google": show_google,
+            return {
+                "status": 1,
+                "message": "Calendar events fetched successfully",
+                "payload": {
+                    "events": merged_events,
+                    "connected_accounts": connected_accounts,
+                    "account_colors": account_colors,
+                    "usersObjects": usersObjects,
+                    "errors": errors,
+                    "filters": {
+                        "show_dockly": show_dockly,
+                        "show_google": show_google,
+                    },
                 },
-            },
-        }
+            }
 
-
-# Smart Notes Classes
-
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="get_calendar_events",
+                resource_type="calendar_events",
+                resource_id="multiple",
+                success=False,
+                error_message="Failed to fetch calendar events",
+                metadata={"error": str(e)},
+            )
+            return {"status": 0, "message": "Failed to fetch calendar events"}
 
 class AddSmartNote(Resource):
     @auth_required(isOptional=True)
     def post(self, uid, user):
-        inputData = request.get_json(silent=True)
-        full_text = inputData.get("note", "").strip()
-        members = inputData.get("members", "")
-        uid = inputData.get("userId", "")
-        frontend_timing = inputData.get("timing")
-        source = inputData.get("source", "planner")
-        email = inputData.get("email", "")
+        inputData = None
+        
+        try:
+            inputData = request.get_json(silent=True)
+            full_text = inputData.get("note", "").strip()
+            members = inputData.get("members", "")
+            uid = inputData.get("userId", "")
+            frontend_timing = inputData.get("timing")
+            source = inputData.get("source", "planner")
+            email = inputData.get("email", "")
 
-        if not uid:
-            return {"status": 0, "message": "Missing userId"}, 400
-
-        # Extract datetime
-        if frontend_timing:
-            try:
-                parsed_datetime = datetime.fromisoformat(frontend_timing)
-            except Exception as e:
-                print("Invalid frontend timing:", e)
-                parsed_datetime = extract_datetime(full_text)
-        else:
-            parsed_datetime = extract_datetime(full_text)
-
-        # If no email provided, try to resolve from family_members
-        if members and not email:
-            try:
-                family_member = DBHelper.find_one(
-                    "family_members", filters={"user_id": uid, "name": members}
-                )
-                if family_member and family_member.get("email"):
-                    email = family_member["email"]
-            except Exception as e:
-                print(f"Failed to resolve email for {members}:", e)
-
-        # Detect Goal or Task by prefix
-        if full_text.lower().startswith("g "):
-            # It's a Goal
-            goal_text = full_text[2:].strip()
-            goal_date = parsed_datetime.strftime("%Y-%m-%d")
-            goal_time = parsed_datetime.strftime("%I:%M %p")
-
-            google_event_id = None
-            try:
-                # Create Google Calendar event and get event ID
-                google_event_id = create_calendar_event(
-                    uid,
-                    goal_text,
-                    parsed_datetime,
-                    parsed_datetime + timedelta(hours=1),
-                )
-            except Exception as e:
-                print("Failed to create Google Calendar event for goal:", e)
-
-            try:
-                DBHelper.insert(
-                    "goals",
-                    id=uniqueId(digit=15, isNum=True),
+            if not uid:
+                AuditLogger.log(
                     user_id=uid,
-                    goal=goal_text,
-                    date=goal_date,
-                    time=goal_time,
-                    priority=Priority.LOW.value,
-                    goal_status=GoalStatus.YET_TO_START.value,
-                    status=Status.ACTIVE.value,
-                    google_calendar_id=google_event_id,
-                    outlook_calendar_id=None,
-                    synced_to_google=bool(google_event_id),
-                    synced_to_outlook=False,
+                    action="ADD_SMART_NOTE",
+                    resource_type="smart_note",
+                    resource_id="unknown",
+                    success=False,
+                    error_message="Missing userId",
+                    metadata={"input": inputData if inputData else {}},
                 )
-            except Exception as e:
-                print("Failed to add goal:", e)
+                return {"status": 0, "message": "Missing userId"}, 400
 
-        elif full_text.lower().startswith("t "):
-            # It's a Task
-            todo_text = full_text[2:].strip()
-            todo_date = parsed_datetime.strftime("%Y-%m-%d")
-            todo_time = parsed_datetime.strftime("%I:%M %p")
-
-            google_event_id = None
-            try:
-                # Create Google Calendar event and get event ID
-                google_event_id = create_calendar_event(
-                    uid,
-                    todo_text,
-                    parsed_datetime,
-                    parsed_datetime + timedelta(hours=1),
-                )
-            except Exception as e:
-                print("Failed to create Google Calendar event for todo:", e)
-
-            try:
-                DBHelper.insert(
-                    "todos",
-                    id=uniqueId(digit=15, isNum=True),
-                    user_id=uid,
-                    text=todo_text,
-                    date=todo_date,
-                    time=todo_time,
-                    priority="medium",
-                    completed=False,
-                    goal_id=None,
-                    google_calendar_id=google_event_id,
-                    outlook_calendar_id=None,
-                    synced_to_google=bool(google_event_id),
-                    synced_to_outlook=False,
-                )
-            except Exception as e:
-                print("Failed to add todo:", e)
-
-        else:
-            # Normal Smart Note flow
-            DBHelper.insert(
-                "smartnotes",
-                user_id=uid,
-                note=full_text,
-                timing=parsed_datetime,
-                members=members,
-                source=source,
-            )
-
-            try:
-                create_calendar_event(
-                    user_id=uid,
-                    title=full_text,
-                    start_dt=parsed_datetime,
-                )
-            except Exception as e:
-                print("Failed to create calendar event:", e)
-
-            if email:
+            # Extract datetime
+            if frontend_timing:
                 try:
-                    send_mention_email(
-                        email=email,
-                        full_text=full_text,
-                        mentioned_by=user.get("user_name") or "a Dockly user",
+                    parsed_datetime = datetime.fromisoformat(frontend_timing)
+                except Exception as e:
+                    print("Invalid frontend timing:", e)
+                    parsed_datetime = extract_datetime(full_text)
+            else:
+                parsed_datetime = extract_datetime(full_text)
+
+            # If no email provided, try to resolve from family_members
+            if members and not email:
+                try:
+                    family_member = DBHelper.find_one(
+                        "family_members", filters={"user_id": uid, "name": members}
+                    )
+                    if family_member and family_member.get("email"):
+                        email = family_member["email"]
+                except Exception as e:
+                    print(f"Failed to resolve email for {members}:", e)
+
+            # Detect Goal or Task by prefix
+            if full_text.lower().startswith("g "):
+                # It's a Goal
+                goal_text = full_text[2:].strip()
+                goal_date = parsed_datetime.strftime("%Y-%m-%d")
+                goal_time = parsed_datetime.strftime("%I:%M %p")
+
+                google_event_id = None
+                try:
+                    # Create Google Calendar event and get event ID
+                    google_event_id = create_calendar_event(
+                        uid,
+                        goal_text,
+                        parsed_datetime,
+                        parsed_datetime + timedelta(hours=1),
                     )
                 except Exception as e:
-                    print("Failed to send mention email:", e)
+                    print("Failed to create Google Calendar event for goal:", e)
 
-        return {
-            "status": 1,
-            "message": "Entry Added Successfully",
-            "payload": {
-                "parsedTiming": parsed_datetime.isoformat(),
-            },
-        }
+                try:
+                    DBHelper.insert(
+                        "goals",
+                        id=uniqueId(digit=15, isNum=True),
+                        user_id=uid,
+                        goal=goal_text,
+                        date=goal_date,
+                        time=goal_time,
+                        priority=Priority.LOW.value,
+                        goal_status=GoalStatus.YET_TO_START.value,
+                        status=Status.ACTIVE.value,
+                        google_calendar_id=google_event_id,
+                        outlook_calendar_id=None,
+                        synced_to_google=bool(google_event_id),
+                        synced_to_outlook=False,
+                    )
+                except Exception as e:
+                    print("Failed to add goal:", e)
+
+            elif full_text.lower().startswith("t "):
+                # It's a Task
+                todo_text = full_text[2:].strip()
+                todo_date = parsed_datetime.strftime("%Y-%m-%d")
+                todo_time = parsed_datetime.strftime("%I:%M %p")
+
+                google_event_id = None
+                try:
+                    # Create Google Calendar event and get event ID
+                    google_event_id = create_calendar_event(
+                        uid,
+                        todo_text,
+                        parsed_datetime,
+                        parsed_datetime + timedelta(hours=1),
+                    )
+                except Exception as e:
+                    print("Failed to create Google Calendar event for todo:", e)
+
+                try:
+                    DBHelper.insert(
+                        "todos",
+                        id=uniqueId(digit=15, isNum=True),
+                        user_id=uid,
+                        text=todo_text,
+                        date=todo_date,
+                        time=todo_time,
+                        priority="medium",
+                        completed=False,
+                        goal_id=None,
+                        google_calendar_id=google_event_id,
+                        outlook_calendar_id=None,
+                        synced_to_google=bool(google_event_id),
+                        synced_to_outlook=False,
+                    )
+                except Exception as e:
+                    print("Failed to add todo:", e)
+
+            else:
+                # Normal Smart Note flow
+                DBHelper.insert(
+                    "smartnotes",
+                    user_id=uid,
+                    note=full_text,
+                    timing=parsed_datetime,
+                    members=members,
+                    source=source,
+                )
+
+                try:
+                    create_calendar_event(
+                        user_id=uid,
+                        title=full_text,
+                        start_dt=parsed_datetime,
+                    )
+                except Exception as e:
+                    print("Failed to create calendar event:", e)
+
+                if email:
+                    try:
+                        send_mention_email(
+                            email=email,
+                            full_text=full_text,
+                            mentioned_by=user.get("user_name") or "a Dockly user",
+                        )
+                    except Exception as e:
+                        print("Failed to send mention email:", e)
+
+            AuditLogger.log(
+                user_id=uid,
+                action="ADD_SMART_NOTE",
+                resource_type="smart_note",
+                resource_id="new",
+                success=True,
+                metadata={"input": inputData if inputData else {}, "parsed_timing": parsed_datetime.isoformat()},
+            )
+
+            return {
+                "status": 1,
+                "message": "Entry Added Successfully",
+                "payload": {
+                    "parsedTiming": parsed_datetime.isoformat(),
+                },
+            }
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="add_smart_note",
+                resource_type="smart_note",
+                resource_id="unknown",
+                success=False,
+                error_message="Failed to add smart note",
+                metadata={"input": inputData if inputData else {}, "error": str(e)},
+            )
+            return {"status": 0, "message": "Failed to add smart note"}
 
 
 def send_mention_email(email, full_text, mentioned_by):
@@ -2203,196 +1624,49 @@ Dockly Team
 class GetSmartNotes(Resource):
     @auth_required(isOptional=True)
     def get(self, uid, user):
-        source = request.args.get("source")
-        filters = {"user_id": uid}
-        if source:
-            filters["source"] = source
+        try:
+            source = request.args.get("source")
+            filters = {"user_id": uid}
+            if source:
+                filters["source"] = source
 
-        notes = DBHelper.find_all(
-            table_name="smartnotes",
-            filters=filters,
-            select_fields=["id", "note", "timing", "members", "created_at"],
-        )
-
-        user_notes = []
-        for note in notes:
-            user_notes.append(
-                {
-                    "id": note["id"],
-                    "note": note["note"],
-                    "timing": note["timing"].isoformat() if note["timing"] else None,
-                    "members": note["members"],
-                    "created_at": (
-                        note["created_at"].isoformat() if note["created_at"] else None
-                    ),
-                }
+            notes = DBHelper.find_all(
+                table_name="smartnotes",
+                filters=filters,
+                select_fields=["id", "note", "timing", "members", "created_at"],
             )
 
-        return {
-            "status": 1,
-            "message": "Smart Notes fetched successfully",
-            "payload": {"notes": user_notes},
-        }
+            user_notes = []
+            for note in notes:
+                user_notes.append(
+                    {
+                        "id": note["id"],
+                        "note": note["note"],
+                        "timing": note["timing"].isoformat() if note["timing"] else None,
+                        "members": note["members"],
+                        "created_at": (
+                            note["created_at"].isoformat() if note["created_at"] else None
+                        ),
+                    }
+                )
 
+            return {
+                "status": 1,
+                "message": "Smart Notes fetched successfully",
+                "payload": {"notes": user_notes},
+            }
 
-class FrequentNotes(Resource):
-    def get(self, uid):
-        source = request.args.get("source")
-        filters = {"user_id": uid}
-        if source:
-            filters["source"] = source
-
-        notes = DBHelper.find_all(
-            table_name="smartnotes", filters=filters, select_fields=["note"]
-        )
-
-        note_counts = {}
-        for note in notes:
-            text = note["note"].strip()
-            note_counts[text] = note_counts.get(text, 0) + 1
-
-        if not note_counts:
-            return [], 200
-
-        sorted_notes = sorted(note_counts.items(), key=lambda x: x[1], reverse=True)
-        top_notes = [note[0] for note in sorted_notes[:3]]
-
-        if len(top_notes) < 3:
-            all_notes = list(note_counts.keys())
-            for n in all_notes:
-                if n not in top_notes:
-                    top_notes.append(n)
-                    if len(top_notes) == 3:
-                        break
-
-        return top_notes, 200
-
-
-class AddWeeklyFocus(Resource):
-    @auth_required(isOptional=True)
-    def post(self, uid, user):
-        data = request.get_json(silent=True)
-        id = uniqueId(digit=15, isNum=True)
-
-        focus = {
-            "id": id,
-            "user_id": uid,
-            "focus": data.get("focus", ""),
-        }
-        DBHelper.insert("weekly-focus", return_column="id", **focus)
-        return {
-            "status": 1,
-            "message": "Weekly focus Added Successfully",
-            "payload": focus,
-        }
-
-
-class GetWeeklyFocus(Resource):
-    @auth_required(isOptional=True)
-    def get(self, uid, user):
-        focus = DBHelper.find_all(
-            "weekly-focus",
-            {"user_id": uid},
-            select_fields=["id", "focus"],
-        )
-        return {"status": 1, "payload": focus}
-
-
-class AddPlannerNotes(Resource):
-    @auth_required(isOptional=True)
-    def post(self, uid, user):
-        data = request.get_json(silent=True)
-
-        if not data.get("title"):
-            return {"status": 0, "message": "Title is required", "payload": {}}
-
-        note = {
-            "id": uniqueId(digit=15, isNum=True),
-            "user_id": uid,
-            "title": data.get("title", ""),
-            "description": data.get("description", ""),
-            "date": data.get("date") or date.today().isoformat(),
-            "status": "Yet to Start",
-        }
-
-        DBHelper.insert("notes", return_column="id", **note)
-
-        return {
-            "status": 1,
-            "message": "Note added successfully",
-            "payload": note,
-        }
-
-
-class GetPlannerNotes(Resource):
-    @auth_required(isOptional=True)
-    def get(self, uid, user):
-        notes = DBHelper.find_all(
-            "notes",
-            {"user_id": uid},
-            select_fields=[
-                "id",
-                "title",
-                "description",
-                "date",
-                "status",
-                "created_at",
-                "updated_at",
-            ],
-        )
-
-        # Convert date objects to strings
-        for note in notes:
-            if isinstance(note.get("date"), (datetime, date)):
-                note["date"] = note["date"].isoformat()
-            if isinstance(note.get("created_at"), datetime):
-                note["created_at"] = note["created_at"].isoformat()
-            if isinstance(note.get("updated_at"), datetime):
-                note["updated_at"] = note["updated_at"].isoformat()
-
-        return {"status": 1, "payload": notes}
-
-
-class UpdatePlannerNotes(Resource):
-    @auth_required(isOptional=True)
-    def put(self, uid, user):
-        data = request.get_json(silent=True)
-        note_id = data.get("id")
-
-        if not note_id:
-            return {"status": 0, "message": "Note ID is required", "payload": {}}
-
-        update_data = {}
-        for field in ["title", "description", "date", "status"]:
-            if data.get(field) is not None:
-                update_data[field] = data.get(field)
-
-        if not update_data:
-            return {"status": 0, "message": "No fields to update", "payload": {}}
-
-        success = DBHelper.update_one(
-            "notes", {"id": note_id, "user_id": uid}, update_data
-        )
-
-        if success:
-            return {"status": 1, "message": "Note updated successfully"}
-        else:
-            return {"status": 0, "message": "Note not found or update failed"}
-
-
-class DeletePlannerNotes(Resource):
-    @auth_required(isOptional=True)
-    def delete(self, uid, user):
-        note_id = request.args.get("id")
-
-        if not note_id:
-            return {"status": 0, "message": "Note ID is required", "payload": {}}
-
-        try:
-            DBHelper.delete_all("notes", {"id": note_id, "user_id": uid})
-            return {"status": 1, "message": "Note deleted successfully"}
         except Exception as e:
-            return {"status": 0, "message": "Failed to delete note", "error": str(e)}
+            AuditLogger.log(
+                user_id=uid,
+                action="GET_SMART_NOTES",
+                resource_type="smart_note",
+                resource_id="multiple",
+                success=False,
+                error_message="Failed to fetch smart notes",
+                metadata={"error": str(e)},
+            )
+            return {"status": 0, "message": "Failed to fetch smart notes"}
 
 
 def add_calendar_guests(user_id, calendar_event_id, guest_emails):
@@ -2403,217 +1677,267 @@ def add_calendar_guests(user_id, calendar_event_id, guest_emails):
     calendar_event_id: google_calendar_id stored in your DB
     guest_emails: list of email addresses to add as guests
     """
-    if not guest_emails:
-        return None
+    try:
+        if not guest_emails:
+            return None
 
-    # 1. Get creator's connected account credentials
-    user_cred = DBHelper.find_one(
-        "connected_accounts",
-        filters={"user_id": user_id},
-        select_fields=["access_token", "refresh_token", "email"],
-    )
-    if not user_cred:
-        raise Exception("No connected Google account found.")
-
-    creds = Credentials(
-        token=user_cred["access_token"],
-        refresh_token=user_cred["refresh_token"],
-        token_uri=uri,
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
-        scopes=SCOPE.split(),
-    )
-
-    service = build("calendar", "v3", credentials=creds)
-
-    # 2. Fetch the existing event
-    event = (
-        service.events().get(calendarId="primary", eventId=calendar_event_id).execute()
-    )
-
-    # 3. Merge current attendees with new guests (avoid duplicates)
-    existing_attendees = event.get("attendees", [])
-    for email in guest_emails:
-        if not any(att.get("email") == email for att in existing_attendees):
-            existing_attendees.append({"email": email})
-
-    event["attendees"] = existing_attendees
-
-    # Keep guest permissions consistent
-    event["guestsCanModify"] = True
-    event["guestsCanInviteOthers"] = True
-    event["guestsCanSeeOtherGuests"] = True
-
-    # 4. Update the event with sendUpdates='all'
-    updated_event = (
-        service.events()
-        .update(
-            calendarId="primary",
-            eventId=calendar_event_id,
-            body=event,
-            sendUpdates="all",
+        # 1. Get creator's connected account credentials
+        user_cred = DBHelper.find_one(
+            "connected_accounts",
+            filters={"user_id": user_id},
+            select_fields=["access_token", "refresh_token", "email"],
         )
-        .execute()
-    )
+        if not user_cred:
+            raise Exception("No connected Google account found.")
 
-    return updated_event.get("id")
+        creds = Credentials(
+            token=user_cred["access_token"],
+            refresh_token=user_cred["refresh_token"],
+            token_uri=uri,
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET,
+            scopes=SCOPE.split(),
+        )
 
+        service = build("calendar", "v3", credentials=creds)
+
+        # 2. Fetch the existing event
+        event = (
+            service.events().get(calendarId="primary", eventId=calendar_event_id).execute()
+        )
+
+        # 3. Merge current attendees with new guests (avoid duplicates)
+        existing_attendees = event.get("attendees", [])
+        for email in guest_emails:
+            if not any(att.get("email") == email for att in existing_attendees):
+                existing_attendees.append({"email": email})
+
+        event["attendees"] = existing_attendees
+
+        # Keep guest permissions consistent
+        event["guestsCanModify"] = True
+        event["guestsCanInviteOthers"] = True
+        event["guestsCanSeeOtherGuests"] = True
+
+        # 4. Update the event with sendUpdates='all'
+        updated_event = (
+            service.events()
+            .update(
+                calendarId="primary",
+                eventId=calendar_event_id,
+                body=event,
+                sendUpdates="all",
+            )
+            .execute()
+        )
+
+        return updated_event.get("id")
+        
+    except Exception as e:
+        AuditLogger.log(
+            user_id=user_id,
+            action="add_calendar_guests",
+            resource_type="calendar_event",
+            resource_id=calendar_event_id,
+            success=False,
+            error_message="Failed to add calendar guests",
+            metadata={"guest_emails": guest_emails, "error": str(e)},
+        )
+        raise e
 
 class ShareGoal(Resource):
     @auth_required(isOptional=True)
     def post(self, uid, user):
+        data = None
+        
         try:
-            data = request.get_json(force=True)
-        except Exception as e:
-            return {"status": 0, "message": f"Invalid JSON: {str(e)}"}, 400
-
-        emails = data.get("email")
-        goal = data.get("goal")
-        tagged_members = data.get("tagged_members", [])
-
-        if not emails or not goal:
-            return {
-                "status": 0,
-                "message": "Both 'email' and 'goal' are required.",
-            }, 422
-
-        # Normalize email array
-        if isinstance(emails, str):
-            emails = [emails]
-
-        email_sender = EmailSender()
-        failures = []
-        notifications_created = []
-        resolved_tagged_ids = []
-
-        # 🧠 Resolve tagged user UIDs from emails
-        for member_email in tagged_members:
-            family_member = DBHelper.find_one(
-                "family_members",
-                filters={"email": member_email},
-                select_fields=["fm_user_id"],
-            )
-            if family_member and family_member["fm_user_id"]:
-                resolved_tagged_ids.append(family_member["fm_user_id"])
-
-        # 📧 Send emails
-        for email in emails:
-            success, msg = email_sender.send_goal_email(email, goal)
-            if not success:
-                failures.append((email, msg))
-
-        # 🔔 Create notifications
-        for member_email in tagged_members:
-            family_member = DBHelper.find_one(
-                "family_members",
-                filters={"email": member_email},
-                select_fields=["name", "email", "fm_user_id"],
-            )
-
-            if not family_member:
-                continue
-
-            receiver_uid = family_member.get("fm_user_id")
-            if not receiver_uid:
-                user_record = DBHelper.find_one(
-                    "users",
-                    filters={"email": family_member["email"]},
-                    select_fields=["uid"],
+            try:
+                data = request.get_json(force=True)
+            except Exception as e:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="SHARE_GOAL",
+                    resource_type="goal",
+                    resource_id="unknown",
+                    success=False,
+                    error_message=f"Invalid JSON: {str(e)}",
+                    metadata={},
                 )
-                receiver_uid = user_record.get("uid") if user_record else None
+                return {"status": 0, "message": f"Invalid JSON: {str(e)}"}, 400
 
-            if not receiver_uid:
-                continue
+            emails = data.get("email")
+            goal = data.get("goal")
+            tagged_members = data.get("tagged_members", [])
 
-            notification_data = {
-                "sender_id": uid,
-                "receiver_id": receiver_uid,
-                "message": f"{user['user_name']} tagged a goal '{goal.get('title', 'Untitled')}' with you",
-                "task_type": "tagged",
-                "action_required": False,
-                "status": "unread",
-                "hub": None,
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
-                "metadata": {
-                    "goal": goal,
-                    "sender_name": user["user_name"],
-                    "tagged_member": {
-                        "name": family_member["name"],
-                        "email": family_member["email"],
-                    },
-                },
-            }
-
-            notif_id = DBHelper.insert(
-                "notifications", return_column="id", **notification_data
-            )
-            notifications_created.append(notif_id)
-
-        # 📝 Update tagged_ids in DB
-        if resolved_tagged_ids:
-            goal_record = DBHelper.find_one("goals", filters={"id": goal.get("id")})
-            if not goal_record:
+            if not emails or not goal:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="SHARE_GOAL",
+                    resource_type="goal",
+                    resource_id="unknown",
+                    success=False,
+                    error_message="Both 'email' and 'goal' are required",
+                    metadata={"input": data if data else {}},
+                )
                 return {
                     "status": 0,
-                    "message": "Goal not found. Cannot tag members.",
-                }, 404
+                    "message": "Both 'email' and 'goal' are required.",
+                }, 422
 
-            existing_ids = goal_record.get("tagged_ids") or []
-            combined_ids = list(set(existing_ids + resolved_tagged_ids))
-            pg_array_str = "{" + ",".join(f'"{str(i)}"' for i in combined_ids) + "}"
+            # Normalize email array
+            if isinstance(emails, str):
+                emails = [emails]
 
-            DBHelper.update_one(
-                table_name="goals",
-                filters={"id": goal.get("id")},
-                updates={"tagged_ids": pg_array_str},
+            email_sender = EmailSender()
+            failures = []
+            notifications_created = []
+            resolved_tagged_ids = []
+
+            # 🧠 Resolve tagged user UIDs from emails
+            for member_email in tagged_members:
+                family_member = DBHelper.find_one(
+                    "family_members",
+                    filters={"email": member_email},
+                    select_fields=["fm_user_id"],
+                )
+                if family_member and family_member["fm_user_id"]:
+                    resolved_tagged_ids.append(family_member["fm_user_id"])
+
+            # 📧 Send emails
+            for email in emails:
+                success, msg = email_sender.send_goal_email(email, goal)
+                if not success:
+                    failures.append((email, msg))
+
+            # 🔔 Create notifications
+            for member_email in tagged_members:
+                family_member = DBHelper.find_one(
+                    "family_members",
+                    filters={"email": member_email},
+                    select_fields=["name", "email", "fm_user_id"],
+                )
+
+                if not family_member:
+                    continue
+
+                receiver_uid = family_member.get("fm_user_id")
+                if not receiver_uid:
+                    user_record = DBHelper.find_one(
+                        "users",
+                        filters={"email": family_member["email"]},
+                        select_fields=["uid"],
+                    )
+                    receiver_uid = user_record.get("uid") if user_record else None
+
+                if not receiver_uid:
+                    continue
+
+                notification_data = {
+                    "sender_id": uid,
+                    "receiver_id": receiver_uid,
+                    "message": f"{user['user_name']} tagged a goal '{goal.get('title', 'Untitled')}' with you",
+                    "task_type": "tagged",
+                    "action_required": False,
+                    "status": "unread",
+                    "hub": None,
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow(),
+                    "metadata": {
+                        "goal": goal,
+                        "sender_name": user["user_name"],
+                        "tagged_member": {
+                            "name": family_member["name"],
+                            "email": family_member["email"],
+                        },
+                    },
+                }
+
+                notif_id = DBHelper.insert(
+                    "notifications", return_column="id", **notification_data
+                )
+                notifications_created.append(notif_id)
+
+            # 📝 Update tagged_ids in DB
+            if resolved_tagged_ids:
+                goal_record = DBHelper.find_one("goals", filters={"id": goal.get("id")})
+                if not goal_record:
+                    AuditLogger.log(
+                        user_id=uid,
+                        action="share_goal",
+                        resource_type="goal",
+                        resource_id=str(goal.get("id")),
+                        success=False,
+                        error_message="Goal not found. Cannot tag members.",
+                        metadata={"input": data if data else {}},
+                    )
+                    return {
+                        "status": 0,
+                        "message": "Goal not found. Cannot tag members.",
+                    }, 404
+
+                existing_ids = goal_record.get("tagged_ids") or []
+                combined_ids = list(set(existing_ids + resolved_tagged_ids))
+                pg_array_str = "{" + ",".join(f'"{str(i)}"' for i in combined_ids) + "}"
+
+                DBHelper.update_one(
+                    table_name="goals",
+                    filters={"id": goal.get("id")},
+                    updates={"tagged_ids": pg_array_str},
+                )
+
+                # ✅ Add tagged members as Google Calendar guests
+                if goal_record.get("google_calendar_id"):
+                    try:
+                        add_calendar_guests(
+                            user_id=uid,  # goal creator
+                            calendar_event_id=goal_record["google_calendar_id"],
+                            guest_emails=tagged_members,  # list of emails
+                        )
+                    except Exception as e:
+                        print(f"⚠ Failed to add calendar guests: {str(e)}")
+
+            if failures:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="share_goal",
+                    resource_type="goal",
+                    resource_id=str(goal.get("id", "unknown")),
+                    success=False,
+                    error_message=f"Failed to send to {len(failures)} recipients",
+                    metadata={"input": data if data else {}, "failures": failures},
+                )
+                return {
+                    "status": 0,
+                    "message": f"Failed to send to {len(failures)} recipients",
+                    "errors": failures,
+                }, 500
+
+            AuditLogger.log(
+                user_id=uid,
+                action="share_goal",
+                resource_type="goal",
+                resource_id=str(goal.get("id", "unknown")),
+                success=True,
+                metadata={"input": data if data else {}, "notifications_created": notifications_created},
             )
 
-            # ✅ Add tagged members as Google Calendar guests
-            if goal_record.get("google_calendar_id"):
-                try:
-                    add_calendar_guests(
-                        user_id=uid,  # goal creator
-                        calendar_event_id=goal_record["google_calendar_id"],
-                        guest_emails=tagged_members,  # list of emails
-                    )
-                except Exception as e:
-                    print(f"⚠ Failed to add calendar guests: {str(e)}")
-
-        if failures:
             return {
-                "status": 0,
-                "message": f"Failed to send to {len(failures)} recipients",
-                "errors": failures,
-            }, 500
+                "status": 1,
+                "message": f"Goal shared via email. {len(notifications_created)} notification(s) created.",
+                "payload": {"notifications_created": notifications_created},
+            }
 
-        return {
-            "status": 1,
-            "message": f"Goal shared via email. {len(notifications_created)} notification(s) created.",
-            "payload": {"notifications_created": notifications_created},
-        }
-
-
-class GetWeeklyTodos(Resource):
-    @auth_required(isOptional=True)
-    def get(self, uid, user):
-        todos = DBHelper.find_all(
-            "todos",
-            {"user_id": uid},
-            select_fields=[
-                "id",
-                "text",
-                "date",
-                "time",
-                "completed",
-                "priority",
-                "goal_id",
-                "google_calendar_id",
-                "synced_to_google",
-            ],
-        )
-        return {"status": 1, "payload": todos}
-
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="share_goal",
+                resource_type="goal",
+                resource_id="unknown",
+                success=False,
+                error_message="Failed to share goal",
+                metadata={"input": data if data else {}, "error": str(e)},
+            )
+            return {"status": 0, "message": "Failed to share goal"}
 
 class EmailSender:
     def __init__(self):
@@ -2623,17 +1947,18 @@ class EmailSender:
         self.smtp_password = EMAIL_PASSWORD
 
     def send_goal_email(self, recipient_email, goal):
-        msg = EmailMessage()
-        msg["Subject"] = f"Shared Goal: {goal['title']}"
-        msg["From"] = self.smtp_user
-        msg["To"] = recipient_email
+        try:
+            msg = EmailMessage()
+            msg["Subject"] = f"Shared Goal: {goal['title']}"
+            msg["From"] = self.smtp_user
+            msg["To"] = recipient_email
 
-        created = goal.get("created_at") or ""
-        if created:
-            created = created.split("T")[0]
+            created = goal.get("created_at") or ""
+            if created:
+                created = created.split("T")[0]
 
-        msg.set_content(
-            f"""
+            msg.set_content(
+                f"""
 Hi there!
 
 I wanted to share this Goal with you:
@@ -2644,29 +1969,33 @@ Date: {goal['date']}
 
 Best regards!
 """.strip()
-        )
+            )
 
-        try:
-            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.smtp_user, self.smtp_password)
-                server.send_message(msg)
-            return True, "Email sent successfully"
+            try:
+                with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                    server.starttls()
+                    server.login(self.smtp_user, self.smtp_password)
+                    server.send_message(msg)
+                return True, "Email sent successfully"
+            except Exception as e:
+                return False, str(e)
+                
         except Exception as e:
             return False, str(e)
 
     def send_todo_email(self, recipient_email, todo):
-        msg = EmailMessage()
-        msg["Subject"] = f"Shared Todo: {todo['title']}"
-        msg["From"] = self.smtp_user
-        msg["To"] = recipient_email
+        try:
+            msg = EmailMessage()
+            msg["Subject"] = f"Shared Todo: {todo['title']}"
+            msg["From"] = self.smtp_user
+            msg["To"] = recipient_email
 
-        created = todo.get("created_at") or ""
-        if created:
-            created = created.split("T")[0]
+            created = todo.get("created_at") or ""
+            if created:
+                created = created.split("T")[0]
 
-        msg.set_content(
-            f"""
+            msg.set_content(
+                f"""
 Hi there!
 
 I wanted to share this Todo with you:
@@ -2678,233 +2007,375 @@ priority: {todo['priority']}
 
 Best regards!
 """.strip()
-        )
+            )
 
-        try:
-            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.smtp_user, self.smtp_password)
-                server.send_message(msg)
-            return True, "Email sent successfully"
+            try:
+                with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                    server.starttls()
+                    server.login(self.smtp_user, self.smtp_password)
+                    server.send_message(msg)
+                return True, "Email sent successfully"
+            except Exception as e:
+                return False, str(e)
+                
         except Exception as e:
             return False, str(e)
-
 
 class ShareTodo(Resource):
     @auth_required(isOptional=True)
     def post(self, uid, user):
+        data = None
+        
         try:
-            data = request.get_json(force=True)
-        except Exception as e:
-            return {"status": 0, "message": f"Invalid JSON: {str(e)}"}, 400
-
-        emails = data.get("email")
-        todo = data.get("todo")
-        tagged_members = data.get("tagged_members", [])
-
-        if not emails or not todo:
-            return {
-                "status": 0,
-                "message": "Both 'email' and 'todo' are required.",
-            }, 422
-
-        # Normalize emails to list
-        if isinstance(emails, str):
-            emails = [emails]
-
-        email_sender = EmailSender()
-        failures = []
-        notifications_created = []
-        resolved_tagged_ids = []
-
-        # ✅ Resolve tagged_ids for DB update
-        for member_email in tagged_members:
-            family_member = DBHelper.find_one(
-                "family_members",
-                filters={"email": member_email},
-                select_fields=["fm_user_id"],
-            )
-            if family_member and family_member["fm_user_id"]:
-                resolved_tagged_ids.append(family_member["fm_user_id"])
-
-        # Send emails
-        for email in emails:
-            success, message = email_sender.send_todo_email(email, todo)
-            if not success:
-                failures.append((email, message))
-
-        # Send notifications
-        for member_email in tagged_members:
-            family_member = DBHelper.find_one(
-                "family_members",
-                filters={"email": member_email},
-                select_fields=["id", "name", "email", "fm_user_id"],
-            )
-
-            if not family_member:
-                continue
-
-            receiver_uid = family_member.get("fm_user_id")
-            if not receiver_uid:
-                user_record = DBHelper.find_one(
-                    "users",
-                    filters={"email": family_member["email"]},
-                    select_fields=["uid"],
+            try:
+                data = request.get_json(force=True)
+            except Exception as e:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="SHARE_TODO",
+                    resource_type="todo",
+                    resource_id="unknown",
+                    success=False,
+                    error_message=f"Invalid JSON: {str(e)}",
+                    metadata={},
                 )
-                receiver_uid = user_record.get("uid") if user_record else None
+                return {"status": 0, "message": f"Invalid JSON: {str(e)}"}, 400
 
-            if not receiver_uid:
-                continue
+            emails = data.get("email")
+            todo = data.get("todo")
+            tagged_members = data.get("tagged_members", [])
 
-            notification_data = {
-                "sender_id": uid,
-                "receiver_id": receiver_uid,
-                "message": f"{user['user_name']} tagged a task '{todo.get('title', 'Untitled')}' with you",
-                "task_type": "tagged",
-                "action_required": False,
-                "status": "unread",
-                "hub": None,
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
-                "metadata": {
-                    "todo": todo,
-                    "sender_name": user["user_name"],
-                    "tagged_member": {
-                        "name": family_member["name"],
-                        "email": family_member["email"],
+            if not emails or not todo:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="SHARE_TODO",
+                    resource_type="todo",
+                    resource_id="unknown",
+                    success=False,
+                    error_message="Both 'email' and 'todo' are required",
+                    metadata={"input": data if data else {}},
+                )
+                return {
+                    "status": 0,
+                    "message": "Both 'email' and 'todo' are required.",
+                }, 422
+
+            # Normalize emails to list
+            if isinstance(emails, str):
+                emails = [emails]
+
+            email_sender = EmailSender()
+            failures = []
+            notifications_created = []
+            resolved_tagged_ids = []
+
+            # ✅ Resolve tagged_ids for DB update
+            for member_email in tagged_members:
+                family_member = DBHelper.find_one(
+                    "family_members",
+                    filters={"email": member_email},
+                    select_fields=["fm_user_id"],
+                )
+                if family_member and family_member["fm_user_id"]:
+                    resolved_tagged_ids.append(family_member["fm_user_id"])
+
+            # Send emails
+            for email in emails:
+                success, message = email_sender.send_todo_email(email, todo)
+                if not success:
+                    failures.append((email, message))
+
+            # Send notifications
+            for member_email in tagged_members:
+                family_member = DBHelper.find_one(
+                    "family_members",
+                    filters={"email": member_email},
+                    select_fields=["id", "name", "email", "fm_user_id"],
+                )
+
+                if not family_member:
+                    continue
+
+                receiver_uid = family_member.get("fm_user_id")
+                if not receiver_uid:
+                    user_record = DBHelper.find_one(
+                        "users",
+                        filters={"email": family_member["email"]},
+                        select_fields=["uid"],
+                    )
+                    receiver_uid = user_record.get("uid") if user_record else None
+
+                if not receiver_uid:
+                    continue
+
+                notification_data = {
+                    "sender_id": uid,
+                    "receiver_id": receiver_uid,
+                    "message": f"{user['user_name']} tagged a task '{todo.get('title', 'Untitled')}' with you",
+                    "task_type": "tagged",
+                    "action_required": False,
+                    "status": "unread",
+                    "hub": None,
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow(),
+                    "metadata": {
+                        "todo": todo,
+                        "sender_name": user["user_name"],
+                        "tagged_member": {
+                            "name": family_member["name"],
+                            "email": family_member["email"],
+                        },
                     },
+                }
+
+                notif_id = DBHelper.insert(
+                    "notifications", return_column="id", **notification_data
+                )
+                notifications_created.append(notif_id)
+
+            # 🔁 Update tagged_ids in the weekly_todos table
+            if resolved_tagged_ids:
+                todo_record = DBHelper.find_one("todos", filters={"id": todo.get("id")})
+                if not todo_record:
+                    AuditLogger.log(
+                        user_id=uid,
+                        action="SHARE_TODO",
+                        resource_type="todo",
+                        resource_id=str(todo.get("id")),
+                        success=False,
+                        error_message="Todo not found. Cannot tag members.",
+                        metadata={"input": data if data else {}},
+                    )
+                    return {
+                        "status": 0,
+                        "message": "Todo not found. Cannot tag members.",
+                    }, 404
+
+                existing_ids = todo_record.get("tagged_ids") or []
+                combined_ids = list(set(existing_ids + resolved_tagged_ids))
+                pg_array_str = "{" + ",".join(f'"{str(i)}"' for i in combined_ids) + "}"
+
+                DBHelper.update_one(
+                    table_name="todos",
+                    filters={"id": todo.get("id")},
+                    updates={"tagged_ids": pg_array_str},
+                )
+                # ✅ Add tagged members as Google Calendar guests
+                if todo_record.get("google_calendar_id"):
+                    try:
+                        add_calendar_guests(
+                            user_id=uid,  # goal creator
+                            calendar_event_id=todo_record["google_calendar_id"],
+                            guest_emails=tagged_members,  # list of emails
+                        )
+                    except Exception as e:
+                        print(f"⚠ Failed to add calendar guests: {str(e)}")
+
+            if failures:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="SHARE_TODO",
+                    resource_type="todo",
+                    resource_id=str(todo.get("id", "unknown")),
+                    success=False,
+                    error_message=f"Failed to send to {len(failures)} recipients",
+                    metadata={"input": data if data else {}, "failures": failures},
+                )
+                return {
+                    "status": 0,
+                    "message": f"Failed to send to {len(failures)} recipients",
+                    "errors": failures,
+                }, 500
+
+            AuditLogger.log(
+                user_id=uid,
+                action="SHARE_TODO",
+                resource_type="todo",
+                resource_id=str(todo.get("id", "unknown")),
+                success=True,
+                metadata={"input": data if data else {}, "notifications_created": notifications_created, "tagged_ids": resolved_tagged_ids},
+            )
+
+            return {
+                "status": 1,
+                "message": f"Todo shared via email. {len(notifications_created)} notification(s) created.",
+                "payload": {
+                    "notifications_created": notifications_created,
+                    "tagged_ids": resolved_tagged_ids,  # ✅ return tagged_ids in payload
                 },
             }
 
-            notif_id = DBHelper.insert(
-                "notifications", return_column="id", **notification_data
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="SHARE_TODO",
+                resource_type="todo",
+                resource_id="unknown",
+                success=False,
+                error_message="Failed to share todo",
+                metadata={"input": data if data else {}, "error": str(e)},
             )
-            notifications_created.append(notif_id)
-
-        # 🔁 Update tagged_ids in the weekly_todos table
-        if resolved_tagged_ids:
-            todo_record = DBHelper.find_one("todos", filters={"id": todo.get("id")})
-            if not todo_record:
-                return {
-                    "status": 0,
-                    "message": "Todo not found. Cannot tag members.",
-                }, 404
-
-            existing_ids = todo_record.get("tagged_ids") or []
-            combined_ids = list(set(existing_ids + resolved_tagged_ids))
-            pg_array_str = "{" + ",".join(f'"{str(i)}"' for i in combined_ids) + "}"
-
-            DBHelper.update_one(
-                table_name="todos",
-                filters={"id": todo.get("id")},
-                updates={"tagged_ids": pg_array_str},
-            )
-            # ✅ Add tagged members as Google Calendar guests
-            if todo_record.get("google_calendar_id"):
-                try:
-                    add_calendar_guests(
-                        user_id=uid,  # goal creator
-                        calendar_event_id=todo_record["google_calendar_id"],
-                        guest_emails=tagged_members,  # list of emails
-                    )
-                except Exception as e:
-                    print(f"⚠ Failed to add calendar guests: {str(e)}")
-
-        if failures:
-            return {
-                "status": 0,
-                "message": f"Failed to send to {len(failures)} recipients",
-                "errors": failures,
-            }, 500
-
-        return {
-            "status": 1,
-            "message": f"Todo shared via email. {len(notifications_created)} notification(s) created.",
-            "payload": {
-                "notifications_created": notifications_created,
-                "tagged_ids": resolved_tagged_ids,  # ✅ return tagged_ids in payload
-            },
-        }
-
+            return {"status": 0, "message": "Failed to share todo"}
 
 class DeleteWeeklyGoal(Resource):
     @auth_required(isOptional=True)
     def post(self, uid, user):
-        data = request.get_json(silent=True)
-        goal_id = data.get("id")
-
-        if not goal_id:
-            return {"status": 0, "message": "Goal ID is required", "payload": {}}
-
         try:
-            DBHelper.update_one(
-                table_name="goals",
-                filters={"id": goal_id, "user_id": uid},
-                updates={"is_active": 0},
-            )
-            return {
-                "status": 1,
-                "message": "Weekly goal deleted successfully",
-                "payload": {},
-            }
-        except Exception as e:
-            print("Error deleting weekly goal:", e)
-            return {
-                "status": 0,
-                "message": "Failed to delete weekly goal",
-                "payload": {},
-            }
+            data = request.get_json(silent=True) or {}
+            goal_id = data.get("id")
 
+            if not goal_id:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="DELETE_WEEKLY_GOAL",
+                    resource_type="goal",
+                    resource_id="unknown",
+                    success=False,
+                    error_message="Goal ID is required",
+                    metadata={"input": data},
+                )
+                return {"status": 0, "message": "Goal ID is required", "payload": {}}
+
+            try:
+                DBHelper.update_one(
+                    table_name="goals",
+                    filters={"id": goal_id, "user_id": uid},
+                    updates={"is_active": 0},
+                )
+            except Exception as e:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="DELETE_WEEKLY_GOAL",
+                    resource_type="goal",
+                    resource_id=str(goal_id),
+                    success=False,
+                    error_message="Failed to delete weekly goal",
+                    metadata={"input": data, "goal_id": goal_id, "error": str(e)},
+                )
+                return {"status": 0, "message": "Failed to delete weekly goal", "payload": {}}
+
+            AuditLogger.log(
+                user_id=uid,
+                action="DELETE_WEEKLY_GOAL",
+                resource_type="goal",
+                resource_id=str(goal_id),
+                success=True,
+                metadata={"input": data, "goal_id": goal_id},
+            )
+            return {"status": 1, "message": "Weekly goal deleted successfully", "payload": {}}
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="DELETE_WEEKLY_GOAL",
+                resource_type="goal",
+                resource_id=str(goal_id) if "goal_id" in locals() else "unknown",
+                success=False,
+                error_message="Unexpected error while deleting weekly goal",
+                metadata={"input": data if "data" in locals() else {}, "error": str(e)},
+            )
+            return {"status": 0, "message": "Failed to delete weekly goal"}
 
 class DeleteWeeklyTodo(Resource):
     @auth_required(isOptional=True)
     def post(self, uid, user):
-        data = request.get_json(silent=True)
+        data = request.get_json(silent=True) or {}
         todo_id = data.get("id")
 
         if not todo_id:
+            AuditLogger.log(
+                user_id=uid,
+                action="DELETE_WEEKLY_TODO",
+                resource_type="todo",
+                resource_id="unknown",
+                success=False,
+                error_message="Todo ID is required",
+                metadata={"input": data},
+            )
             return {"status": 0, "message": "Todo ID is required", "payload": {}}
 
         try:
             DBHelper.update_one(
-                table_name="todos",  # ✅ your todo table
+                table_name="todos",
                 filters={"id": todo_id, "user_id": uid},
-                updates={"is_active": 0},  # Using is_active column from schema
+                updates={"is_active": 0},
+            )
+
+            AuditLogger.log(
+                user_id=uid,
+                action="DELETE_WEEKLY_TODO",
+                resource_type="todo",
+                resource_id=str(todo_id),
+                success=True,
+                metadata={"input": data, "todo_id": todo_id},
             )
             return {
                 "status": 1,
                 "message": "Weekly todo deleted successfully",
                 "payload": {},
             }
-        except Exception as e:
-            print("Error deleting weekly todo:", e)
-            return {
-                "status": 0,
-                "message": "Failed to delete weekly todo",
-                "payload": {},
-            }
 
+        except Exception as e:
+            error_message = f"Failed to delete weekly todo: {str(e)}"
+            print(error_message)
+            AuditLogger.log(
+                user_id=uid,
+                action="DELETE_WEEKLY_TODO",
+                resource_type="todo",
+                resource_id=str(todo_id),
+                success=False,
+                error_message=error_message,
+                metadata={"input": data, "todo_id": todo_id},
+            )
+            return {"status": 0, "message": "Failed to delete weekly todo", "payload": {}}
 
 class AddHabit(Resource):
     @auth_required(isOptional=True)
     def post(self, uid, user):
+        data = request.get_json(silent=True) or {}
+        habit_id = None
+
+        if not data:
+            AuditLogger.log(
+                user_id=uid,
+                action="ADD_HABIT",
+                resource_type="habit",
+                resource_id="unknown",
+                success=False,
+                error_message="No input data provided",
+                metadata={},
+            )
+            return {"status": 0, "message": "No input data provided"}, 400
+
+        habit = data.get("habit", {})
+        if not habit:
+            AuditLogger.log(
+                user_id=uid,
+                action="ADD_HABIT",
+                resource_type="habit",
+                resource_id="unknown",
+                success=False,
+                error_message="No habit data provided",
+                metadata={"input": data},
+            )
+            return {"status": 0, "message": "No habit data provided"}, 400
+
+        # Validate required fields
+        required_fields = ["name", "userId"]
+        missing = [field for field in required_fields if field not in habit]
+        if missing:
+            AuditLogger.log(
+                user_id=uid,
+                action="ADD_HABIT",
+                resource_type="habit",
+                resource_id="unknown",
+                success=False,
+                error_message=f"Missing fields: {', '.join(missing)}",
+                metadata={"input": data},
+            )
+            return {"status": 0, "message": f"Missing fields: {', '.join(missing)}"}, 400
+
         try:
-            data = request.get_json(silent=True)
-            if not data:
-                return {"status": 0, "message": "No input data provided"}, 400
-
-            habit = data.get("habit", {})
-            if not habit:
-                return {"status": 0, "message": "No habit data provided"}, 400
-
-            required_fields = ["name", "userId"]
-            missing = [field for field in required_fields if field not in habit]
-            if missing:
-                return {
-                    "status": 0,
-                    "message": f"Missing fields: {', '.join(missing)}",
-                }, 400
-
             now = datetime.now()
             today = date.today()
 
@@ -2929,6 +2400,15 @@ class AddHabit(Resource):
                 status=False,
             )
 
+            AuditLogger.log(
+                user_id=uid,
+                action="ADD_HABIT",
+                resource_type="habit",
+                resource_id=str(habit_id),
+                success=True,
+                metadata={"input": data, "habit_id": habit_id},
+            )
+
             return {
                 "status": 1,
                 "message": "Habit added successfully",
@@ -2936,8 +2416,16 @@ class AddHabit(Resource):
             }, 200
 
         except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="ADD_HABIT",
+                resource_type="habit",
+                resource_id=str(habit_id) if habit_id else "unknown",
+                success=False,
+                error_message="Failed to add habit",
+                metadata={"input": data, "error": str(e)},
+            )
             return {"status": 0, "message": f"Failed to add habit: {str(e)}"}, 500
-
 
 class GetHabits(Resource):
     @auth_required(isOptional=True)
@@ -2948,55 +2436,67 @@ class GetHabits(Resource):
             today_str = date.today().isoformat()
 
             if not user_id:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="get_habits",
+                    resource_type="habit",
+                    resource_id="multiple",
+                    success=False,
+                    error_message="Missing userId",
+                    metadata={"query_date": query_date},
+                )
                 return {"status": 0, "message": "Missing userId"}, 400
 
+            # Fetch all active habits for user
             habits = DBHelper.find_all(
                 "habits", filters={"user_id": user_id, "is_active": 1}
             )
             results = []
 
             for habit in habits:
-                # always fetch progress for requested date
+                # Fetch progress for the requested date
                 progress = DBHelper.find_one(
-                    table_name="habit_progress",
+                    "habit_progress",
                     filters={"habit_id": habit["id"], "progress_date": query_date},
                 )
 
-                if not progress:
-                    if query_date == today_str:
-                        # only auto-create row for today
-                        progress_id = DBHelper.insert(
-                            table_name="habit_progress",
-                            return_column="id",
-                            habit_id=habit["id"],
-                            progress_date=query_date,
-                            status=False,
-                        )
-                        progress = {
-                            "id": progress_id,
-                            "habit_id": habit["id"],
-                            "progress_date": query_date,
-                            "status": False,
-                        }
-                    else:
-                        # for past/future, just return 0 (don’t create a row)
-                        progress = {
-                            "id": None,
-                            "habit_id": habit["id"],
-                            "progress_date": query_date,
-                            "status": False,
-                        }
+                # Auto-create today's progress if not exists
+                if not progress and query_date == today_str:
+                    progress_id = DBHelper.insert(
+                        "habit_progress",
+                        return_column="id",
+                        habit_id=habit["id"],
+                        progress_date=query_date,
+                        status=False,
+                    )
+                    progress = {
+                        "id": progress_id,
+                        "habit_id": habit["id"],
+                        "progress_date": query_date,
+                        "status": False,
+                    }
 
-                # ✅ Always override current with progress.current
+                # Default progress for past/future or if still None
+                if not progress:
+                    progress = {
+                        "id": None,
+                        "habit_id": habit["id"],
+                        "progress_date": query_date,
+                        "status": False,
+                    }
+
+                # Update habit status from progress
                 habit["status"] = progress["status"]
                 habit["progress_date"] = progress["progress_date"]
 
-                # serialize datetime fields
+                # Serialize datetime/date fields to ISO
                 for key, value in habit.items():
                     if isinstance(value, (datetime, date)):
                         habit[key] = value.isoformat()
 
                 results.append(habit)
+
+          
 
             return {
                 "status": 1,
@@ -3005,67 +2505,125 @@ class GetHabits(Resource):
             }, 200
 
         except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="get_habits",
+                resource_type="habit",
+                resource_id="multiple",
+                success=False,
+                error_message="Failed to fetch habits",
+                metadata={"error": str(e)},
+            )
             return {"status": 0, "message": f"Failed to fetch habits: {str(e)}"}, 500
-
 
 class UpdateHabitProgress(Resource):
     @auth_required(isOptional=True)
     def post(self, uid, user):
+        data = None
+        habit_id = None
+
         try:
             data = request.get_json(silent=True)
-            if not data:
-                return {"status": 0, "message": "No input data provided"}, 400
+            if not data or "habit" not in data:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="UPDATE_HABIT_PROGRESS",
+                    resource_type="habit",
+                    resource_id="unknown",
+                    success=False,
+                    error_message="No habit data provided",
+                    metadata={"input": data or {}},
+                )
+                return {"status": 0, "message": "No habit data provided"}, 400
 
-            habit = data.get("habit", {})
-            if not habit or "id" not in habit:
-                return {"status": 0, "message": "Missing habit ID or data"}, 400
+            habit = data["habit"]
+            habit_id = habit.get("id")
+            if not habit_id:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="UPDATE_HABIT_PROGRESS",
+                    resource_type="habit",
+                    resource_id="unknown",
+                    success=False,
+                    error_message="Missing habit ID",
+                    metadata={"input": data},
+                )
+                return {"status": 0, "message": "Missing habit ID"}, 400
 
-            habit_id = habit["id"]
             progress_date = habit.get("progress_date") or date.today().isoformat()
 
-            # Block future dates
+            # Prevent future progress updates
             if datetime.fromisoformat(progress_date).date() > date.today():
                 return {
                     "status": 0,
                     "message": "Cannot update future habit progress",
                 }, 400
 
-            # Ensure habit exists
-            habit_db = DBHelper.find_one("habits", filters={"id": habit_id})
-            if not habit_db:
-                return {"status": 0, "message": "Habit not found"}, 404
+                # Ensure habit exists
+                habit_db = DBHelper.find_one("habits", filters={"id": habit_id})
+                if not habit_db:
+                    AuditLogger.log(
+                        user_id=uid,
+                        action="update_habit_progress",
+                        resource_type="habit",
+                        resource_id=str(habit_id),
+                        success=False,
+                        error_message="Habit not found",
+                        metadata={"input": data if data else {}},
+                    )
+                    return {"status": 0, "message": "Habit not found"}, 404
 
-            # Find or create progress for the date
+            # Find or create progress row
             progress = DBHelper.find_one(
                 "habit_progress",
                 filters={"habit_id": habit_id, "progress_date": progress_date},
             )
             if not progress:
                 progress_id = DBHelper.insert(
-                    table_name="habit_progress",
+                    "habit_progress",
                     return_column="id",
                     habit_id=habit_id,
                     progress_date=progress_date,
                     status=False,
                 )
-                progress = {"id": progress_id, "status": False}
+                if not progress:
+                    progress_id = DBHelper.insert(
+                        table_name="habit_progress",
+                        return_column="id",
+                        habit_id=habit_id,
+                        progress_date=progress_date,
+                        status=False,
+                    )
+                    progress = {"id": progress_id, "status": False}
 
-            # Toggle or set status
-            new_status = habit.get("status", not progress["status"])
+                # Toggle or set status
+                new_status = habit.get("status", not progress["status"])
 
-            DBHelper.update_one(
-                "habit_progress",
-                filters={"habit_id": habit_id, "progress_date": progress_date},
-                updates={"status": new_status},
-            )
+                DBHelper.update_one(
+                    "habit_progress",
+                    filters={"habit_id": habit_id, "progress_date": progress_date},
+                    updates={"status": new_status},
+                )
 
-            # Update habit's updated_at timestamp
             DBHelper.update_one(
                 "habits",
                 filters={"id": habit_id},
                 updates={
                     "status": new_status,
                     "updated_at": datetime.now().isoformat(),
+                },
+            )
+
+            AuditLogger.log(
+                user_id=uid,
+                action="UPDATE_HABIT_PROGRESS",
+                resource_type="habit",
+                resource_id=str(habit_id),
+                success=True,
+                metadata={
+                    "input": data,
+                    "new_status": new_status,
+                    "progress_date": progress_date,
                 },
             )
 
@@ -3080,60 +2638,132 @@ class UpdateHabitProgress(Resource):
             }, 200
 
         except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="UPDATE_HABIT_PROGRESS",
+                resource_type="habit",
+                resource_id=str(habit_id) if habit_id else "unknown",
+                success=False,
+                error_message="Failed to update habit progress",
+                metadata={"input": data or {}, "error": str(e)},
+            )
             return {"status": 0, "message": f"Failed to update habit: {str(e)}"}, 500
+
+        except Exception as e:
+            AuditLogger.log(
+                user_id=uid,
+                action="UPDATE_HABIT_PROGRESS",
+                resource_type="habit",
+                resource_id=str(habit_id) if habit_id else "unknown",
+                success=False,
+                error_message="Failed to update habit progress",
+                metadata={"input": data if data else {}, "error": str(e)},
+            )
+            return {"status": 0, "message": "Failed to update habit progress"}
 
 
 class EditHabit(Resource):
     @auth_required(isOptional=True)
     def put(self, uid, user):
+        data = None
+        habit_id = None
+
         try:
             data = request.get_json(silent=True)
-            if not data:
-                return {"status": 0, "message": "No input data provided"}, 400
+            if not data or "habit" not in data:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="EDIT_HABIT",
+                    resource_type="habit",
+                    resource_id="unknown",
+                    success=False,
+                    error_message="No habit data provided",
+                    metadata={"input": data or {}},
+                )
+                return {"status": 0, "message": "No habit data provided"}, 400
 
-            habit = data.get("habit", {})
-            if not habit or "id" not in habit:
-                return {"status": 0, "message": "Missing habit ID or data"}, 400
+            habit = data["habit"]
+            habit_id = habit.get("id")
+            if not habit_id:
+                AuditLogger.log(
+                    user_id=uid,
+                    action="EDIT_HABIT",
+                    resource_type="habit",
+                    resource_id="unknown",
+                    success=False,
+                    error_message="Missing habit ID",
+                    metadata={"input": data},
+                )
+                return {"status": 0, "message": "Missing habit ID"}, 400
 
-            habit_id = habit["id"]
             habit_db = DBHelper.find_one("habits", filters={"id": habit_id})
             if not habit_db:
                 return {"status": 0, "message": "Habit not found"}, 404
 
-            updates = {}
-            if "name" in habit:
-                updates["name"] = habit["name"]
-            if "description" in habit:
-                updates["description"] = habit["description"]
-
+            # Prepare updates
+            updates = {k: habit[k] for k in ["name", "description"] if k in habit}
             if not updates:
                 return {"status": 0, "message": "No valid fields to update"}, 400
 
             updates["updated_at"] = datetime.now().isoformat()
-
             DBHelper.update_one("habits", filters={"id": habit_id}, updates=updates)
+
+            AuditLogger.log(
+                user_id=uid,
+                action="EDIT_HABIT",
+                resource_type="habit",
+                resource_id=str(habit_id),
+                success=True,
+                metadata={"input": data, "updates": updates},
+            )
 
             return {"status": 1, "message": "Habit updated successfully"}, 200
 
         except Exception as e:
-            return {"status": 0, "message": f"Failed to update habit: {str(e)}"}, 500
-
+            AuditLogger.log(
+                user_id=uid,
+                action="EDIT_HABIT",
+                resource_type="habit",
+                resource_id=str(habit_id) if habit_id else "unknown",
+                success=False,
+                error_message="Failed to edit habit",
+                metadata={"input": data or {}, "error": str(e)},
+            )
+            return {"status": 0, "message": f"Failed to edit habit: {str(e)}"}, 500
 
 class DeleteHabit(Resource):
     @auth_required(isOptional=True)
-    def post(self, uid, user):  # ✅ use POST like your weekly todo
+    def post(self, uid, user):
         data = request.get_json(silent=True)
-        habit_id = data.get("id")
+        habit_id = data.get("id") if data else None
 
         if not habit_id:
+            AuditLogger.log(
+                user_id=uid,
+                action="DELETE_HABIT",
+                resource_type="habit",
+                resource_id="unknown",
+                success=False,
+                error_message="Habit ID is required",
+                metadata={"input": data or {}},
+            )
             return {"status": 0, "message": "Habit ID is required"}, 400
 
         try:
-            # ✅ Instead of deleting, mark as inactive
+            # Soft delete: mark habit as inactive
             DBHelper.update_one(
                 table_name="habits",
                 filters={"id": habit_id, "user_id": uid},
                 updates={"is_active": 0, "updated_at": datetime.now().isoformat()},
+            )
+
+            AuditLogger.log(
+                user_id=uid,
+                action="DELETE_HABIT",
+                resource_type="habit",
+                resource_id=str(habit_id),
+                success=True,
+                metadata={"input": data or {}, "habit_id": habit_id},
             )
 
             return {
@@ -3141,11 +2771,19 @@ class DeleteHabit(Resource):
                 "message": "Habit deleted (soft) successfully",
                 "payload": {},
             }, 200
+
         except Exception as e:
-            return (
-                {
-                    "status": 0,
-                    "message": f"Failed to delete habit: {str(e)}",
-                    "payload": {},
-                },
+            AuditLogger.log(
+                user_id=uid,
+                action="DELETE_HABIT",
+                resource_type="habit",
+                resource_id=str(habit_id),
+                success=False,
+                error_message="Failed to delete habit",
+                metadata={"input": data or {}, "habit_id": habit_id, "error": str(e)},
             )
+            return {
+                "status": 0,
+                "message": f"Failed to delete habit: {str(e)}",
+                "payload": {},
+            }, 500

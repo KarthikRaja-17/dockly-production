@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState } from "react";
 import {
@@ -280,7 +281,7 @@ const SetupPage: React.FC = () => {
           }
         }
       } catch (error) {
-        console.error("Error fetching city from postal code:", error);
+        console.error("Error fetching city from zip code:", error);
       }
     }
   };
@@ -326,33 +327,34 @@ const SetupPage: React.FC = () => {
   const handleCountryInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setCountrySearchValue(value);
+    setShowCountryDropdown(true);
   };
 
   const handleStateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setStateSearchValue(value);
+    setShowStateDropdown(true);
   };
 
   const handleCityInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setCitySearchValue(value);
+    setShowCityDropdown(true);
   };
 
-  const handleCountryFocus = () => {
-    if (countrySearchValue && !selectedCountry) {
-      setShowCountryDropdown(true);
+  const handleCountryClick = () => {
+    setShowCountryDropdown((prev) => !prev);
+  };
+
+  const handleStateClick = () => {
+    if (selectedCountry) {
+      setShowStateDropdown((prev) => !prev);
     }
   };
 
-  const handleStateFocus = () => {
-    if (stateSearchValue && selectedCountry && !selectedState) {
-      setShowStateDropdown(true);
-    }
-  };
-
-  const handleCityFocus = () => {
-    if (citySearchValue && selectedState && !selectedCity) {
-      setShowCityDropdown(true);
+  const handleCityClick = () => {
+    if (selectedState) {
+      setShowCityDropdown((prev) => !prev);
     }
   };
 
@@ -841,13 +843,13 @@ const SetupPage: React.FC = () => {
                     <Form.Item
                       name="first_name"
                       label="First Name"
-                      rules={[{ required: true, message: "Required" }]}
+                      rules={[{ required: true, message: "Required" }, { pattern: /^[A-Za-z]+$/, message: "Only letters are allowed" }]}
                       style={{ marginBottom: "12px" }}
                     >
                       <Input
                         placeholder="Enter first name"
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                          const value = e.target.value.replace(/\s/g, "");
+                          const value = e.target.value.replace(/[^A-Za-z]/g, "");
                           e.target.value = value;
                           e.target.dispatchEvent(
                             new Event("input", { bubbles: true })
@@ -869,13 +871,13 @@ const SetupPage: React.FC = () => {
                     <Form.Item
                       name="last_name"
                       label="Last Name"
-                      rules={[{ required: true, message: "Required" }]}
+                      rules={[{ required: true, message: "Required" }, { pattern: /^[A-Za-z]+$/, message: "Only letters are allowed" }]}
                       style={{ marginBottom: "12px" }}
                     >
                       <Input
                         placeholder="Enter last name"
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                          const value = e.target.value.replace(/\s/g, "");
+                          const value = e.target.value.replace(/[^A-Za-z]/g, "");
                           e.target.value = value;
                           e.target.dispatchEvent(
                             new Event("input", { bubbles: true })
@@ -1156,7 +1158,7 @@ const SetupPage: React.FC = () => {
                           placeholder="Search country"
                           value={countrySearchValue}
                           onChange={handleCountryInputChange}
-                          onFocus={handleCountryFocus}
+                          onClick={handleCountryClick}
                           style={{
                             borderRadius: "6px",
                             border: "1.5px solid #e8e8e8",
@@ -1173,9 +1175,7 @@ const SetupPage: React.FC = () => {
                                 alignItems: "center",
                                 cursor: "pointer",
                               }}
-                              onClick={() =>
-                                setShowCountryDropdown(!showCountryDropdown)
-                              }
+                              onClick={handleCountryClick}
                             >
                               {selectedCountry && (
                                 <span
@@ -1308,7 +1308,7 @@ const SetupPage: React.FC = () => {
                           }
                           value={stateSearchValue}
                           onChange={handleStateInputChange}
-                          onFocus={handleStateFocus}
+                          onClick={handleStateClick}
                           disabled={!selectedCountry}
                           style={{
                             borderRadius: "6px",
@@ -1331,10 +1331,7 @@ const SetupPage: React.FC = () => {
                                 alignItems: "center",
                                 cursor: "pointer",
                               }}
-                              onClick={() =>
-                                selectedCountry &&
-                                setShowStateDropdown(!showStateDropdown)
-                              }
+                              onClick={handleStateClick}
                             >
                               {selectedState && (
                                 <span
@@ -1454,7 +1451,7 @@ const SetupPage: React.FC = () => {
                           }
                           value={citySearchValue}
                           onChange={handleCityInputChange}
-                          onFocus={handleCityFocus}
+                          onClick={handleCityClick}
                           disabled={!selectedState}
                           style={{
                             borderRadius: "6px",
@@ -1477,10 +1474,7 @@ const SetupPage: React.FC = () => {
                                 alignItems: "center",
                                 cursor: "pointer",
                               }}
-                              onClick={() =>
-                                selectedState &&
-                                setShowCityDropdown(!showCityDropdown)
-                              }
+                              onClick={handleCityClick}
                             >
                               {selectedCity && (
                                 <span
@@ -1587,14 +1581,21 @@ const SetupPage: React.FC = () => {
                   <Col xs={24} sm={12}>
                     <Form.Item
                       name="postal_code"
-                      label="Postal Code"
+                      label="Zip Code"
+                      rules={[
+                        { required: false },
+                        { pattern: /^\d{6}$/, message: "Zip code must be 6 digits" },
+                      ]}
                       style={{ marginBottom: "12px" }}
                     >
                       <Input
-                        placeholder="Enter postal code"
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          handlePostalCodeChange(e.target.value)
-                        }
+                        placeholder="Enter zip code"
+                        maxLength={6}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          const value = e.target.value.replace(/[^0-9]/g, "");
+                          e.target.value = value;
+                          handlePostalCodeChange(value);
+                        }}
                         onBlur={(e: React.ChangeEvent<HTMLInputElement>) =>
                           handlePostalCodeChange(e.target.value)
                         }

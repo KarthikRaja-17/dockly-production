@@ -444,3 +444,103 @@ export async function deleteOtherAsset(
     throw new Error(errorMessage);
   }
 }
+
+
+export async function shareMaintenanceTask(params: {
+  task: any;
+  email: string | string[];
+  tagged_members?: string[];
+}) {
+  return api.post('/share/maintenance_task', params);
+}
+
+export interface KeyContact {
+  id: string;
+  name: string;
+  service: string;
+  phone: string;
+  email?: string;
+  notes?: string;
+  category: string;
+  created_at?: string;
+  updated_at?: string;
+  is_active: number;
+}
+
+export interface KeyContactResponse {
+  status: number;
+  message: string;
+  payload: {
+    contacts?: KeyContact[];
+    contact?: KeyContact;
+  };
+}
+
+
+export const addKeyContact = async (contactData: Partial<KeyContact>): Promise<KeyContactResponse> => {
+  try {
+    const response = await api.post<KeyContactResponse>('/add/key-contact', {
+      name: contactData.name,
+      service: contactData.service,
+      phone: contactData.phone,
+      email: contactData.email || '',
+      notes: contactData.notes || '',
+      category: contactData.category,
+      is_active: 1,  // Set is_active to 1
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error('Failed to add key contact');
+  }
+};
+
+export const getKeyContacts = async (filters: { is_active?: number } = {}): Promise<KeyContactResponse> => {
+  try {
+    const response = await api.get<KeyContactResponse>('/get/key-contacts', {
+      params: { ...filters, is_active: 1 },  // Only fetch active contacts
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error('Failed to fetch key contacts');
+  }
+};
+
+export const updateKeyContact = async (contactId: string, updates: Partial<KeyContact>): Promise<KeyContactResponse> => {
+  try {
+    const response = await api.put<KeyContactResponse>(`/update/key-contact/${contactId}`, {
+      name: updates.name,
+      service: updates.service,
+      phone: updates.phone,
+      email: updates.email || '',
+      notes: updates.notes || '',
+      category: updates.category,
+      is_active: updates.is_active ?? 1,  // Include is_active
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error('Failed to update key contact');
+  }
+};
+
+export const deleteKeyContact = async (contactId: string): Promise<KeyContactResponse> => {
+  try {
+    console.log(`Sending DELETE request for contactId: ${contactId}`);
+    const response = await api.delete<KeyContactResponse>(`/delete/key-contact/${contactId}`);
+    console.log(`Delete response for contactId ${contactId}:`, response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error(`Error deleting key contact ${contactId}:`, error);
+    let errorMessage = 'Failed to delete key contact';
+    if (error.response) {
+      const { status, data } = error.response;
+      if (status === 400) {
+        errorMessage = data.message || 'Invalid contact ID format';
+      } else if (status === 404) {
+        errorMessage = data.message || 'Contact not found or already deleted';
+      } else if (status === 500) {
+        errorMessage = data.message || 'Server error while deleting contact';
+      }
+    }
+    throw new Error(errorMessage);
+  }
+};

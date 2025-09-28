@@ -58,21 +58,21 @@ interface VehicleDetailsProps {
 const predefinedVehicles = [
   { id: 'primary', name: 'Auto 1', icon: '🚗', desc: 'Primary vehicle • Make/Model • VIN • License' },
   { id: 'secondary', name: 'Auto 2', icon: '🚙', desc: 'Secondary vehicle • Make/Model • VIN • License' },
-  { id: 'additional', name: 'Add Another Vehicle', icon: '<PlusOutlined />', desc: 'Motorcycle • RV • Boat • Trailer' },
+  { id: 'additional', name: 'Add Another Vehicle', desc: 'Motorcycle • RV • Boat • Trailer' },
 ];
 
 const VehiclePlaceholderCard: React.FC<{ predefined: typeof predefinedVehicles[0]; onAdd: () => void }> = ({ predefined, onAdd }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   const placeholderCardStyle: React.CSSProperties = {
-    background: '#f9fafb',
+    background: '#e2e8f0', // Gray background
     borderRadius: '0.5rem',
     padding: '1.25rem',
     marginBottom: '1rem',
     cursor: 'pointer',
     transition: 'all 0.2s',
     position: 'relative',
-    border: '1px dashed #d1d5db',
+    border: '1px dashed #6b7280', // Gray border
     display: 'flex',
     alignItems: 'center',
     gap: '0.75rem',
@@ -80,17 +80,18 @@ const VehiclePlaceholderCard: React.FC<{ predefined: typeof predefinedVehicles[0
 
   const placeholderIconStyle: React.CSSProperties = {
     fontSize: '2rem',
+    color: '#6b7280', // Gray icon
   };
 
   const placeholderNameStyle: React.CSSProperties = {
     fontWeight: 600,
     fontSize: '1rem',
-    color: '#374151',
+    color: '#6b7280', // Gray text
   };
 
   const placeholderDescStyle: React.CSSProperties = {
     fontSize: '0.8125rem',
-    color: '#64748b',
+    color: '#9ca3af', // Lighter gray description
   };
 
   const arrowStyle: React.CSSProperties = {
@@ -190,7 +191,7 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
     display: 'flex',
     flexDirection: 'column',
     overflowY: 'auto',
-    padding: '0 1.25rem',
+    // padding: '0 1.25rem',
   };
 
   const vehicleItemStyle: React.CSSProperties = {
@@ -437,13 +438,10 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
 
     try {
       // Placeholder implementation - replace with actual license plate lookup API
-      // For demo, we'll simulate a response
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Simulate success or failure
       if (Math.random() > 0.3) {
         setPlateDecodeSuccess('License plate lookup successful! Vehicle details estimated.');
-        // Simulate filling some fields
         form.setFieldsValue({
           make: 'Toyota',
           model: 'Camry',
@@ -670,80 +668,155 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
             <Spin size="large" />
             <Text style={{ marginTop: '16px' }}>Loading vehicles...</Text>
           </div>
-        ) : vehiclesData.length === 0 ? (
+        ) : (
           <div style={{ padding: '1.5rem', maxHeight: '340px', overflowY: 'auto', flex: 1 }}>
-            {predefinedVehicles.map((pre) => (
-              <VehiclePlaceholderCard key={pre.id} predefined={pre} onAdd={() => {
+            {vehiclesData.map((vehicle, index) => (
+              <VehicleItem key={vehicle.id} vehicle={vehicle} />
+            ))}
+            {vehiclesData.length === 0 && (
+              <>
+                <VehiclePlaceholderCard
+                  predefined={predefinedVehicles[0]}
+                  onAdd={() => {
+                    if (typeof ref !== 'function' && ref && 'current' in ref && ref.current) {
+                      ref.current.openAddModal();
+                    }
+                  }}
+                />
+                <VehiclePlaceholderCard
+                  predefined={predefinedVehicles[1]}
+                  onAdd={() => {
+                    if (typeof ref !== 'function' && ref && 'current' in ref && ref.current) {
+                      ref.current.openAddModal();
+                    }
+                  }}
+                />
+              </>
+            )}
+            {vehiclesData.length === 1 && (
+              <VehiclePlaceholderCard
+                predefined={predefinedVehicles[1]}
+                onAdd={() => {
+                  if (typeof ref !== 'function' && ref && 'current' in ref && ref.current) {
+                    ref.current.openAddModal();
+                  }
+                }}
+              />
+            )}
+            <VehiclePlaceholderCard
+              predefined={predefinedVehicles[2]}
+              onAdd={() => {
                 if (typeof ref !== 'function' && ref && 'current' in ref && ref.current) {
                   ref.current.openAddModal();
                 }
-              }} />
-            ))}
-          </div>
-        ) : (
-          <div style={{ padding: '1.5rem', maxHeight: '340px', overflowY: 'auto', flex: 1 }}>
-            {vehiclesData.slice(0, 2).map((vehicle, index) => (
-              <VehicleItem key={vehicle.id} vehicle={vehicle} />
-            ))}
-            {vehiclesData.length < 2 && (
-              <VehiclePlaceholderCard
-                predefined={predefinedVehicles[vehiclesData.length]}
-                onAdd={() => {
-                  if (typeof ref !== 'function' && ref && 'current' in ref && ref.current) {
-                    ref.current.openAddModal();
-                  }
-                }}
-              />
-            )}
-            {vehiclesData.length >= 2 && (
-              <VehiclePlaceholderCard
-                predefined={predefinedVehicles[2]}
-                onAdd={() => {
-                  if (typeof ref !== 'function' && ref && 'current' in ref && ref.current) {
-                    ref.current.openAddModal();
-                  }
-                }}
-              />
-            )}
-            {vehiclesData.length > 2 && vehiclesData.slice(2).map((vehicle) => (
-              <VehicleItem key={vehicle.id} vehicle={vehicle} />
-            ))}
+              }}
+            />
           </div>
         )}
       </div>
 
       <Modal
-        title={editingVehicle ? `Edit ${editingVehicle.make} ${editingVehicle.model}` : 'Add Vehicle'}
+        title={
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '12px', 
+            padding: '8px 0',
+            borderBottom: '1px solid #f0f0f0',
+            paddingBottom: '16px',
+            marginBottom: '8px'
+          }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '12px',
+              background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, #096dd9 100%)`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: `0 4px 12px ${PRIMARY_COLOR}30`
+            }}>
+              <CarOutlined style={{ fontSize: '20px', color: 'white' }} />
+            </div>
+            <div>
+              <div style={{ 
+                fontSize: '18px', 
+                fontWeight: 600, 
+                color: '#1a202c',
+                lineHeight: 1.2,
+                marginBottom: '2px'
+              }}>
+                {editingVehicle ? `Edit ${editingVehicle.make} ${editingVehicle.model}` : 'Add New Vehicle'}
+              </div>
+              <div style={{ 
+                fontSize: '13px', 
+                color: '#64748b',
+                fontWeight: 400
+              }}>
+                {editingVehicle ? 'Update vehicle information' : 'Add vehicle to your garage'}
+              </div>
+            </div>
+          </div>
+        }
         open={isModalVisible}
         onCancel={closeModal}
         footer={null}
-        width={800}
-        style={{ padding: '1rem' }}
+        width={700}
+        style={{ top: 20 }}
+        bodyStyle={{ 
+          padding: '24px',
+          maxHeight: '70vh', 
+          overflowY: 'auto',
+          background: '#fafbfc'
+        }}
+        maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
       >
-        <Form form={form} onFinish={handleSubmit} layout="vertical" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <Form.Item
-            label="Input Method"
-            name="inputMethod"
-            initialValue={inputMethod}
-          >
-            <Select size="large" onChange={(value) => setInputMethod(value as 'license' | 'vin')}>
-              <Option value="license">License Plate</Option>
-              <Option value="vin">VIN</Option>
-            </Select>
-          </Form.Item>
+        <Form form={form} onFinish={handleSubmit} layout="vertical" style={{ gap: '0' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            <Form.Item
+              label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Input Method</span>}
+              name="inputMethod"
+              initialValue={inputMethod}
+              style={{ marginBottom: '16px' }}
+            >
+              <Select 
+                size="large" 
+                onChange={(value) => setInputMethod(value as 'license' | 'vin')}
+                style={{
+                  borderRadius: '10px'
+                }}
+                dropdownStyle={{
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)'
+                }}
+              >
+                <Option value="license">License Plate</Option>
+                <Option value="vin">VIN</Option>
+              </Select>
+            </Form.Item>
+            <div></div>
+          </div>
 
           {inputMethod === 'license' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', marginBottom: '20px' }}>
               <Form.Item
-                label="State"
+                label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>State</span>}
                 name="plate_state"
                 rules={[{ required: true, message: 'Please select a state!' }]}
+                style={{ marginBottom: '16px' }}
               >
                 <Select
                   size="large"
                   placeholder="Select state"
                   onChange={(value) => setLicenseState(value)}
                   showSearch
+                  style={{
+                    borderRadius: '10px'
+                  }}
+                  dropdownStyle={{
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)'
+                  }}
                 >
                   {US_STATES.map((state) => (
                     <Option key={state} value={state}>
@@ -755,12 +828,13 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
               <Form.Item
                 label={
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>License Plate</span>
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>License Plate</span>
                     {plateDecoding && <Spin size="small" />}
                   </div>
                 }
                 name="license_plate"
                 rules={[{ required: true, message: 'Please enter license plate!' }]}
+                style={{ marginBottom: '16px' }}
               >
                 <Input
                   size="large"
@@ -770,6 +844,12 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
                     textTransform: 'uppercase',
                     fontFamily: 'monospace',
                     letterSpacing: '0.5px',
+                    borderRadius: '10px',
+                    border: '2px solid #e2e8f0',
+                    fontSize: '15px',
+                    height: '48px',
+                    background: 'white',
+                    transition: 'all 0.2s ease'
                   }}
                 />
               </Form.Item>
@@ -777,11 +857,11 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
           )}
 
           {inputMethod === 'vin' && (
-            <div>
+            <div style={{ marginBottom: '20px' }}>
               <Form.Item
                 label={
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>VIN</span>
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>VIN</span>
                     {vinDecoding && <Spin size="small" />}
                   </div>
                 }
@@ -790,6 +870,7 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
                   { required: true, message: 'Please enter VIN!' },
                   { len: 17, message: 'VIN must be exactly 17 characters!' },
                 ]}
+                style={{ marginBottom: '16px' }}
               >
                 <Input
                   size="large"
@@ -800,6 +881,12 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
                     textTransform: 'uppercase',
                     fontFamily: 'monospace',
                     letterSpacing: '0.5px',
+                    borderRadius: '10px',
+                    border: '2px solid #e2e8f0',
+                    fontSize: '15px',
+                    height: '48px',
+                    background: 'white',
+                    transition: 'all 0.2s ease'
                   }}
                   suffix={
                     vinDecoding ? (
@@ -825,6 +912,8 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
                   marginBottom: '16px',
                   borderColor: PRIMARY_COLOR,
                   color: PRIMARY_COLOR,
+                  borderRadius: '8px',
+                  height: '40px'
                 }}
               >
                 {vinDecoding ? 'Decoding VIN...' : 'Decode VIN Manually'}
@@ -838,7 +927,7 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
               description={plateDecodeSuccess}
               type="success"
               showIcon
-              style={{ marginBottom: '16px' }}
+              style={{ marginBottom: '16px', borderRadius: '8px' }}
             />
           )}
           {inputMethod === 'license' && plateDecodeError && (
@@ -847,7 +936,7 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
               description={plateDecodeError}
               type="error"
               showIcon
-              style={{ marginBottom: '16px' }}
+              style={{ marginBottom: '16px', borderRadius: '8px' }}
             />
           )}
           {inputMethod === 'vin' && vinDecodeSuccess && (
@@ -856,7 +945,7 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
               description={vinDecodeSuccess}
               type="success"
               showIcon
-              style={{ marginBottom: '16px' }}
+              style={{ marginBottom: '16px', borderRadius: '8px' }}
             />
           )}
           {inputMethod === 'vin' && vinDecodeError && (
@@ -865,7 +954,7 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
               description={vinDecodeError}
               type="error"
               showIcon
-              style={{ marginBottom: '16px' }}
+              style={{ marginBottom: '16px', borderRadius: '8px' }}
             />
           )}
           {inputMethod === 'license' && (
@@ -878,18 +967,32 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
                 marginBottom: '16px',
                 borderColor: PRIMARY_COLOR,
                 color: PRIMARY_COLOR,
+                borderRadius: '8px',
+                height: '40px'
               }}
             >
               {plateDecoding ? 'Looking up...' : 'Lookup License Plate'}
             </Button>
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-            <Form.Item label="Make" name="make" rules={[{ required: true, message: 'Please select make!' }]}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', marginBottom: '20px' }}>
+            <Form.Item 
+              label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Make</span>} 
+              name="make" 
+              rules={[{ required: true, message: 'Please select make!' }]}
+              style={{ marginBottom: '16px' }}
+            >
               <Select
                 size="large"
                 placeholder="Select make"
                 onChange={(value) => setOtherMake(value === 'Other' ? '' : value)}
                 showSearch
+                style={{
+                  borderRadius: '10px'
+                }}
+                dropdownStyle={{
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)'
+                }}
               >
                 {POPULAR_MAKES.map((make) => (
                   <Option key={make} value={make}>
@@ -901,24 +1004,66 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
 
             {form.getFieldValue('make') === 'Other' && (
               <Form.Item
-                label="Custom Make"
+                label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Custom Make</span>}
                 rules={[{ required: true, message: 'Please enter custom make!' }]}
+                style={{ marginBottom: '16px' }}
               >
                 <Input
                   size="large"
                   placeholder="Enter custom make"
                   value={otherMake}
                   onChange={(e) => setOtherMake(e.target.value)}
+                  style={{
+                    borderRadius: '10px',
+                    border: '2px solid #e2e8f0',
+                    fontSize: '15px',
+                    height: '48px',
+                    background: 'white',
+                    transition: 'all 0.2s ease'
+                  }}
                 />
               </Form.Item>
             )}
 
-            <Form.Item label="Model" name="model" rules={[{ required: true, message: 'Please enter model!' }]}>
-              <Input size="large" placeholder="Enter model" />
+            <Form.Item 
+              label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Model</span>} 
+              name="model" 
+              rules={[{ required: true, message: 'Please enter model!' }]}
+              style={{ marginBottom: '16px' }}
+            >
+              <Input 
+                size="large" 
+                placeholder="Enter model" 
+                style={{
+                  borderRadius: '10px',
+                  border: '2px solid #e2e8f0',
+                  fontSize: '15px',
+                  height: '48px',
+                  background: 'white',
+                  transition: 'all 0.2s ease'
+                }}
+              />
             </Form.Item>
 
-            <Form.Item label="Year" name="year" rules={[{ required: true, message: 'Please select year!' }]}>
-              <Select size="large" placeholder="Select year" showSearch allowClear>
+            <Form.Item 
+              label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Year</span>} 
+              name="year" 
+              rules={[{ required: true, message: 'Please select year!' }]}
+              style={{ marginBottom: '16px' }}
+            >
+              <Select 
+                size="large" 
+                placeholder="Select year" 
+                showSearch 
+                allowClear
+                style={{
+                  borderRadius: '10px'
+                }}
+                dropdownStyle={{
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)'
+                }}
+              >
                 {Array.from({ length: new Date().getFullYear() + 1 - 1900 }, (_, i) => 1900 + i)
                   .reverse()
                   .map((year) => (
@@ -929,17 +1074,43 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
               </Select>
             </Form.Item>
 
-            <Form.Item label="Registration Number" name="registration_number">
-              <Input size="large" placeholder="Enter registration number" />
+            <Form.Item 
+              label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Registration Number</span>} 
+              name="registration_number"
+              style={{ marginBottom: '16px' }}
+            >
+              <Input 
+                size="large" 
+                placeholder="Enter registration number" 
+                style={{
+                  borderRadius: '10px',
+                  border: '2px solid #e2e8f0',
+                  fontSize: '15px',
+                  height: '48px',
+                  background: 'white',
+                  transition: 'all 0.2s ease'
+                }}
+              />
             </Form.Item>
 
-            <Form.Item label="Insurance Provider" name="insurance_provider">
+            <Form.Item 
+              label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Insurance Provider</span>} 
+              name="insurance_provider"
+              style={{ marginBottom: '16px' }}
+            >
               <Select
                 size="large"
                 placeholder="Select insurance provider"
                 onChange={(value) => setOtherInsuranceProvider(value === 'Other' ? '' : value)}
                 showSearch
                 allowClear
+                style={{
+                  borderRadius: '10px'
+                }}
+                dropdownStyle={{
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)'
+                }}
               >
                 {INSURANCE_PROVIDERS.map((provider) => (
                   <Option key={provider} value={provider}>
@@ -951,20 +1122,44 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
 
             {form.getFieldValue('insurance_provider') === 'Other' && (
               <Form.Item
-                label="Custom Insurance Provider"
+                label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Custom Insurance Provider</span>}
                 rules={[{ required: true, message: 'Please enter custom insurance provider!' }]}
+                style={{ marginBottom: '16px' }}
               >
                 <Input
                   size="large"
                   placeholder="Enter custom insurance provider"
                   value={otherInsuranceProvider}
                   onChange={(e) => setOtherInsuranceProvider(e.target.value)}
+                  style={{
+                    borderRadius: '10px',
+                    border: '2px solid #e2e8f0',
+                    fontSize: '15px',
+                    height: '48px',
+                    background: 'white',
+                    transition: 'all 0.2s ease'
+                  }}
                 />
               </Form.Item>
             )}
 
-            <Form.Item label="Insurance ID" name="insurance_id">
-              <Input size="large" placeholder="Enter insurance ID" />
+            <Form.Item 
+              label={<span style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Insurance ID</span>} 
+              name="insurance_id"
+              style={{ marginBottom: '16px' }}
+            >
+              <Input 
+                size="large" 
+                placeholder="Enter insurance ID" 
+                style={{
+                  borderRadius: '10px',
+                  border: '2px solid #e2e8f0',
+                  fontSize: '15px',
+                  height: '48px',
+                  background: 'white',
+                  transition: 'all 0.2s ease'
+                }}
+              />
             </Form.Item>
           </div>
 
@@ -976,20 +1171,24 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
               showIcon
               closable
               onClose={() => setErrorMessage('')}
-              style={{ marginBottom: '16px' }}
+              style={{ marginBottom: '16px', borderRadius: '8px' }}
             />
           )}
 
-          <Form.Item>
+          <Form.Item style={{ marginBottom: '0' }}>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
               <Button
                 size="large"
                 onClick={closeModal}
                 style={{
-                  borderRadius: '8px',
-                  height: '50px',
+                  borderRadius: '10px',
+                  height: '48px',
                   paddingLeft: '24px',
                   paddingRight: '24px',
+                  fontSize: '15px',
+                  fontWeight: 500,
+                  border: '2px solid #e2e8f0',
+                  color: '#64748b'
                 }}
               >
                 Cancel
@@ -1000,15 +1199,24 @@ const VehicleDetails = forwardRef<any, VehicleDetailsProps>(({ uid }, ref) => {
                 loading={loading}
                 size="large"
                 style={{
-                  borderRadius: '8px',
-                  fontSize: '16px',
+                  borderRadius: '10px',
+                  fontSize: '15px',
                   fontWeight: 600,
-                  background: PRIMARY_COLOR,
+                  background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, #096dd9 100%)`,
                   border: 'none',
-                  boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
-                  height: '50px',
-                  paddingLeft: '24px',
-                  paddingRight: '24px',
+                  boxShadow: `0 4px 12px ${PRIMARY_COLOR}30`,
+                  height: '48px',
+                  paddingLeft: '32px',
+                  paddingRight: '32px',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = `0 6px 16px ${PRIMARY_COLOR}40`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = `0 4px 12px ${PRIMARY_COLOR}30`;
                 }}
               >
                 {loading ? 'Saving Vehicle...' : editingVehicle ? 'Update Vehicle' : 'Add Vehicle'}

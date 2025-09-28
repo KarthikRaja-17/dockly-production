@@ -69,9 +69,9 @@ export async function updateWeeklyGoal(params: WeeklyGoal) {
 }
 
 
-export async function getWeeklyGoals(params: {}) {
-  return api.get('/get/weekly-goals', { params });
-}
+// export async function getWeeklyGoals(params: {}) {
+//   return api.get('/get/weekly-goals', { params });
+// }
 
 export async function getPlanner(params: {}) {
   return api.get('/get/planner', { params });
@@ -85,17 +85,17 @@ export async function updateWeeklyTodo(params: WeeklyTodo) {
   return api.put('/update/weekly-todos', params);
 }
 
-export async function getWeeklyTodos(params: {}) {
-  return api.get('/get/weekly-todos', { params });
-}
+// export async function getWeeklyTodos(params: {}) {
+//   return api.get('/get/weekly-todos', { params });
+// }
 
-export async function addWeeklyFocus(params: WeeklyFocus) {
-  return api.post('/add/weekly-focus', params);
-}
+// export async function addWeeklyFocus(params: WeeklyFocus) {
+//   return api.post('/add/weekly-focus', params);
+// }
 
-export async function getWeeklyFocus(params: {}) {
-  return api.get('/get/weekly-focus', { params });
-}
+// export async function getWeeklyFocus(params: {}) {
+//   return api.get('/get/weekly-focus', { params });
+// }
 
 export async function addSmartNotes(params: any) {
   return api.post('/add/smart-notes', params);
@@ -107,15 +107,15 @@ export async function getSmartNotes(params: any) {
   });
 }
 
-export async function fetchNoteSuggestions(
-  uid: string,
-  source: string
-): Promise<string[]> {
-  const response = await api.get(`/smartnotes/suggestions/${uid}`, {
-    params: { source },
-  });
-  return response.data;
-}
+// export async function fetchNoteSuggestions(
+//   uid: string,
+//   source: string
+// ): Promise<string[]> {
+//   const response = await api.get(`/smartnotes/suggestions/${uid}`, {
+//     params: { source },
+//   });
+//   return response.data;
+// }
 
 
 export async function deleteWeeklyGoal(params: any) {

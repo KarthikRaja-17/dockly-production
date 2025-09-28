@@ -81,6 +81,8 @@ import { useSearchParams } from "next/navigation";
 import { API_URL } from "../../services/apiConfig";
 import { addEvent } from "../../services/google";
 import FileHub from "../../pages/components/files";
+import { CustomButton } from "../../app/comman";
+import ShareModal from "../components/ShareModal";
 
 const { Title, Text } = Typography;
 
@@ -562,7 +564,14 @@ const HabitTracker: React.FC<{
   onAddHabit: () => void;
   onEditHabit: (habit: HabitTracker) => void;
   onDeleteHabit: (habitId: string) => void;
-}> = ({ habits, onToggleHabit, selectedDate, onAddHabit ,onEditHabit, onDeleteHabit}) => {
+}> = ({
+  habits,
+  onToggleHabit,
+  selectedDate,
+  onAddHabit,
+  onEditHabit,
+  onDeleteHabit,
+}) => {
   const todayHabits = habits.slice(0, 4); // Show top 4 habits
   const maxItems = 2; // number of habit slots to show
 
@@ -647,7 +656,11 @@ const HabitTracker: React.FC<{
               <Menu.Item key="edit" onClick={() => onEditHabit(habit)}>
                 Edit
               </Menu.Item>
-              <Menu.Item key="delete" danger onClick={() => onDeleteHabit(habit.id)}>
+              <Menu.Item
+                key="delete"
+                danger
+                onClick={() => onDeleteHabit(habit.id)}
+              >
                 Delete
               </Menu.Item>
             </Menu>
@@ -713,7 +726,9 @@ const HabitTracker: React.FC<{
                     <Text
                       style={{
                         fontSize: "11px",
-                        color: habit.status ? COLORS.success : COLORS.textSecondary,
+                        color: habit.status
+                          ? COLORS.success
+                          : COLORS.textSecondary,
                         fontFamily: FONT_FAMILY,
                         fontWeight: 500,
                       }}
@@ -723,10 +738,10 @@ const HabitTracker: React.FC<{
                   </div>
                 </div>
               </div>
-              
+
               {/* Menu button on the right */}
               <Dropdown overlay={menu} trigger={["click"]}>
-                <Button 
+               <Button 
                   size="small" 
                   icon={<MoreOutlined />}
                   style={{
@@ -742,1100 +757,6 @@ const HabitTracker: React.FC<{
   );
 };
 
-// Combined Goal Share & Tag Modal Component
-const GoalShareTagModal: React.FC<{
-  isVisible: boolean;
-  onClose: () => void;
-  goal: any;
-  loading: boolean;
-  onShare: (goal: any, email: string) => void;
-  onTag: (goal: any, emails: string[]) => void;
-  familyMembers: any[];
-}> = ({ isVisible, onClose, goal, loading, onShare, onTag, familyMembers }) => {
-  const [shareForm] = Form.useForm();
-  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
-
-  const handleEmailShare = async () => {
-    try {
-      const values = await shareForm.validateFields();
-      await onShare(goal, values.email);
-      handleClose();
-    } catch (error) {
-      console.error("Share validation failed:", error);
-    }
-  };
-
-  const handleMemberShare = async () => {
-    if (!selectedMemberIds.length) {
-      message.warning("Please select at least one member.");
-      return;
-    }
-
-    const selectedMembers = familyMembers.filter((member: any) =>
-      selectedMemberIds.includes(member.id)
-    );
-
-    const emails = selectedMembers
-      .map((member: any) => member.email)
-      .filter((email: string) => !!email);
-
-    await onTag(goal, emails);
-    handleClose();
-  };
-
-  const handleClose = () => {
-    onClose();
-    shareForm.resetFields();
-    setSelectedMemberIds([]);
-  };
-
-  return (
-    <Modal
-      title={null}
-      open={isVisible}
-      onCancel={handleClose}
-      footer={null}
-      centered
-      width={520}
-      destroyOnClose
-      style={{
-        fontFamily: FONT_FAMILY,
-      }}
-      styles={{
-        body: {
-          padding: "0px",
-          background: "#ffffff",
-          borderRadius: "16px",
-          overflow: "hidden",
-        },
-        header: {
-          padding: "0px",
-          marginBottom: "0px",
-          border: "none",
-        },
-        mask: {
-          backdropFilter: "blur(8px)",
-          backgroundColor: "rgba(0, 0, 0, 0.5)",
-        },
-        content: {
-          borderRadius: "16px",
-          overflow: "hidden",
-          boxShadow: "0 25px 50px rgba(0, 0, 0, 0.15)",
-          border: "1px solid #e5e7eb",
-        },
-      }}
-    >
-      {goal && (
-        <div>
-          {/* Header with Goal Info */}
-          <div
-            style={{
-              padding: "20px 20px 16px",
-              borderBottom: "1px solid #e5e7eb",
-              background: "#ffffff",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: "16px",
-              }}
-            >
-              <div
-                style={{
-                  background: "#f3f4f6",
-                  borderRadius: "50%",
-                  padding: "10px",
-                  marginRight: "12px",
-                }}
-              >
-                <TrophyOutlined
-                  style={{
-                    color: COLORS.success,
-                    fontSize: "18px",
-                  }}
-                />
-              </div>
-              <Text
-                style={{
-                  fontSize: "18px",
-                  fontWeight: 600,
-                  color: "#1f2937",
-                  fontFamily: FONT_FAMILY,
-                }}
-              >
-                Share Goal
-              </Text>
-            </div>
-
-            {/* Goal Preview */}
-            <div
-              style={{
-                padding: 16,
-                backgroundColor: COLORS.surfaceSecondary,
-                borderRadius: 8,
-                border: `1px solid ${COLORS.borderLight}`,
-                fontFamily: FONT_FAMILY,
-                marginBottom: "16px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  marginBottom: 12,
-                }}
-              >
-                <div
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    background: `linear-gradient(135deg, ${COLORS.success}, ${COLORS.success}dd)`,
-                    borderRadius: "10px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: `0 4px 12px ${COLORS.success}30`,
-                  }}
-                >
-                  <TrophyOutlined style={{ color: "white" }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontWeight: 600,
-                      marginBottom: 4,
-                      color: COLORS.text,
-                      fontFamily: FONT_FAMILY,
-                      fontSize: "16px",
-                    }}
-                  >
-                    {goal.text}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: COLORS.textSecondary,
-                      fontFamily: FONT_FAMILY,
-                    }}
-                  >
-                    Goal • Due: {goal.date} • {goal.time}
-                  </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Tag
-                    color={goal.completed ? "green" : "orange"}
-                    style={{
-                      borderRadius: "6px",
-                      fontSize: "11px",
-                      fontFamily: FONT_FAMILY,
-                    }}
-                  >
-                    {goal.completed ? "Completed" : "In Progress"}
-                  </Tag>
-                </div>
-              </div>
-              {goal.completed && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 12,
-                    color: COLORS.success,
-                    fontFamily: FONT_FAMILY,
-                  }}
-                >
-                  <CheckCircleOutlined />
-                  <span>This goal has been completed!</span>
-                </div>
-              )}
-            </div>
-
-            <Input
-              placeholder="Search family members..."
-              prefix={<SearchOutlined style={{ color: "#9ca3af" }} />}
-              style={{
-                background: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                color: "#374151",
-                fontFamily: FONT_FAMILY,
-                height: "36px",
-              }}
-            />
-          </div>
-
-          {/* Family Members Grid OR Empty State */}
-          <div style={{ padding: "16px 20px" }}>
-            {familyMembers.filter((m: any) => m.relationship !== "me").length > 0 ? (
-              <div
-                style={{
-                  maxHeight: "280px",
-                  overflowY: "auto",
-                  marginBottom: "20px",
-                  scrollbarWidth: "none", // Firefox
-                  msOverflowStyle: "none",
-                }}
-              >
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, 1fr)",
-                    gap: "10px",
-                  }}
-                >
-                  {familyMembers
-                    .filter((member: any) => member.relationship !== "me")
-                    .map((member: any) => (
-                      <div
-                        key={member.id}
-                        onClick={() => {
-                          setSelectedMemberIds((prev) =>
-                            prev.includes(member.id)
-                              ? prev.filter((id) => id !== member.id)
-                              : [...prev, member.id]
-                          );
-                        }}
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          cursor: "pointer",
-                          padding: "12px 8px",
-                          borderRadius: "12px",
-                          transition: "all 0.3s ease",
-                          background: selectedMemberIds.includes(member.id)
-                            ? "#f0f9ff"
-                            : "transparent",
-                          border: selectedMemberIds.includes(member.id)
-                            ? "2px solid #3b82f6"
-                            : "2px solid transparent",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!selectedMemberIds.includes(member.id)) {
-                            e.currentTarget.style.background = "#f9fafb";
-                            e.currentTarget.style.transform = "scale(1.02)";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!selectedMemberIds.includes(member.id)) {
-                            e.currentTarget.style.background = "transparent";
-                            e.currentTarget.style.transform = "scale(1)";
-                          }
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: "relative",
-                            marginBottom: "8px",
-                          }}
-                        >
-                          <Avatar
-                            size={60}
-                            style={{
-                              background: selectedMemberIds.includes(member.id)
-                                ? "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
-                                : "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)",
-                              fontSize: "24px",
-                              fontWeight: "600",
-                              border: selectedMemberIds.includes(member.id)
-                                ? "3px solid #3b82f6"
-                                : "3px solid #e5e7eb",
-                              boxShadow: selectedMemberIds.includes(member.id)
-                                ? "0 4px 20px rgba(59, 130, 246, 0.3)"
-                                : "0 2px 8px rgba(0, 0, 0, 0.1)",
-                              transition: "all 0.3s ease",
-                              color: "#ffffff",
-                            }}
-                          >
-                            {member.name?.charAt(0)?.toUpperCase() || "U"}
-                          </Avatar>
-                          {selectedMemberIds.includes(member.id) && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                bottom: "-2px",
-                                right: "-2px",
-                                width: "20px",
-                                height: "20px",
-                                background: "#10b981",
-                                borderRadius: "50%",
-                                border: "2px solid #ffffff",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                boxShadow: "0 2px 8px rgba(16, 185, 129, 0.4)",
-                              }}
-                            >
-                              <CheckCircleOutlined
-                                style={{
-                                  fontSize: "10px",
-                                  color: "#fff",
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                        <Text
-                          style={{
-                            color: "#374151",
-                            fontSize: "13px",
-                            fontWeight: selectedMemberIds.includes(member.id)
-                              ? 600
-                              : 500,
-                            fontFamily: FONT_FAMILY,
-                            textAlign: "center",
-                            lineHeight: "1.2",
-                            maxWidth: "80px",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {member.name}
-                        </Text>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            ) : (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "40px 20px",
-                  color: "#6b7280",
-                  fontFamily: FONT_FAMILY,
-                }}
-              >
-                <TeamOutlined style={{ fontSize: "40px", marginBottom: "12px" }} />
-                <div style={{ fontSize: "15px", fontWeight: 500 }}>
-                  No family members added yet
-                </div>
-                <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "4px" }}>
-                  Add family members to start sharing goals.
-                </div>
-              </div>
-            )}
-
-            {/* Share Button */}
-            {selectedMemberIds.length > 0 && (
-              <Button
-                type="primary"
-                block
-                size="large"
-                onClick={handleMemberShare}
-                loading={loading}
-                style={{
-                  borderRadius: "12px",
-                  height: "44px",
-                  fontSize: "15px",
-                  fontWeight: 600,
-                  fontFamily: FONT_FAMILY,
-                  marginBottom: "20px",
-                  background: "#255198ff",
-                  border: "none",
-                  boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
-                  transition: "all 0.3s ease",
-                }}
-              >
-                Share with {selectedMemberIds.length} member
-                {selectedMemberIds.length > 1 ? "s" : ""}
-              </Button>
-            )}
-
-            {/* Email Share Section */}
-            <div
-              style={{
-                borderTop: "1px solid #e5e7eb",
-                paddingTop: "20px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: "12px",
-                }}
-              >
-                <div
-                  style={{
-                    background: "#f3f4f6",
-                    borderRadius: "50%",
-                    padding: "6px",
-                    marginRight: "10px",
-                  }}
-                >
-                  <MailOutlined
-                    style={{
-                      color: "#374151",
-                      fontSize: "14px",
-                    }}
-                  />
-                </div>
-                <Text
-                  style={{
-                    color: "#374151",
-                    fontSize: "15px",
-                    fontWeight: 600,
-                    fontFamily: FONT_FAMILY,
-                  }}
-                >
-                  Or share via email
-                </Text>
-              </div>
-
-              <Form form={shareForm} onFinish={handleEmailShare}>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "10px",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <Form.Item
-                    name="email"
-                    rules={[
-                      {
-                        required: true,
-                        message: "Please enter an email address",
-                      },
-                      {
-                        type: "email",
-                        message: "Please enter a valid email address",
-                      },
-                    ]}
-                    style={{ flex: 1, marginBottom: 0 }}
-                  >
-                    <Input
-                      placeholder="Enter email address"
-                      style={{
-                        background: "#f9fafb",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: "8px",
-                        color: "#374151",
-                        fontFamily: FONT_FAMILY,
-                        height: "40px",
-                        fontSize: "14px",
-                      }}
-                    />
-                  </Form.Item>
-                  <Button
-                    type="primary"
-                    htmlType="submit"
-                    loading={loading}
-                    style={{
-                      height: "40px",
-                      minWidth: "100px",
-                      fontFamily: FONT_FAMILY,
-                      borderRadius: "8px",
-                      fontWeight: 600,
-                      background: "#10b981",
-                      border: "none",
-                      boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
-                      fontSize: "14px",
-                    }}
-                  >
-                    Send
-                  </Button>
-                </div>
-              </Form>
-
-              <div
-                style={{
-                  marginTop: "12px",
-                  fontSize: "12px",
-                  color: "#6b7280",
-                  fontFamily: FONT_FAMILY,
-                  textAlign: "center",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "6px",
-                }}
-              >
-                <MailOutlined style={{ fontSize: "11px" }} />
-                <span>Email will be sent with goal details</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </Modal>
-  );
-};
-
-// Combined Task Share & Tag Modal Component
-const TaskShareTagModal: React.FC<{
-  isVisible: boolean;
-  onClose: () => void;
-  task: any;
-  loading: boolean;
-  onShare: (task: any, email: string) => void;
-  onTag: (task: any, emails: string[]) => void;
-  familyMembers: any[];
-}> = ({ isVisible, onClose, task, loading, onShare, onTag, familyMembers }) => {
-  const [shareForm] = Form.useForm();
-  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
-
-  const handleEmailShare = async () => {
-    try {
-      const values = await shareForm.validateFields();
-      await onShare(task, values.email);
-      handleClose();
-    } catch (error) {
-      console.error("Share validation failed:", error);
-    }
-  };
-
-  const handleMemberShare = async () => {
-    if (!selectedMemberIds.length) {
-      message.warning("Please select at least one member.");
-      return;
-    }
-
-    const selectedMembers = familyMembers.filter((member: any) =>
-      selectedMemberIds.includes(member.id)
-    );
-
-    const emails = selectedMembers
-      .map((member: any) => member.email)
-      .filter((email: string) => !!email);
-
-    await onTag(task, emails);
-    handleClose();
-  };
-
-  const handleClose = () => {
-    onClose();
-    shareForm.resetFields();
-    setSelectedMemberIds([]);
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return COLORS.error;
-      case "medium":
-        return COLORS.warning;
-      case "low":
-        return COLORS.success;
-      default:
-        return COLORS.textSecondary;
-    }
-  };
-
-  const getPriorityText = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "HIGH";
-      case "medium":
-        return "MEDIUM";
-      case "low":
-        return "LOW";
-      default:
-        return "MEDIUM";
-    }
-  };
-
-  return (
-    <Modal
-      title={null}
-      open={isVisible}
-      onCancel={handleClose}
-      footer={null}
-      centered
-      width={520}
-      destroyOnClose
-      style={{
-        fontFamily: FONT_FAMILY,
-      }}
-      styles={{
-        body: {
-          padding: "0px",
-          background: "#ffffff",
-          borderRadius: "16px",
-          overflow: "hidden",
-        },
-        header: {
-          padding: "0px",
-          marginBottom: "0px",
-          border: "none",
-        },
-        mask: {
-          backdropFilter: "blur(8px)",
-          backgroundColor: "rgba(0, 0, 0, 0.5)",
-        },
-        content: {
-          borderRadius: "16px",
-          overflow: "hidden",
-          boxShadow: "0 25px 50px rgba(0, 0, 0, 0.15)",
-          border: "1px solid #e5e7eb",
-        },
-      }}
-    >
-      {task && (
-        <div>
-          {/* Header with Task Info */}
-          <div
-            style={{
-              padding: "20px 20px 16px",
-              borderBottom: "1px solid #e5e7eb",
-              background: "#ffffff",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: "16px",
-              }}
-            >
-              <div
-                style={{
-                  background: "#f3f4f6",
-                  borderRadius: "50%",
-                  padding: "10px",
-                  marginRight: "12px",
-                }}
-              >
-                <CheckSquareOutlined
-                  style={{
-                    color: COLORS.warning,
-                    fontSize: "18px",
-                  }}
-                />
-              </div>
-              <Text
-                style={{
-                  fontSize: "18px",
-                  fontWeight: 600,
-                  color: "#1f2937",
-                  fontFamily: FONT_FAMILY,
-                }}
-              >
-                Share Task
-              </Text>
-            </div>
-
-            {/* Task Preview */}
-            <div
-              style={{
-                padding: 16,
-                backgroundColor: COLORS.surfaceSecondary,
-                borderRadius: 8,
-                border: `1px solid ${COLORS.borderLight}`,
-                fontFamily: FONT_FAMILY,
-                marginBottom: "16px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  marginBottom: 12,
-                }}
-              >
-                <div
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    background: `linear-gradient(135deg, ${COLORS.warning}, ${COLORS.warning}dd)`,
-                    borderRadius: "10px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: `0 4px 12px ${COLORS.warning}30`,
-                  }}
-                >
-                  <CheckSquareOutlined style={{ color: "white" }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontWeight: 600,
-                      marginBottom: 4,
-                      color: COLORS.text,
-                      fontFamily: FONT_FAMILY,
-                      fontSize: "16px",
-                    }}
-                  >
-                    {task.text}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: COLORS.textSecondary,
-                      fontFamily: FONT_FAMILY,
-                    }}
-                  >
-                    Task • Due: {task.date} • {task.time}
-                  </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Tag
-                    color={task.completed ? "green" : "orange"}
-                    style={{
-                      borderRadius: "6px",
-                      fontSize: "11px",
-                      fontFamily: FONT_FAMILY,
-                    }}
-                  >
-                    {task.completed ? "Completed" : "Pending"}
-                  </Tag>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 8 }}>
-                <Tag
-                  color={getPriorityColor(task.priority)}
-                  style={{
-                    fontSize: 10,
-                    padding: "2px 6px",
-                    borderRadius: 4,
-                    fontFamily: FONT_FAMILY,
-                    fontWeight: 600,
-                  }}
-                >
-                  {getPriorityText(task.priority)}
-                </Tag>
-              </div>
-
-              {task.completed && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 12,
-                    color: COLORS.success,
-                    fontFamily: FONT_FAMILY,
-                  }}
-                >
-                  <CheckCircleOutlined />
-                  <span>This task has been completed!</span>
-                </div>
-              )}
-            </div>
-
-            <Input
-              placeholder="Search family members..."
-              prefix={<SearchOutlined style={{ color: "#9ca3af" }} />}
-              style={{
-                background: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                color: "#374151",
-                fontFamily: FONT_FAMILY,
-                height: "36px",
-              }}
-            />
-          </div>
-
-          {/* Family Members Grid OR Empty State */}
-          <div style={{ padding: "16px 20px" }}>
-            {familyMembers.filter((m: any) => m.relationship !== "me").length > 0 ? (
-              <div
-                style={{
-                  maxHeight: "280px",
-                  overflowY: "auto",
-                  marginBottom: "20px",
-                  scrollbarWidth: "none", // Firefox
-                  msOverflowStyle: "none",
-                }}
-              >
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, 1fr)",
-                    gap: "10px",
-                  }}
-                >
-                  {familyMembers
-                    .filter((member: any) => member.relationship !== "me")
-                    .map((member: any) => (
-                      <div
-                        key={member.id}
-                        onClick={() => {
-                          setSelectedMemberIds((prev) =>
-                            prev.includes(member.id)
-                              ? prev.filter((id) => id !== member.id)
-                              : [...prev, member.id]
-                          );
-                        }}
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          cursor: "pointer",
-                          padding: "12px 8px",
-                          borderRadius: "12px",
-                          transition: "all 0.3s ease",
-                          background: selectedMemberIds.includes(member.id)
-                            ? "#f0f9ff"
-                            : "transparent",
-                          border: selectedMemberIds.includes(member.id)
-                            ? "2px solid #3b82f6"
-                            : "2px solid transparent",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!selectedMemberIds.includes(member.id)) {
-                            e.currentTarget.style.background = "#f9fafb";
-                            e.currentTarget.style.transform = "scale(1.02)";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!selectedMemberIds.includes(member.id)) {
-                            e.currentTarget.style.background = "transparent";
-                            e.currentTarget.style.transform = "scale(1)";
-                          }
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: "relative",
-                            marginBottom: "8px",
-                          }}
-                        >
-                          <Avatar
-                            size={60}
-                            style={{
-                              background: selectedMemberIds.includes(member.id)
-                                ? "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
-                                : "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)",
-                              fontSize: "24px",
-                              fontWeight: "600",
-                              border: selectedMemberIds.includes(member.id)
-                                ? "3px solid #3b82f6"
-                                : "3px solid #e5e7eb",
-                              boxShadow: selectedMemberIds.includes(member.id)
-                                ? "0 4px 20px rgba(59, 130, 246, 0.3)"
-                                : "0 2px 8px rgba(0, 0, 0, 0.1)",
-                              transition: "all 0.3s ease",
-                              color: "#ffffff",
-                            }}
-                          >
-                            {member.name?.charAt(0)?.toUpperCase() || "U"}
-                          </Avatar>
-                          {selectedMemberIds.includes(member.id) && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                bottom: "-2px",
-                                right: "-2px",
-                                width: "20px",
-                                height: "20px",
-                                background: "#10b981",
-                                borderRadius: "50%",
-                                border: "2px solid #ffffff",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                boxShadow: "0 2px 8px rgba(16, 185, 129, 0.4)",
-                              }}
-                            >
-                              <CheckCircleOutlined
-                                style={{
-                                  fontSize: "10px",
-                                  color: "#fff",
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                        <Text
-                          style={{
-                            color: "#374151",
-                            fontSize: "13px",
-                            fontWeight: selectedMemberIds.includes(member.id)
-                              ? 600
-                              : 500,
-                            fontFamily: FONT_FAMILY,
-                            textAlign: "center",
-                            lineHeight: "1.2",
-                            maxWidth: "80px",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {member.name}
-                        </Text>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            ) : (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "40px 20px",
-                  color: "#6b7280",
-                  fontFamily: FONT_FAMILY,
-                }}
-              >
-                <TeamOutlined style={{ fontSize: "40px", marginBottom: "12px" }} />
-                <div style={{ fontSize: "15px", fontWeight: 500 }}>
-                  No family members added yet
-                </div>
-                <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "4px" }}>
-                  Add family members to start sharing tasks.
-                </div>
-              </div>
-            )}
-
-            {/* Share Button */}
-            {selectedMemberIds.length > 0 && (
-              <Button
-                type="primary"
-                block
-                size="large"
-                onClick={handleMemberShare}
-                loading={loading}
-                style={{
-                  borderRadius: "12px",
-                  height: "44px",
-                  fontSize: "15px",
-                  fontWeight: 600,
-                  fontFamily: FONT_FAMILY,
-                  marginBottom: "20px",
-                  background: "#255198ff",
-                  border: "none",
-                  boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
-                  transition: "all 0.3s ease",
-                }}
-              >
-                Share with {selectedMemberIds.length} member
-                {selectedMemberIds.length > 1 ? "s" : ""}
-              </Button>
-            )}
-
-            {/* Email Share Section */}
-            <div
-              style={{
-                borderTop: "1px solid #e5e7eb",
-                paddingTop: "20px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: "12px",
-                }}
-              >
-                <div
-                  style={{
-                    background: "#f3f4f6",
-                    borderRadius: "50%",
-                    padding: "6px",
-                    marginRight: "10px",
-                  }}
-                >
-                  <MailOutlined
-                    style={{
-                      color: "#374151",
-                      fontSize: "14px",
-                    }}
-                  />
-                </div>
-                <Text
-                  style={{
-                    color: "#374151",
-                    fontSize: "15px",
-                    fontWeight: 600,
-                    fontFamily: FONT_FAMILY,
-                  }}
-                >
-                  Or share via email
-                </Text>
-              </div>
-
-              <Form form={shareForm} onFinish={handleEmailShare}>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "10px",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <Form.Item
-                    name="email"
-                    rules={[
-                      {
-                        required: true,
-                        message: "Please enter an email address",
-                      },
-                      {
-                        type: "email",
-                        message: "Please enter a valid email address",
-                      },
-                    ]}
-                    style={{ flex: 1, marginBottom: 0 }}
-                  >
-                    <Input
-                      placeholder="Enter email address"
-                      style={{
-                        background: "#f9fafb",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: "8px",
-                        color: "#374151",
-                        fontFamily: FONT_FAMILY,
-                        height: "40px",
-                        fontSize: "14px",
-                      }}
-                    />
-                  </Form.Item>
-                  <Button
-                    type="primary"
-                    htmlType="submit"
-                    loading={loading}
-                    style={{
-                      height: "40px",
-                      minWidth: "100px",
-                      fontFamily: FONT_FAMILY,
-                      borderRadius: "8px",
-                      fontWeight: 600,
-                      background: "#10b981",
-                      border: "none",
-                      boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
-                      fontSize: "14px",
-                    }}
-                  >
-                    Send
-                  </Button>
-                </div>
-              </Form>
-
-              <div
-                style={{
-                  marginTop: "12px",
-                  fontSize: "12px",
-                  color: "#6b7280",
-                  fontFamily: FONT_FAMILY,
-                  textAlign: "center",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "6px",
-                }}
-              >
-                <MailOutlined style={{ fontSize: "11px" }} />
-                <span>Email will be sent with task details</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </Modal>
-  );
-};
-
 // Enhanced PlannerTitle with new CalendarAccountFilter and Family Group Selector
 const PlannerTitle: React.FC<{
   connectedAccounts: ConnectedAccount[];
@@ -1845,14 +766,14 @@ const PlannerTitle: React.FC<{
   selectedFamilyGroup: string | null;
   onFamilyGroupChange: (groupId: string) => void;
   showFamilySelector: boolean;
-}> = ({ 
-  connectedAccounts, 
-  onFilterChange, 
+}> = ({
+  connectedAccounts,
+  onFilterChange,
   onConnectAccount,
   familyGroups,
   selectedFamilyGroup,
   onFamilyGroupChange,
-  showFamilySelector
+  showFamilySelector,
 }) => {
   return (
     <div
@@ -1914,7 +835,7 @@ const PlannerTitle: React.FC<{
           </Text>
         </div>
       </div>
-      
+
       <div
         style={{
           display: "flex",
@@ -1940,16 +861,22 @@ const PlannerTitle: React.FC<{
             <Select
               value={selectedFamilyGroup}
               onChange={onFamilyGroupChange}
-              style={{ 
+              style={{
                 minWidth: "200px",
-                fontFamily: FONT_FAMILY
+                fontFamily: FONT_FAMILY,
               }}
               size="middle"
               suffixIcon={<SwapOutlined style={{ color: "#6b7280" }} />}
             >
               {familyGroups.map((group) => (
                 <Select.Option key={group.id} value={group.id}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
                     <span style={{ fontWeight: 500 }}>{group.name}</span>
                     <span
                       style={{
@@ -1973,7 +900,7 @@ const PlannerTitle: React.FC<{
             </Select>
           </div>
         )}
-        
+
         <CalendarAccountFilter
           connectedAccounts={connectedAccounts}
           onFilterChange={onFilterChange}
@@ -2008,10 +935,13 @@ const Planner = () => {
   >([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [familyGroups, setFamilyGroups] = useState<FamilyGroup[]>([]);
-  const [selectedFamilyGroup, setSelectedFamilyGroup] = useState<string | null>(null);
+  const [selectedFamilyGroup, setSelectedFamilyGroup] = useState<string | null>(
+    null
+  );
   const [showFamilySelector, setShowFamilySelector] = useState(false);
   const [pendingProject, setPendingProject] = useState<any>(null);
-  const [selectedFamilyGroupsForProject, setSelectedFamilyGroupsForProject] = useState<string[]>([]);
+  const [selectedFamilyGroupsForProject, setSelectedFamilyGroupsForProject] =
+    useState<string[]>([]);
   const { loading, setLoading } = useGlobalLoading();
   const [backup, setBackup] = useState(null);
   const [isGoalModalVisible, setIsGoalModalVisible] = useState(false);
@@ -2053,14 +983,14 @@ const Planner = () => {
     "habits" | "goals" | "todos" | null
   >("habits");
 
-  // Combined Share/Tag Modal States
-  const [isGoalShareTagModalVisible, setIsGoalShareTagModalVisible] = useState(false);
-  const [isTaskShareTagModalVisible, setIsTaskShareTagModalVisible] = useState(false);
+  // ShareModal states - replacing the old modal states
+  const [isGoalShareModalVisible, setIsGoalShareModalVisible] = useState(false);
+  const [isTaskShareModalVisible, setIsTaskShareModalVisible] = useState(false);
   const [sharingGoal, setSharingGoal] = useState<any>(null);
-  const [sharingTask, setSharingTask] = useState<any>(null);  
+  const [sharingTask, setSharingTask] = useState<any>(null);
   const currentUser = useCurrentUser();
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
-  
+
   // Advanced Features State
   const [isHabitModalOpen, setHabitModalOpen] = useState(false);
   // Updated: removed target field from newHabit
@@ -2096,19 +1026,24 @@ const Planner = () => {
       const { status, payload } = response;
       if (status === 1) {
         setFamilyGroups(payload.groups || []);
-        
+
         // Show family selector if user has multiple family groups
         if (payload.groups && payload.groups.length > 1) {
           setShowFamilySelector(true);
           // Check if there's a stored selection, otherwise use first group
-          const storedGroupId = localStorage.getItem('selectedPlannerFamilyGroup');
-          if (storedGroupId && payload.groups.find((g: any) => g.id === storedGroupId)) {
+          const storedGroupId = localStorage.getItem(
+            "selectedPlannerFamilyGroup"
+          );
+          if (
+            storedGroupId &&
+            payload.groups.find((g: any) => g.id === storedGroupId)
+          ) {
             setSelectedFamilyGroup(storedGroupId);
           } else {
             const firstGroup = payload.groups[0];
             if (firstGroup.id) {
               setSelectedFamilyGroup(firstGroup.id);
-              localStorage.setItem('selectedPlannerFamilyGroup', firstGroup.id);
+              localStorage.setItem("selectedPlannerFamilyGroup", firstGroup.id);
             }
           }
         } else if (payload.groups && payload.groups.length === 1) {
@@ -2116,7 +1051,7 @@ const Planner = () => {
           const singleGroup = payload.groups[0];
           if (singleGroup.id) {
             setSelectedFamilyGroup(singleGroup.id);
-            localStorage.setItem('selectedPlannerFamilyGroup', singleGroup.id);
+            localStorage.setItem("selectedPlannerFamilyGroup", singleGroup.id);
           }
         }
       }
@@ -2128,11 +1063,11 @@ const Planner = () => {
   // Handle family group change - FIXED TO RESET ACCOUNT FILTER
   const handleFamilyGroupChange = async (groupId: string) => {
     setSelectedFamilyGroup(groupId);
-    localStorage.setItem('selectedPlannerFamilyGroup', groupId);
-    
+    localStorage.setItem("selectedPlannerFamilyGroup", groupId);
+
     // IMPORTANT: Reset the account filter to show all accounts from the new family group
     setFilteredAccountIds([]);
-    
+
     // Refresh planner data with new family group
     await fetchAllPlannerData();
   };
@@ -2151,12 +1086,12 @@ const Planner = () => {
   // Actual API call for editing habits (called from modal)
   const submitEditHabit = async (habitData: any) => {
     try {
-      const res = await editHabit({ 
-        habit: { 
+      const res = await editHabit({
+        habit: {
           ...habitData,
-          id: editingHabit?.id, 
-          editedBy: userId 
-        } 
+          id: editingHabit?.id,
+          editedBy: userId,
+        },
       });
       if (res.data.status === 1) {
         message.success("Habit updated!");
@@ -2423,118 +1358,13 @@ const Planner = () => {
     }
   };
 
-  // Combined Share Functions
-  const handleShareGoal = async (goal: any, email: string) => {
-    setLoading(true);
-    try {
-      const payload = {
-        email: [email],
-        goal: {
-          title: goal.text,
-          date: goal.date,
-          time: goal.time,
-          completed: goal.completed,
-        },
-      };
-
-      const response = await shareGoal(payload);
-      const { status, message: msg } = response.data;
-
-      if (status) {
-        message.success("Goal shared successfully!");
-      } else {
-        message.error(msg || "Failed to share goal");
-      }
-    } catch (error) {
-      console.error("Share goal error:", error);
-      message.error("Something went wrong while sharing goal");
-    } finally {
-      setLoading(false);
-    }
+  // Share Functions - Updated to work with ShareModal
+  const handleShareGoalSuccess = (message: string) => {
+    console.log('Goal shared successfully:', message);
   };
 
-  const handleTagGoal = async (goal: any, emails: string[]) => {
-    setLoading(true);
-    try {
-      await shareGoal({
-        email: emails,
-        goal: {
-          id: goal.id,
-          title: goal.text,
-          date: goal.date,
-          time: goal.time,
-          completed: goal.completed,
-        },
-        tagged_members: emails,
-      });
-      message.success("Goal shared successfully!");
-    } catch (err) {
-      message.error("Failed to share goal.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleShareTodo = async (todo: any, email: string) => {
-    setLoading(true);
-    try {
-      const payload = {
-        email: [email],
-        todo: {
-          title: todo.text,
-          date: todo.date,
-          time: todo.time,
-          priority: todo.priority,
-          completed: todo.completed,
-        },
-      };
-
-      const response = await shareTodo(payload);
-      const { status, message: msg } = response.data;
-
-      if (status) {
-        message.success("Task shared successfully!");
-      } else {
-        message.error(msg || "Failed to share todo");
-      }
-    } catch (error) {
-      console.error("Share todo error:", error);
-      message.error("Something went wrong while sharing todo");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleTagTask = async (task: any, emails: string[]) => {
-    setLoading(true);
-    try {
-      const payload = {
-        email: emails,
-        tagged_members: emails,
-        todo: {
-          id: task.id,
-          title: task.text,
-          date: task.date,
-          time: task.time,
-          priority: task.priority,
-          completed: task.completed,
-        },
-      };
-
-      const response = await shareTodo(payload);
-      const { status, message: msg } = response.data;
-
-      if (status) {
-        message.success("Task shared successfully!");
-      } else {
-        message.error(msg || "Failed to share task.");
-      }
-    } catch (err) {
-      message.error("Failed to share task.");
-      console.error("Task tag error:", err);
-    } finally {
-      setLoading(false);
-    }
+  const handleShareTaskSuccess = (message: string) => {
+    console.log('Task shared successfully:', message);
   };
 
   // Statistics calculations
@@ -2562,7 +1392,6 @@ const Planner = () => {
   const publicProjects = projects.filter((p) => p.visibility === "public");
 
   const filteredProjects = projects.filter((proj) => proj.source === "planner");
-
 
   const getAvailableGoals = () => {
     return getFilteredGoals();
@@ -2618,8 +1447,8 @@ const Planner = () => {
         ...project,
         source: "planner",
         meta: {
-          visibility: project.visibility
-        }
+          visibility: project.visibility,
+        },
       });
       setSelectedFamilyGroupsForProject([]);
       // Show modal for family group selection (we'll need to add this modal)
@@ -2632,8 +1461,8 @@ const Planner = () => {
           ...project,
           source: "planner",
           meta: {
-            visibility: project.visibility
-          }
+            visibility: project.visibility,
+          },
         };
 
         // For public projects with single family group, include it
@@ -3020,7 +1849,7 @@ const Planner = () => {
 
         // Process family members - FILTERED BY FAMILY GROUP
         const rawFamilyMembers = payload.family_members || [];
-        setFamilyMembers(rawFamilyMembers);
+        // setFamilyMembers(rawFamilyMembers);
 
         // FIXED: Update filtered account IDs to include all accounts from the current family group
         if (connectedAccountsData.length > 0) {
@@ -3293,7 +2122,201 @@ const Planner = () => {
   const filteredTodosData2 = getFilteredTodos();
   const filteredCalendarEvents = getFilteredCalendarEvents();
   const maxItems = view === "Day" ? 2 : 3;
-  
+
+  // Goal Preview Component for ShareModal
+  const GoalPreview: React.FC<{ goal: any }> = ({ goal }) => (
+    <div
+      style={{
+        padding: 16,
+        backgroundColor: COLORS.surfaceSecondary,
+        borderRadius: 8,
+        border: `1px solid ${COLORS.borderLight}`,
+        fontFamily: FONT_FAMILY,
+        marginBottom: "16px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 12,
+        }}
+      >
+        <div
+          style={{
+            width: "40px",
+            height: "40px",
+            background: `linear-gradient(135deg, ${COLORS.success}, ${COLORS.success}dd)`,
+            borderRadius: "10px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: `0 4px 12px ${COLORS.success}30`,
+          }}
+        >
+          <TrophyOutlined style={{ color: "white" }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div
+            style={{
+              fontWeight: 600,
+              marginBottom: 4,
+              color: COLORS.text,
+              fontFamily: FONT_FAMILY,
+              fontSize: "16px",
+              wordBreak: "break-word",
+              overflowWrap: "break-word",
+            }}
+          >
+            {goal.text}
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: COLORS.textSecondary,
+              fontFamily: FONT_FAMILY,
+            }}
+          >
+            Goal • Due: {goal.date} • {goal.time}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Tag
+            color={goal.completed ? "green" : "orange"}
+            style={{
+              borderRadius: "6px",
+              fontSize: "11px",
+              fontFamily: FONT_FAMILY,
+            }}
+          >
+            {goal.completed ? "Completed" : "In Progress"}
+          </Tag>
+        </div>
+      </div>
+      {goal.completed && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 12,
+            color: COLORS.success,
+            fontFamily: FONT_FAMILY,
+          }}
+        >
+          <CheckCircleOutlined />
+          <span>This goal has been completed!</span>
+        </div>
+      )}
+    </div>
+  );
+
+  // Task Preview Component for ShareModal
+  const TaskPreview: React.FC<{ task: any }> = ({ task }) => (
+    <div
+      style={{
+        padding: 16,
+        backgroundColor: COLORS.surfaceSecondary,
+        borderRadius: 8,
+        border: `1px solid ${COLORS.borderLight}`,
+        fontFamily: FONT_FAMILY,
+        marginBottom: "16px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 12,
+        }}
+      >
+        <div
+          style={{
+            width: "40px",
+            height: "40px",
+            background: `linear-gradient(135deg, ${COLORS.warning}, ${COLORS.warning}dd)`,
+            borderRadius: "10px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: `0 4px 12px ${COLORS.warning}30`,
+          }}
+        >
+          <CheckSquareOutlined style={{ color: "white" }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div
+            style={{
+              fontWeight: 600,
+              marginBottom: 4,
+              color: COLORS.text,
+              fontFamily: FONT_FAMILY,
+              fontSize: "16px",
+              wordBreak: "break-word",
+              overflowWrap: "break-word",
+            }}
+          >
+            {task.text}
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: COLORS.textSecondary,
+              fontFamily: FONT_FAMILY,
+            }}
+          >
+            Task • Due: {task.date} • {task.time}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Tag
+            color={task.completed ? "green" : "orange"}
+            style={{
+              borderRadius: "6px",
+              fontSize: "11px",
+              fontFamily: FONT_FAMILY,
+            }}
+          >
+            {task.completed ? "Completed" : "Pending"}
+          </Tag>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 8 }}>
+        <Tag
+          color={getPriorityColor(task.priority)}
+          style={{
+            fontSize: 10,
+            padding: "2px 6px",
+            borderRadius: 4,
+            fontFamily: FONT_FAMILY,
+            fontWeight: 600,
+          }}
+        >
+          {getPriorityText(task.priority)}
+        </Tag>
+      </div>
+
+      {task.completed && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 12,
+            color: COLORS.success,
+            fontFamily: FONT_FAMILY,
+          }}
+        >
+          <CheckCircleOutlined />
+          <span>This task has been completed!</span>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div
       style={{
@@ -3449,23 +2472,24 @@ const Planner = () => {
                         gap: SPACING.xs,
                       }}
                     >
-                      <Button
-                        type="primary"
-                        size="small"
-                        icon={<PlusOutlined />}
-                        style={{
-                          backgroundColor: COLORS.accent,
-                          borderColor: COLORS.accent,
-                          borderRadius: "6px",
-                          width: "28px",
-                          height: "28px",
-                          padding: 0,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
+                      <CustomButton
+                        label="Add" // tooltip text
+                        // icon={<PlusOutlined />}
                         onClick={handleOpenAddHabitModal}
+                        // style={{
+                        //   backgroundColor: COLORS.accent,
+                        //   borderColor: COLORS.accent,
+                        //   borderRadius: "6px",
+                        //   width: "28px",
+                        //   height: "28px",
+                        //   padding: 0,
+                        //   display: "flex",
+                        //   alignItems: "center",
+                        //   justifyContent: "center",
+                        //   color: "#fff",
+                        // }}
                       />
+
                       <span
                         style={{
                           fontSize: "12px",
@@ -3584,25 +2608,26 @@ const Planner = () => {
                       gap: SPACING.xs,
                     }}
                   >
-                    <Button
-                      type="primary"
-                      size="small"
-                      icon={<PlusOutlined />}
-                      onClick={(e) => {
-                        e.stopPropagation();
+                    <CustomButton
+                      label="Add Goal"
+                      // icon={<PlusOutlined />}
+                      // size="small"
+                      onClick={() => {
+                        // @ts-ignore to silence error if needed
+                        event?.stopPropagation?.();
                         setIsGoalModalVisible(true);
                       }}
-                      style={{
-                        backgroundColor: COLORS.accent,
-                        borderColor: COLORS.accent,
-                        borderRadius: "6px",
-                        width: "28px",
-                        height: "28px",
-                        padding: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
+                      // style={{
+                      //   backgroundColor: COLORS.accent,
+                      //   borderColor: COLORS.accent,
+                      //   borderRadius: "6px",
+                      //   width: "28px",
+                      //   height: "28px",
+                      //   padding: 0,
+                      //   display: "flex",
+                      //   alignItems: "center",
+                      //   justifyContent: "center",
+                      // }}
                     />
                     <span
                       style={{
@@ -3728,12 +2753,12 @@ const Planner = () => {
                                           onClick: () => handleEditGoal(goal),
                                         },
                                         {
-                                          key: "shareTag",
+                                          key: "share",
                                           label: "Share",
                                           icon: <ShareAltOutlined />,
                                           onClick: () => {
                                             setSharingGoal(goal);
-                                            setIsGoalShareTagModalVisible(true);
+                                            setIsGoalShareModalVisible(true);
                                           },
                                         },
                                         {
@@ -3761,18 +2786,21 @@ const Planner = () => {
                                     trigger={["click"]}
                                     placement="bottomRight"
                                   >
-                                    <Button
-                                      type="text"
-                                      size="small"
-                                      icon={<MoreOutlined />}
-                                      style={{
-                                        fontSize: "10px",
-                                        color: COLORS.textSecondary,
-                                        padding: "2px 4px",
-                                        borderRadius: "4px",
-                                        width: "20px",
-                                        height: "20px",
-                                      }}
+                                    <CustomButton
+                                      label="More Options"
+                                      // size="small"
+                                      // icon={<MoreOutlined />}
+                                      // style={{
+                                      //   fontSize: "10px",
+                                      //   color: COLORS.textSecondary,
+                                      //   padding: "2px 4px",
+                                      //   borderRadius: "4px",
+                                      //   width: "20px",
+                                      //   height: "20px",
+                                      //   background: "transparent", // mimic type="text"
+                                      //   border: "none",            // remove border
+                                      //   boxShadow: "none",
+                                      // }}
                                     />
                                   </Dropdown>
                                 )}
@@ -3896,26 +2924,26 @@ const Planner = () => {
                       gap: SPACING.xs,
                     }}
                   >
-                    <Button
-                      type="primary"
-                      size="small"
-                      icon={<PlusOutlined />}
-                      onClick={(e) => {
-                        e.stopPropagation();
+                    <CustomButton
+                      label="Add Task" // tooltip text
+                      // icon={<PlusOutlined />}
+                      onClick={() => {
                         setIsTodoModalVisible(true);
                       }}
-                      style={{
-                        backgroundColor: COLORS.accent,
-                        borderColor: COLORS.accent,
-                        borderRadius: "6px",
-                        width: "28px",
-                        height: "28px",
-                        padding: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
+                      // style={{
+                      //   backgroundColor: COLORS.accent,
+                      //   borderColor: COLORS.accent,
+                      //   borderRadius: "6px",
+                      //   width: "28px",
+                      //   height: "28px",
+                      //   padding: 0,
+                      //   display: "flex",
+                      //   alignItems: "center",
+                      //   justifyContent: "center",
+                      //   color: "#fff",
+                      // }}
                     />
+
                     <span
                       style={{
                         fontSize: "12px",
@@ -4040,12 +3068,12 @@ const Planner = () => {
                                           onClick: () => handleEditTodo(todo),
                                         },
                                         {
-                                          key: "shareTag",
-                                          label: "Share ",
+                                          key: "share",
+                                          label: "Share",
                                           icon: <ShareAltOutlined />,
                                           onClick: () => {
                                             setSharingTask(todo);
-                                            setIsTaskShareTagModalVisible(true);
+                                            setIsTaskShareModalVisible(true);
                                           },
                                         },
                                         {
@@ -4154,32 +3182,43 @@ const Planner = () => {
           onConnect={handleConnectAccount}
         />
 
-        {/* Combined Share & Tag Modals */}
-        <GoalShareTagModal
-          isVisible={isGoalShareTagModalVisible}
-          onClose={() => {
-            setIsGoalShareTagModalVisible(false);
-            setSharingGoal(null);
-          }}
-          goal={sharingGoal}
-          loading={loading}
-          onShare={handleShareGoal}
-          onTag={handleTagGoal}
-          familyMembers={familyMembers}
-        />
+        {/* ShareModal for Goals */}
+        {sharingGoal && (
+          <ShareModal
+            isVisible={isGoalShareModalVisible}
+            onClose={() => {
+              setIsGoalShareModalVisible(false);
+              setSharingGoal(null);
+            }}
+            title="Share Goal"
+            item={sharingGoal}
+            itemType="goal"
+            familyMembers={familyMembers}
+            loading={loading}
+            currentHubId="3a2b3c4d-1111-2222-3333-abcdef985623"
+            itemPreview={<GoalPreview goal={sharingGoal} />}
+            onShareSuccess={handleShareGoalSuccess}
+          />
+        )}
 
-        <TaskShareTagModal
-          isVisible={isTaskShareTagModalVisible}
-          onClose={() => {
-            setIsTaskShareTagModalVisible(false);
-            setSharingTask(null);
-          }}
-          task={sharingTask}
-          loading={loading}
-          onShare={handleShareTodo}
-          onTag={handleTagTask}
-          familyMembers={familyMembers}
-        />
+        {/* ShareModal for Tasks */}
+        {sharingTask && (
+          <ShareModal
+            isVisible={isTaskShareModalVisible}
+            onClose={() => {
+              setIsTaskShareModalVisible(false);
+              setSharingTask(null);
+            }}
+            title="Share Task"
+            item={sharingTask}
+            itemType="todo"
+            familyMembers={familyMembers}
+            loading={loading}
+            currentHubId="3a2b3c4d-1111-2222-3333-abcdef985623"
+            itemPreview={<TaskPreview task={sharingTask} />}
+            onShareSuccess={handleShareTaskSuccess}
+          />
+        )}
 
         <Modal
           title={
@@ -4377,7 +3416,6 @@ const Planner = () => {
               }}
               disabled={loading}
             >
-              
               Cancel
             </Button>,
             <Button
@@ -4610,10 +3648,14 @@ const Planner = () => {
                   optionLabelProp="label"
                 >
                   {getAvailableGoals().map((goal) => (
-                    <Select.Option 
-                      key={goal.id} 
+                    <Select.Option
+                      key={goal.id}
                       value={goal.id}
-                      label={goal.text.length > 30 ? `${goal.text.substring(0, 30)}...` : goal.text}
+                      label={
+                        goal.text.length > 30
+                          ? `${goal.text.substring(0, 30)}...`
+                          : goal.text
+                      }
                       title={goal.text}
                     >
                       <div

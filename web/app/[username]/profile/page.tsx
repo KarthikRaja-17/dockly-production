@@ -67,6 +67,7 @@ import { useSearchParams } from "next/navigation";
 import { showNotification } from "../../../utils/notification";
 import { AxiosResponse } from "axios";
 import RecentActivity from "../../../pages/dashboard/RecentActivity";
+import PricingModal from "../../../pages/components/subscriptionModal";
 
 const FONT_FAMILY =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
@@ -421,7 +422,7 @@ const ProfilePage: React.FC = () => {
             let userData = null;
             try {
               userData = acc.user_object ? JSON.parse(acc.user_object) : null;
-            } catch (_) {}
+            } catch (_) { }
 
             const picture = userData?.picture;
 
@@ -498,6 +499,7 @@ const ProfilePage: React.FC = () => {
   };
 
   const [isDetailsEditing, setIsDetailsEditing] = useState(false);
+  const [isPricingModalVisible, setIsPricingModalVisible] = useState(false);
   const [personalValues, setPersonalValues] = useState<UserProfile | null>(
     null
   );
@@ -533,7 +535,7 @@ const ProfilePage: React.FC = () => {
     handleHashChange();
     window.addEventListener("hashchange", handleHashChange);
     window.addEventListener("changeProfileTab", handleCustomTabChange as EventListener);
-    
+
     return () => {
       window.removeEventListener("hashchange", handleHashChange);
       window.removeEventListener("changeProfileTab", handleCustomTabChange as EventListener);
@@ -571,6 +573,25 @@ const ProfilePage: React.FC = () => {
     },
   ];
   
+  useEffect(() => {
+    fetchProfilePicture();
+  }, []);
+
+  const fetchProfilePicture = async () => {
+    try {
+      const { data } = await getProfilePictures();
+
+      if (data?.status === 1 && data.payload?.file) {
+        setProfileImage(data.payload.file.publicUrl); // ✅ direct image URL
+      } else {
+        setProfileImage(""); // fallback (e.g. default avatar)
+      }
+    } catch (error) {
+      console.error("Error fetching profile picture:", error);
+      setProfileImage("");
+    }
+  };
+
   useEffect(() => {
     fetchProfilePicture();
   }, []);
@@ -698,7 +719,7 @@ const ProfilePage: React.FC = () => {
   const handleDetailsSave = async () => {
     try {
       const values = await formDetails.validateFields();
-       const originalUsername = username;
+      const originalUsername = username;
 
       let usernameUpdated = false;
       if (values.user_name !== originalUsername) {
@@ -744,8 +765,8 @@ const ProfilePage: React.FC = () => {
         await fetchProfileAndCheck();
       }
       if (usernameUpdated) {
-          router.replace(`/${values.user_name}/profile`);
-        } 
+        router.replace(`/${values.user_name}/profile`);
+      }
       else {
         message.error(msg || "Failed to update profile");
       }
@@ -919,7 +940,7 @@ const ProfilePage: React.FC = () => {
                   </Form.Item>
                 </Col>
                 <Col span={8}>
-                                    <Form.Item
+                  <Form.Item
                     name="user_name"
                     label="Username"
                     rules={[
@@ -1118,9 +1139,8 @@ const ProfilePage: React.FC = () => {
                           disabled={isAdditionalEmailVerified}
                           style={{
                             borderRadius: "6px",
-                            border: `1.5px solid ${
-                              isAdditionalEmailVerified ? "#52c41a" : "#e8e8e8"
-                            }`,
+                            border: `1.5px solid ${isAdditionalEmailVerified ? "#52c41a" : "#e8e8e8"
+                              }`,
                             padding: "8px 10px",
                             fontSize: "13px",
                             transition: "all 0.3s ease",
@@ -1354,8 +1374,8 @@ const ProfilePage: React.FC = () => {
                     >
                       {personalValues.date_of_birth
                         ? dayjs(personalValues.date_of_birth).format(
-                            "MMMM DD, YYYY"
-                          )
+                          "MMMM DD, YYYY"
+                        )
                         : "Not provided"}
                     </div>
                   </div>
@@ -1797,6 +1817,7 @@ const ProfilePage: React.FC = () => {
                 size="large"
                 icon={<CreditCardOutlined />}
                 style={{ fontFamily: FONT_FAMILY }}
+                onClick={() => setIsPricingModalVisible(true)}
               >
                 Upgrade Plan
               </Button>
@@ -1812,7 +1833,7 @@ const ProfilePage: React.FC = () => {
       key: "activity",
       label: "Activity",
       children: (
-        <RecentActivity compact={false} showHeader={false}/>
+        <RecentActivity compact={false} showHeader={false} />
       ),
     },
     {
@@ -1971,7 +1992,9 @@ const ProfilePage: React.FC = () => {
       ),
     },
   ];
-
+  const closePricingModal = () => {
+    setIsPricingModalVisible(false);
+  }
   return (
     <div
       style={{
@@ -2093,11 +2116,11 @@ const ProfilePage: React.FC = () => {
                 {personalValues.first_name} {personalValues.last_name}
               </Title>
               <div style={{ display: "flex", alignItems: "center" }}>
-                  <UserOutlined style={{ marginRight: "8px", color: "#666" }} />
-                  <Text style={{ fontFamily: FONT_FAMILY }}>
-                    {personalValues.user_name || username || "Not provided"}
-                  </Text>
-                </div>
+                <UserOutlined style={{ marginRight: "8px", color: "#666" }} />
+                <Text style={{ fontFamily: FONT_FAMILY }}>
+                  {personalValues.user_name || username || "Not provided"}
+                </Text>
+              </div>
               <Space direction="vertical" size="small">
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <MailOutlined style={{ marginRight: "8px", color: "#666" }} />
@@ -2159,6 +2182,7 @@ const ProfilePage: React.FC = () => {
           />
         </Card>
       </div>
+      <PricingModal visible={isPricingModalVisible} onClose={closePricingModal} />
     </div>
   );
 };
