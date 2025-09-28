@@ -615,7 +615,7 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
         </div>
 
         {/* FITBIT INTEGRATION - Data Summary */}
-        {fitbit.isConnected && fitbit.dashboardData && fitbit.dashboardData.stats && (
+        {/* {fitbit.isConnected && fitbit.dashboardData && fitbit.dashboardData.stats && (
           <div style={{
             background: 'linear-gradient(to right, #e0f2fe, #b3e5fc)',
             border: '1px solid #0288d1',
@@ -657,7 +657,7 @@ const HealthSummary: React.FC<HealthSummaryProps> = ({
               </div>
             )}
           </div>
-        )}
+        )} */}
 
         {/* Essential Medical Information */}
         <div style={{ marginBottom: SPACING.xl }}>

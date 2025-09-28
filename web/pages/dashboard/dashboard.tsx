@@ -229,11 +229,11 @@ function App() {
       const hasSeenGetStarted = localStorage.getItem(`get-started-completed-${username}`);
       const savedNotifications = localStorage.getItem(`get-started-notifications-${username}`);
       const savedCompletedSteps = localStorage.getItem(`get-started-completed-steps-${username}`);
-      
+
       if (!hasSeenGetStarted) {
         setShowGetStarted(true);
       }
-      
+
       if (savedNotifications) {
         try {
           const parsed = JSON.parse(savedNotifications);
@@ -242,7 +242,7 @@ function App() {
           console.error('Error parsing saved get started notifications:', e);
         }
       }
-      
+
       if (savedCompletedSteps) {
         try {
           const parsed = JSON.parse(savedCompletedSteps);
@@ -297,11 +297,11 @@ function App() {
 
       const updatedNotifications = [...getStartedNotifications, newNotification];
       setGetStartedNotifications(updatedNotifications);
-      
+
       if (username) {
         localStorage.setItem(`get-started-notifications-${username}`, JSON.stringify(updatedNotifications));
       }
-      
+
       return updatedNotifications;
     }
     return getStartedNotifications;
@@ -346,12 +346,12 @@ function App() {
     ];
 
     // Find all uncompleted steps (excluding current step)
-    const uncompletedSteps = allSteps.filter(stepInfo => 
+    const uncompletedSteps = allSteps.filter(stepInfo =>
       stepInfo.step !== step && !newCompletedSteps.includes(stepInfo.step)
     );
-    
+
     let updatedNotifications = [...getStartedNotifications];
-    
+
     if (uncompletedSteps.length > 0 && username) {
       uncompletedSteps.forEach(stepInfo => {
         if (!updatedNotifications.some(notif => notif.type === stepInfo.type)) {
@@ -428,11 +428,11 @@ function App() {
     ];
 
     // Filter out completed steps and steps that are already in notifications
-    const uncompletedSteps = allSteps.filter(stepInfo => 
+    const uncompletedSteps = allSteps.filter(stepInfo =>
       !completedGetStartedSteps.includes(stepInfo.step) &&
       !getStartedNotifications.some(notif => notif.type === stepInfo.type)
     );
-    
+
     if (uncompletedSteps.length > 0 && username) {
       const newNotifications = uncompletedSteps.map(stepInfo => ({
         id: `get-started-${stepInfo.type}-${Date.now()}-${stepInfo.step}`,
@@ -495,10 +495,10 @@ function App() {
             }}>
               <UserOutlined style={{ fontSize: '20px', color: '#3b82f6' }} />
             </div>
-            <Title level={4} style={{ 
-              fontFamily: FONT_FAMILY, 
-              marginBottom: '8px', 
-              color: '#1f2937', 
+            <Title level={4} style={{
+              fontFamily: FONT_FAMILY,
+              marginBottom: '8px',
+              color: '#1f2937',
               fontSize: '18px',
               fontWeight: 600,
               letterSpacing: '-0.2px',
@@ -506,10 +506,10 @@ function App() {
             }}>
               Setup Your Profile
             </Title>
-            <Text style={{ 
-              fontSize: '13px', 
-              color: '#6b7280', 
-              fontFamily: FONT_FAMILY, 
+            <Text style={{
+              fontSize: '13px',
+              color: '#6b7280',
+              fontFamily: FONT_FAMILY,
               lineHeight: '1.5',
               display: 'block',
               maxWidth: '320px',
@@ -537,10 +537,10 @@ function App() {
             }}>
               <MailOutlined style={{ fontSize: '20px', color: '#10b981' }} />
             </div>
-            <Title level={4} style={{ 
-              fontFamily: FONT_FAMILY, 
-              marginBottom: '8px', 
-              color: '#1f2937', 
+            <Title level={4} style={{
+              fontFamily: FONT_FAMILY,
+              marginBottom: '8px',
+              color: '#1f2937',
               fontSize: '18px',
               fontWeight: 600,
               letterSpacing: '-0.2px',
@@ -548,10 +548,10 @@ function App() {
             }}>
               Connect Gmail Account
             </Title>
-            <Text style={{ 
-              fontSize: '13px', 
-              color: '#6b7280', 
-              fontFamily: FONT_FAMILY, 
+            <Text style={{
+              fontSize: '13px',
+              color: '#6b7280',
+              fontFamily: FONT_FAMILY,
               lineHeight: '1.5',
               display: 'block',
               maxWidth: '320px',
@@ -579,10 +579,10 @@ function App() {
             }}>
               <BankOutlined style={{ fontSize: '20px', color: '#8b5cf6' }} />
             </div>
-            <Title level={4} style={{ 
-              fontFamily: FONT_FAMILY, 
-              marginBottom: '8px', 
-              color: '#1f2937', 
+            <Title level={4} style={{
+              fontFamily: FONT_FAMILY,
+              marginBottom: '8px',
+              color: '#1f2937',
               fontSize: '18px',
               fontWeight: 600,
               letterSpacing: '-0.2px',
@@ -590,10 +590,10 @@ function App() {
             }}>
               Connect Bank Account
             </Title>
-            <Text style={{ 
-              fontSize: '13px', 
-              color: '#6b7280', 
-              fontFamily: FONT_FAMILY, 
+            <Text style={{
+              fontSize: '13px',
+              color: '#6b7280',
+              fontFamily: FONT_FAMILY,
               lineHeight: '1.5',
               display: 'block',
               maxWidth: '320px',
@@ -621,10 +621,10 @@ function App() {
             }}>
               <SettingOutlined style={{ fontSize: '20px', color: '#f59e0b' }} />
             </div>
-            <Title level={4} style={{ 
-              fontFamily: FONT_FAMILY, 
-              marginBottom: '8px', 
-              color: '#1f2937', 
+            <Title level={4} style={{
+              fontFamily: FONT_FAMILY,
+              marginBottom: '8px',
+              color: '#1f2937',
               fontSize: '18px',
               fontWeight: 600,
               letterSpacing: '-0.2px',
@@ -633,10 +633,10 @@ function App() {
               Configure Settings
             </Title>
             <div style={{ marginBottom: '12px' }}>
-              <Text style={{ 
-                fontSize: '13px', 
-                color: '#6b7280', 
-                fontFamily: FONT_FAMILY, 
+              <Text style={{
+                fontSize: '13px',
+                color: '#6b7280',
+                fontFamily: FONT_FAMILY,
                 lineHeight: '1.5',
                 display: 'block',
                 maxWidth: '320px',
@@ -646,7 +646,7 @@ function App() {
                 Please update your timezone, configure push notifications, and select a backup account to complete your setup.
               </Text>
             </div>
-            <div style={{ 
+            <div style={{
               border: '1px solid #e5e7eb',
               borderRadius: '8px',
               padding: '12px',
@@ -656,48 +656,48 @@ function App() {
               background: '#f8fafc',
               textAlign: 'left'
             }}>
-              <Text style={{ 
-                fontSize: '11px', 
-                color: '#4b5563', 
+              <Text style={{
+                fontSize: '11px',
+                color: '#4b5563',
                 fontFamily: FONT_FAMILY,
                 display: 'block',
                 lineHeight: '1.4'
               }}>
                 <strong style={{ color: '#1f2937', fontWeight: 600, display: 'block', marginBottom: '8px' }}>What you need to do:</strong>
-                
+
                 <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '6px' }}>
-                  <div style={{ 
-                    width: '4px', 
-                    height: '4px', 
-                    borderRadius: '50%', 
-                    backgroundColor: '#3b82f6', 
-                    marginTop: '4px', 
+                  <div style={{
+                    width: '4px',
+                    height: '4px',
+                    borderRadius: '50%',
+                    backgroundColor: '#3b82f6',
+                    marginTop: '4px',
                     marginRight: '8px',
-                    flexShrink: 0 
+                    flexShrink: 0
                   }}></div>
                   Set your preferred timezone
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '6px' }}>
-                  <div style={{ 
-                    width: '4px', 
-                    height: '4px', 
-                    borderRadius: '50%', 
-                    backgroundColor: '#3b82f6', 
-                    marginTop: '4px', 
+                  <div style={{
+                    width: '4px',
+                    height: '4px',
+                    borderRadius: '50%',
+                    backgroundColor: '#3b82f6',
+                    marginTop: '4px',
                     marginRight: '8px',
-                    flexShrink: 0 
+                    flexShrink: 0
                   }}></div>
                   Enable or disable push notifications
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                  <div style={{ 
-                    width: '4px', 
-                    height: '4px', 
-                    borderRadius: '50%', 
-                    backgroundColor: '#3b82f6', 
-                    marginTop: '4px', 
+                  <div style={{
+                    width: '4px',
+                    height: '4px',
+                    borderRadius: '50%',
+                    backgroundColor: '#3b82f6',
+                    marginTop: '4px',
                     marginRight: '8px',
-                    flexShrink: 0 
+                    flexShrink: 0
                   }}></div>
                   Add a backup email account for security
                 </div>
@@ -964,17 +964,17 @@ function App() {
           title: event.summary || "Untitled",
           time: event.start?.dateTime
             ? new Date(event.start.dateTime).toLocaleString([], {
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "numeric",
-              })
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "numeric",
+            })
             : event.start?.date
-            ? new Date(event.start.date).toLocaleDateString([], {
+              ? new Date(event.start.date).toLocaleDateString([], {
                 month: "short",
                 day: "numeric",
               })
-            : "",
+              : "",
           rawDate: event.start?.dateTime || event.start?.date,
           color: "#3b82f6",
         }));
@@ -1251,7 +1251,7 @@ function App() {
               >
                 {formatDate(currentTime)}
               </Text>
-            </div> */}
+            </div>
             <div
               className="widgets-container"
               style={{
@@ -1379,10 +1379,10 @@ function App() {
                             >
                               {item.type ? (
                                 item.type === 'setup-profile' ? <UserOutlined style={{ color: "#0284c7", fontSize: "11px" }} /> :
-                                item.type === 'connect-gmail' ? <MailOutlined style={{ color: "#0284c7", fontSize: "11px" }} /> :
-                                item.type === 'connect-bank' ? <BankOutlined style={{ color: "#0284c7", fontSize: "11px" }} /> :
-                                item.type === 'configure-settings' ? <SettingOutlined style={{ color: "#0284c7", fontSize: "11px" }} /> :
-                                <BellOutlined style={{ color: "#0284c7", fontSize: "11px" }} />
+                                  item.type === 'connect-gmail' ? <MailOutlined style={{ color: "#0284c7", fontSize: "11px" }} /> :
+                                    item.type === 'connect-bank' ? <BankOutlined style={{ color: "#0284c7", fontSize: "11px" }} /> :
+                                      item.type === 'configure-settings' ? <SettingOutlined style={{ color: "#0284c7", fontSize: "11px" }} /> :
+                                        <BellOutlined style={{ color: "#0284c7", fontSize: "11px" }} />
                               ) : (
                                 <BellOutlined
                                   style={{
@@ -1428,7 +1428,7 @@ function App() {
                                     e.stopPropagation();
                                     handleGetStartedNotificationGo(item.type);
                                   }}
-                                  style={{ 
+                                  style={{
                                     padding: "2px 8px",
                                     fontSize: "10px",
                                     height: "20px",
@@ -1621,7 +1621,7 @@ function App() {
                     </div>
                   </div>
                   <div>
-                    <RecentActivity compact={true}/>
+                    <RecentActivity compact={true} />
                   </div>
                 </Col>
                 <Col xs={24} lg={8}>
@@ -1804,9 +1804,8 @@ function App() {
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                         style={{
-                          border: `2px dashed ${
-                            isDragActive ? "#3b82f6" : "#d1d5db"
-                          }`,
+                          border: `2px dashed ${isDragActive ? "#3b82f6" : "#d1d5db"
+                            }`,
                           borderRadius: "16px",
                           padding: "24px",
                           textAlign: "center",
@@ -1911,9 +1910,9 @@ function App() {
           }
         }}
       >
-        <div style={{ 
-          background: "#ffffff", 
-          borderRadius: "16px", 
+        <div style={{
+          background: "#ffffff",
+          borderRadius: "16px",
           overflow: 'hidden'
         }}>
           {/* Header Section */}
@@ -1937,9 +1936,9 @@ function App() {
             }}>
               <div style={{ color: '#4b5563', fontSize: '24px' }}>🚀</div>
             </div>
-            <Title level={3} style={{ 
-              color: "#1f2937", 
-              fontFamily: FONT_FAMILY, 
+            <Title level={3} style={{
+              color: "#1f2937",
+              fontFamily: FONT_FAMILY,
               marginBottom: "8px",
               fontSize: '30px',
               fontWeight: 600,
@@ -1948,9 +1947,9 @@ function App() {
             }}>
               Welcome to Your Dashboard!
             </Title>
-            <Text style={{ 
-              fontSize: "14px", 
-              color: "#64748b", 
+            <Text style={{
+              fontSize: "14px",
+              color: "#64748b",
               fontFamily: FONT_FAMILY,
               lineHeight: '1.5',
               display: 'block',
@@ -1964,40 +1963,40 @@ function App() {
 
           {/* Progress Steps */}
           <div style={{ padding: '20px 32px 16px', backgroundColor: '#fafbfc' }}>
-            <Steps 
-              current={getStartedStep} 
+            <Steps
+              current={getStartedStep}
               style={{ marginBottom: "20px" }}
               size="small"
             >
-              <Step 
-                title="Profile Setup" 
-                icon={<UserOutlined style={{ fontSize: '14px' }} />} 
+              <Step
+                title="Profile Setup"
+                icon={<UserOutlined style={{ fontSize: '14px' }} />}
                 description="Complete your personal profile"
-                style={{ 
+                style={{
                   fontFamily: FONT_FAMILY,
                 }}
               />
-              <Step 
-                title="Gmail Connect" 
-                icon={<MailOutlined style={{ fontSize: '14px' }} />} 
+              <Step
+                title="Gmail Connect"
+                icon={<MailOutlined style={{ fontSize: '14px' }} />}
                 description="Sync your email account"
-                style={{ 
+                style={{
                   fontFamily: FONT_FAMILY,
                 }}
               />
-              <Step 
-                title="Bank Link" 
-                icon={<BankOutlined style={{ fontSize: '14px' }} />} 
+              <Step
+                title="Bank Link"
+                icon={<BankOutlined style={{ fontSize: '14px' }} />}
                 description="Connect financial accounts"
-                style={{ 
+                style={{
                   fontFamily: FONT_FAMILY,
                 }}
               />
-              <Step 
-                title="Preferences" 
-                icon={<SettingOutlined style={{ fontSize: '14px' }} />} 
+              <Step
+                title="Preferences"
+                icon={<SettingOutlined style={{ fontSize: '14px' }} />}
                 description="Configure your settings"
-                style={{ 
+                style={{
                   fontFamily: FONT_FAMILY,
                 }}
               />
@@ -2005,7 +2004,7 @@ function App() {
           </div>
 
           {/* Content Section */}
-          <div style={{ 
+          <div style={{
             padding: '0 32px',
             minHeight: '160px',
             display: 'flex',
@@ -2017,7 +2016,7 @@ function App() {
           </div>
 
           {/* Footer Actions */}
-          <div style={{ 
+          <div style={{
             padding: '20px 32px 24px',
             borderTop: '1px solid #f1f5f9',
             background: '#fafbfc',
@@ -2027,10 +2026,10 @@ function App() {
           }}>
             <div>
               {getStartedStep > 0 && (
-                <Button 
+                <Button
                   icon={<LeftOutlined />}
                   onClick={() => setGetStartedStep(getStartedStep - 1)}
-                  style={{ 
+                  style={{
                     fontFamily: FONT_FAMILY,
                     height: '32px',
                     padding: '0 16px',
@@ -2047,15 +2046,15 @@ function App() {
                 </Button>
               )}
             </div>
-            
+
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <div style={{ 
-                display: 'flex', 
+              <div style={{
+                display: 'flex',
                 gap: '6px',
                 alignItems: 'center'
               }}>
-                <Text style={{ 
-                  color: '#64748b', 
+                <Text style={{
+                  color: '#64748b',
                   fontSize: '12px',
                   fontFamily: FONT_FAMILY,
                   fontWeight: 500,
@@ -2063,7 +2062,7 @@ function App() {
                 }}>
                   Step {getStartedStep + 1} of 4
                 </Text>
-                
+
                 <div style={{ display: 'flex', gap: '3px' }}>
                   {[0, 1, 2, 3].map((stepIndex) => (
                     <div
@@ -2079,11 +2078,11 @@ function App() {
                   ))}
                 </div>
               </div>
-              
+
               <div style={{ display: 'flex', gap: '8px' }}>
                 <Button
                   onClick={() => handleGetStartedSkip(getStartedStep)}
-                  style={{ 
+                  style={{
                     fontFamily: FONT_FAMILY,
                     height: '32px',
                     padding: '0 16px',
@@ -2102,7 +2101,7 @@ function App() {
                   type="primary"
                   icon={getStartedStep === 3 ? <CheckOutlined /> : <RightOutlined />}
                   onClick={() => handleGetStartedGo(getStartedStep)}
-                  style={{ 
+                  style={{
                     fontFamily: FONT_FAMILY,
                     height: '32px',
                     padding: '0 20px',
