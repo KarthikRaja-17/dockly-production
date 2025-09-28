@@ -516,7 +516,7 @@ const ProfilePage: React.FC = () => {
   const router = useRouter();
 
   // Handle hash-based navigation to feedback tab
-   useEffect(() => {
+  useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash;
       if (hash === "#feedback") {
@@ -572,29 +572,11 @@ const ProfilePage: React.FC = () => {
       }),
     },
   ];
-  
-  useEffect(() => {
-    fetchProfilePicture();
-  }, []);
-
-  const fetchProfilePicture = async () => {
-    try {
-      const { data } = await getProfilePictures();
-
-      if (data?.status === 1 && data.payload?.file) {
-        setProfileImage(data.payload.file.publicUrl); // ✅ direct image URL
-      } else {
-        setProfileImage(""); // fallback (e.g. default avatar)
-      }
-    } catch (error) {
-      console.error("Error fetching profile picture:", error);
-      setProfileImage("");
-    }
-  };
 
   useEffect(() => {
     fetchProfilePicture();
   }, []);
+
 
   const fetchProfilePicture = async () => {
     try {
